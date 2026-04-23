@@ -62,3 +62,4 @@ playground.xcworkspace
 .env
 .env.*
 !.env.example
+.gstack/

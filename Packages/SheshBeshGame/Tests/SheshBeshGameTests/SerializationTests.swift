@@ -25,4 +25,27 @@ struct SerializationTests {
 
         #expect(decoded == state)
     }
+
+    @Test("Match state round-trips while a turn is in progress")
+    func awaitingMoveRoundTripPreservesRemainingDice() throws {
+        let state = try makeMatch(
+            board: .initial(),
+            player: .black,
+            dice: [6, 3],
+            config: .tournament(targetScore: 7),
+            score: MatchScore(white: 3, black: 2),
+            cube: CubeState(value: 2, owner: .white)
+        )
+
+        let data = try JSONEncoder().encode(state)
+        let decoded = try JSONDecoder().decode(MatchState.self, from: data)
+
+        #expect(decoded == state)
+        guard case .awaitingMove(let turn) = decoded.game.phase else {
+            Issue.record("Expected awaitingMove phase after decoding")
+            return
+        }
+        #expect(turn.player == .black)
+        #expect(turn.remainingDice == [6, 3])
+    }
 }

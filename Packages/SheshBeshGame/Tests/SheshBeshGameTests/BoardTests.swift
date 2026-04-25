@@ -59,4 +59,43 @@ struct BoardTests {
         #expect(board.totalCheckers(for: .white) == 15)
         #expect(board.totalCheckers(for: .black) == 15)
     }
+
+    @Test("Board initializer rejects invalid point counts")
+    func initializerRejectsInvalidPointCounts() {
+        expectBoardError(.invalidPointCount) {
+            _ = try Board(points: Array(repeating: .empty, count: 23))
+        }
+        expectBoardError(.invalidPointCount) {
+            _ = try Board(points: Array(repeating: .empty, count: 25))
+        }
+    }
+
+    @Test("Board initializer rejects negative checker counts")
+    func initializerRejectsNegativeCheckerCounts() {
+        let points = Array(repeating: PointState.empty, count: 24)
+
+        expectBoardError(.negativeCheckerCount) {
+            _ = try Board(points: points, whiteBar: -1)
+        }
+        expectBoardError(.negativeCheckerCount) {
+            _ = try Board(points: points, blackBar: -1)
+        }
+        expectBoardError(.negativeCheckerCount) {
+            _ = try Board(points: points, whiteBorneOff: -1)
+        }
+        expectBoardError(.negativeCheckerCount) {
+            _ = try Board(points: points, blackBorneOff: -1)
+        }
+    }
+}
+
+private func expectBoardError(_ expected: BoardError, _ body: () throws -> Void) {
+    do {
+        try body()
+        Issue.record("Expected \(expected)")
+    } catch let error as BoardError {
+        #expect(error == expected)
+    } catch {
+        Issue.record("Expected \(expected), got \(error)")
+    }
 }

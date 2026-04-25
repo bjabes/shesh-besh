@@ -36,13 +36,32 @@ struct MoveValidatorTests {
         ])
     }
 
+    @Test("Blocked bar entries still force entering as many checkers as possible")
+    func blockedBarEntriesUseMaximumBarMoves() throws {
+        var board = Board.empty()
+        try board.setBar(for: .white, count: 2)
+        try board.setPoint(point(8), owner: .white, count: 1)
+        try board.setPoint(point(24), owner: .black, count: 2)
+
+        let forcedEntry = Move(player: .white, source: .bar, destination: .point(point(23)), die: 2)
+        let firstMoves = MoveValidator.legalFirstMoves(for: .white, board: board, dice: [1, 2])
+        let sequences = MoveValidator.legalMoves(for: .white, board: board, dice: [1, 2])
+
+        #expect(firstMoves == [forcedEntry])
+        #expect(sequences == [MoveSequence(moves: [forcedEntry])])
+    }
+
     @Test("Move generation prefers using more dice over a larger immediate die")
     func maximumDiceUseBeatsImmediateHighDie() throws {
         var board = Board.empty()
         try board.setPoint(point(6), owner: .white, count: 1)
 
+        let firstMoves = MoveValidator.legalFirstMoves(for: .white, board: board, dice: [1, 6])
         let sequences = MoveValidator.legalMoves(for: .white, board: board, dice: [1, 6])
 
+        #expect(firstMoves == [
+            Move(player: .white, source: .point(point(6)), destination: .point(point(5)), die: 1),
+        ])
         #expect(sequences.contains(MoveSequence(moves: [
             Move(player: .white, source: .point(point(6)), destination: .point(point(5)), die: 1),
             Move(player: .white, source: .point(point(5)), destination: .off, die: 6),

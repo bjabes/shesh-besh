@@ -26,8 +26,8 @@ struct MatchEngineTests {
     @Test("Applying a hit moves the blot to the bar")
     func hitMovesBlotToBar() throws {
         var board = Board.empty()
-        try board.setPoint(point(8), owner: .white, count: 1)
-        try board.setBorneOff(for: .white, count: 14)
+        try board.setPoint(point(8), owner: .white, count: 2)
+        try board.setBorneOff(for: .white, count: 13)
         try board.setPoint(point(5), owner: .black, count: 1)
         try board.setBorneOff(for: .black, count: 14)
 
@@ -35,10 +35,37 @@ struct MatchEngineTests {
         let move = Move(player: .white, source: .point(point(8)), destination: .point(point(5)), die: 3)
         let next = try MatchEngine().apply(action: .move(move), to: state)
 
+        #expect(next.game.board.point(point(8)) == PointState(owner: .white, count: 1))
         #expect(next.game.board.point(point(5)) == PointState(owner: .white, count: 1))
         #expect(next.game.board.barCount(for: .black) == 1)
         #expect(next.game.board.totalCheckers(for: .white) == 15)
         #expect(next.game.board.totalCheckers(for: .black) == 15)
+    }
+
+    @Test("A checker can hit in the home board and continue with the second die")
+    func hitAndRunInHomeBoard() throws {
+        let engine = MatchEngine()
+        var board = Board.empty()
+        try board.setPoint(point(6), owner: .white, count: 1)
+        try board.setBorneOff(for: .white, count: 14)
+        try board.setPoint(point(4), owner: .black, count: 1)
+        try board.setBorneOff(for: .black, count: 14)
+
+        var state = try makeMatch(board: board, player: .white, dice: [2, 3])
+        let hit = Move(player: .white, source: .point(point(6)), destination: .point(point(4)), die: 2)
+        let run = Move(player: .white, source: .point(point(4)), destination: .point(point(1)), die: 3)
+
+        #expect(MatchEngine.legalActions(in: state).contains(.move(hit)))
+        state = try engine.apply(action: .move(hit), to: state)
+
+        #expect(state.game.board.barCount(for: .black) == 1)
+        #expect(MatchEngine.legalActions(in: state).contains(.move(run)))
+        state = try engine.apply(action: .move(run), to: state)
+
+        #expect(state.game.board.point(point(1)) == PointState(owner: .white, count: 1))
+        #expect(state.game.board.point(point(4)) == .empty)
+        #expect(state.game.board.barCount(for: .black) == 1)
+        #expect(state.game.phase == .awaitingRoll(.black))
     }
 
     @Test("A roll with no legal moves automatically passes the turn")
@@ -115,6 +142,43 @@ struct MatchEngineTests {
         #expect(MatchEngine.legalActions(in: state).contains(.offerDouble(.black)))
     }
 
+    @Test("Doubling is unavailable once the cube reaches the configured maximum")
+    func maximumCubeValueStopsFurtherDoubles() throws {
+        let engine = MatchEngine()
+        let state = MatchState(
+            config: MatchConfig(targetScore: 7, maximumCubeValue: 4),
+            game: GameState(
+                board: .initial(),
+                phase: .awaitingRoll(.white),
+                cube: CubeState(value: 4, owner: .white)
+            )
+        )
+
+        #expect(!MatchEngine.legalActions(in: state).contains(.offerDouble(.white)))
+        expectInvalidAction {
+            _ = try engine.apply(action: .offerDouble(.white), to: state)
+        }
+    }
+
+    @Test("The taker cannot immediately redouble before their turn")
+    func takerCannotImmediatelyRedouble() throws {
+        let engine = MatchEngine()
+        var state = MatchState(
+            config: .tournament(targetScore: 5),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+
+        state = try engine.apply(action: .offerDouble(.white), to: state)
+        state = try engine.apply(action: .takeDouble(.black), to: state)
+
+        #expect(state.game.phase == .awaitingRoll(.white))
+        #expect(state.game.cube == CubeState(value: 2, owner: .black))
+        #expect(!MatchEngine.legalActions(in: state).contains(.offerDouble(.black)))
+        expectInvalidAction {
+            _ = try engine.apply(action: .offerDouble(.black), to: state)
+        }
+    }
+
     @Test("Crawford game disables the cube and is marked completed after the game")
     func crawfordGame() throws {
         let engine = MatchEngine()
@@ -139,6 +203,34 @@ struct MatchEngineTests {
 
         state = try engine.apply(action: .startNextGame, to: state)
         state.game.phase = .awaitingRoll(.white)
+        #expect(!state.game.isCrawford)
+        #expect(MatchEngine.legalActions(in: state).contains(.offerDouble(.white)))
+    }
+
+    @Test("The doubling cube is available again after the Crawford game")
+    func cubeAvailableAfterCrawfordGameCompletes() throws {
+        let engine = MatchEngine()
+        let previousResult = GameResult(winner: .white, winKind: .single, cubeValue: 1)
+        var state = MatchState(
+            config: .tournament(targetScore: 4),
+            score: MatchScore(white: 3, black: 0),
+            game: GameState(board: .initial(), phase: .gameOver(previousResult)),
+            crawfordState: .availableNextGame
+        )
+
+        state = try engine.apply(action: .startNextGame, to: state)
+        #expect(state.game.isCrawford)
+
+        state.game.phase = .awaitingRoll(.white)
+        #expect(!MatchEngine.legalActions(in: state).contains(.offerDouble(.white)))
+
+        state = try engine.apply(action: .offerResignation(.white, .single), to: state)
+        state = try engine.apply(action: .acceptResignation(.black), to: state)
+        #expect(state.crawfordState == .completed)
+
+        state = try engine.apply(action: .startNextGame, to: state)
+        state.game.phase = .awaitingRoll(.white)
+
         #expect(!state.game.isCrawford)
         #expect(MatchEngine.legalActions(in: state).contains(.offerDouble(.white)))
     }
@@ -222,6 +314,25 @@ struct MatchEngineTests {
         #expect(result == GameResult(winner: .white, winKind: .backgammon, cubeValue: 1))
     }
 
+    @Test("Bearing off the last checker classifies backgammon when the loser is on the bar")
+    func finalCheckerClassifiesBackgammonFromBar() throws {
+        var board = Board.empty()
+        try board.setPoint(point(1), owner: .white, count: 1)
+        try board.setBorneOff(for: .white, count: 14)
+        try board.setBar(for: .black, count: 1)
+        try board.setPoint(point(19), owner: .black, count: 14)
+
+        let state = try makeMatch(board: board, player: .white, dice: [1])
+        let move = Move(player: .white, source: .point(point(1)), destination: .off, die: 1)
+        let next = try MatchEngine().apply(action: .move(move), to: state)
+
+        guard case .gameOver(let result) = next.game.phase else {
+            Issue.record("Expected game over after final checker bears off")
+            return
+        }
+        #expect(result == GameResult(winner: .white, winKind: .backgammon, cubeValue: 1))
+    }
+
     @Test("Bearing off the last checker classifies single and gammon wins")
     func finalCheckerClassifiesSingleAndGammon() throws {
         var singleBoard = Board.empty()
@@ -295,6 +406,33 @@ struct MatchEngineTests {
         #expect(state.completion == MatchCompletion(winner: .black, finalScore: state.score))
     }
 
+    @Test("A high cube backgammon completes the match when it overshoots the target")
+    func highCubeBackgammonCanCompleteMatchBeyondTarget() throws {
+        var board = Board.empty()
+        try board.setPoint(point(1), owner: .white, count: 1)
+        try board.setBorneOff(for: .white, count: 14)
+        try board.setBar(for: .black, count: 1)
+        try board.setPoint(point(19), owner: .black, count: 14)
+
+        let state = try makeMatch(
+            board: board,
+            player: .white,
+            dice: [1],
+            config: .tournament(targetScore: 5),
+            cube: CubeState(value: 4, owner: .black)
+        )
+        let move = Move(player: .white, source: .point(point(1)), destination: .off, die: 1)
+        let next = try MatchEngine().apply(action: .move(move), to: state)
+
+        #expect(next.score.score(for: .white) == 12)
+        #expect(next.completion == MatchCompletion(winner: .white, finalScore: next.score))
+        guard case .gameOver(let result) = next.game.phase else {
+            Issue.record("Expected game over after final checker bears off")
+            return
+        }
+        #expect(result == GameResult(winner: .white, winKind: .backgammon, cubeValue: 4))
+    }
+
     @Test("A player who is one point away triggers Crawford for the next game")
     func crawfordIsQueuedAtOneAway() throws {
         let engine = MatchEngine()
@@ -308,5 +446,19 @@ struct MatchEngineTests {
 
         #expect(state.score.score(for: .black) == 1)
         #expect(state.crawfordState == .availableNextGame)
+    }
+}
+
+private func expectInvalidAction(_ body: () throws -> Void) {
+    do {
+        try body()
+        Issue.record("Expected invalid action")
+    } catch let error as MatchEngineError {
+        guard case .invalidAction = error else {
+            Issue.record("Expected invalid action, got \(error)")
+            return
+        }
+    } catch {
+        Issue.record("Expected MatchEngineError.invalidAction, got \(error)")
     }
 }

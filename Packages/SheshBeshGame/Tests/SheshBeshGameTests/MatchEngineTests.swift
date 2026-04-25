@@ -64,6 +64,7 @@ struct MatchEngineTests {
 
         #expect(state.game.board.point(point(1)) == PointState(owner: .white, count: 1))
         #expect(state.game.board.point(point(4)) == .empty)
+        #expect(state.game.board.barCount(for: .white) == 0)
         #expect(state.game.board.barCount(for: .black) == 1)
         #expect(state.game.phase == .awaitingRoll(.black))
     }
@@ -84,7 +85,60 @@ struct MatchEngineTests {
         )
         let next = try engine.apply(action: .rollDice(.white), to: state)
 
+        #expect(next.game.board == board)
         #expect(next.game.phase == .awaitingRoll(.black))
+    }
+
+    @Test("Legal actions at roll time are exactly roll, double, and resignations")
+    func legalActionsAtRollTimeArePinned() {
+        let state = MatchState(
+            config: .tournament(targetScore: 5),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+
+        #expect(MatchEngine.legalActions(in: state) == [
+            .offerDouble(.white),
+            .rollDice(.white),
+            .offerResignation(.white, .single),
+            .offerResignation(.white, .gammon),
+            .offerResignation(.white, .backgammon),
+        ])
+    }
+
+    @Test("Legal actions at move time are exactly legal first moves and resignations")
+    func legalActionsAtMoveTimeArePinned() throws {
+        var board = Board.empty()
+        try board.setPoint(point(6), owner: .white, count: 1)
+        try board.setBorneOff(for: .white, count: 14)
+        try board.setPoint(point(19), owner: .black, count: 15)
+
+        let state = try makeMatch(board: board, player: .white, dice: [1])
+        let checkerMove = Move(player: .white, source: .point(point(6)), destination: .point(point(5)), die: 1)
+
+        #expect(MatchEngine.legalActions(in: state) == [
+            .move(checkerMove),
+            .offerResignation(.white, .single),
+            .offerResignation(.white, .gammon),
+            .offerResignation(.white, .backgammon),
+        ])
+    }
+
+    @Test("Disabling the doubling cube removes double offers")
+    func disablingDoublingCubeRemovesDoubleOffers() {
+        let state = MatchState(
+            config: MatchConfig(targetScore: 5, usesDoublingCube: false),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+
+        #expect(MatchEngine.legalActions(in: state) == [
+            .rollDice(.white),
+            .offerResignation(.white, .single),
+            .offerResignation(.white, .gammon),
+            .offerResignation(.white, .backgammon),
+        ])
+        expectInvalidAction {
+            _ = try MatchEngine().apply(action: .offerDouble(.white), to: state)
+        }
     }
 
     @Test("Double take assigns cube ownership to the taker")
@@ -127,7 +181,7 @@ struct MatchEngineTests {
 
     @Test("Only the cube owner can redouble after a take")
     func onlyCubeOwnerCanRedouble() throws {
-        let engine = MatchEngine()
+        let engine = MatchEngine(diceRoller: ScriptedDiceRoller([6, 1]))
         var state = MatchState(
             config: .tournament(targetScore: 5),
             game: GameState(board: .initial(), phase: .awaitingRoll(.white))
@@ -138,7 +192,10 @@ struct MatchEngineTests {
 
         #expect(!MatchEngine.legalActions(in: state).contains(.offerDouble(.white)))
 
-        state.game.phase = .awaitingRoll(.black)
+        state = try engine.apply(action: .rollDice(.white), to: state)
+        state = try playFirstLegalMovesUntilRoll(from: state, using: engine)
+
+        #expect(state.game.phase == .awaitingRoll(.black))
         #expect(MatchEngine.legalActions(in: state).contains(.offerDouble(.black)))
     }
 
@@ -181,11 +238,11 @@ struct MatchEngineTests {
 
     @Test("Crawford game disables the cube and is marked completed after the game")
     func crawfordGame() throws {
-        let engine = MatchEngine()
-        let previousResult = GameResult(winner: .white, winKind: .single, cubeValue: 1)
+        let engine = MatchEngine(diceRoller: ScriptedDiceRoller([6, 1, 6, 1]))
+        let previousResult = GameResult(winner: .black, winKind: .single, cubeValue: 1)
         var state = MatchState(
             config: .tournament(targetScore: 3),
-            score: MatchScore(white: 2, black: 0),
+            score: MatchScore(white: 0, black: 2),
             game: GameState(board: .initial(), phase: .gameOver(previousResult)),
             crawfordState: .availableNextGame
         )
@@ -193,27 +250,29 @@ struct MatchEngineTests {
         state = try engine.apply(action: .startNextGame, to: state)
         #expect(state.game.isCrawford)
 
-        state.game.phase = .awaitingRoll(.white)
-        #expect(!MatchEngine.legalActions(in: state).contains(.offerDouble(.white)))
+        state = try engine.apply(action: .rollOpeningDice, to: state)
+        state = try playFirstLegalMovesUntilRoll(from: state, using: engine)
+        #expect(!MatchEngine.legalActions(in: state).contains(.offerDouble(.black)))
 
-        state = try engine.apply(action: .offerResignation(.white, .single), to: state)
-        state = try engine.apply(action: .acceptResignation(.black), to: state)
+        state = try engine.apply(action: .offerResignation(.black, .single), to: state)
+        state = try engine.apply(action: .acceptResignation(.white), to: state)
 
         #expect(state.crawfordState == .completed)
 
         state = try engine.apply(action: .startNextGame, to: state)
-        state.game.phase = .awaitingRoll(.white)
+        state = try engine.apply(action: .rollOpeningDice, to: state)
+        state = try playFirstLegalMovesUntilRoll(from: state, using: engine)
         #expect(!state.game.isCrawford)
-        #expect(MatchEngine.legalActions(in: state).contains(.offerDouble(.white)))
+        #expect(MatchEngine.legalActions(in: state).contains(.offerDouble(.black)))
     }
 
     @Test("The doubling cube is available again after the Crawford game")
     func cubeAvailableAfterCrawfordGameCompletes() throws {
-        let engine = MatchEngine()
-        let previousResult = GameResult(winner: .white, winKind: .single, cubeValue: 1)
+        let engine = MatchEngine(diceRoller: ScriptedDiceRoller([6, 1, 6, 1]))
+        let previousResult = GameResult(winner: .black, winKind: .single, cubeValue: 1)
         var state = MatchState(
             config: .tournament(targetScore: 4),
-            score: MatchScore(white: 3, black: 0),
+            score: MatchScore(white: 0, black: 3),
             game: GameState(board: .initial(), phase: .gameOver(previousResult)),
             crawfordState: .availableNextGame
         )
@@ -221,18 +280,20 @@ struct MatchEngineTests {
         state = try engine.apply(action: .startNextGame, to: state)
         #expect(state.game.isCrawford)
 
-        state.game.phase = .awaitingRoll(.white)
-        #expect(!MatchEngine.legalActions(in: state).contains(.offerDouble(.white)))
+        state = try engine.apply(action: .rollOpeningDice, to: state)
+        state = try playFirstLegalMovesUntilRoll(from: state, using: engine)
+        #expect(!MatchEngine.legalActions(in: state).contains(.offerDouble(.black)))
 
-        state = try engine.apply(action: .offerResignation(.white, .single), to: state)
-        state = try engine.apply(action: .acceptResignation(.black), to: state)
+        state = try engine.apply(action: .offerResignation(.black, .single), to: state)
+        state = try engine.apply(action: .acceptResignation(.white), to: state)
         #expect(state.crawfordState == .completed)
 
         state = try engine.apply(action: .startNextGame, to: state)
-        state.game.phase = .awaitingRoll(.white)
+        state = try engine.apply(action: .rollOpeningDice, to: state)
+        state = try playFirstLegalMovesUntilRoll(from: state, using: engine)
 
         #expect(!state.game.isCrawford)
-        #expect(MatchEngine.legalActions(in: state).contains(.offerDouble(.white)))
+        #expect(MatchEngine.legalActions(in: state).contains(.offerDouble(.black)))
     }
 
     @Test("Accepted resignation scores the offered result")
@@ -347,6 +408,7 @@ struct MatchEngineTests {
         let next = try MatchEngine().apply(action: .move(move), to: state)
 
         #expect(next.score.score(for: .white) == 3)
+        #expect(next.game.board.borneOffCount(for: .white) == 15)
         guard case .gameOver(let result) = next.game.phase else {
             Issue.record("Expected game over after final checker bears off")
             return
@@ -487,18 +549,100 @@ struct MatchEngineTests {
         #expect(state.score.score(for: .black) == 1)
         #expect(state.crawfordState == .availableNextGame)
     }
-}
 
-private func expectInvalidAction(_ body: () throws -> Void) {
-    do {
-        try body()
-        Issue.record("Expected invalid action")
-    } catch let error as MatchEngineError {
-        guard case .invalidAction = error else {
-            Issue.record("Expected invalid action, got \(error)")
-            return
-        }
-    } catch {
-        Issue.record("Expected MatchEngineError.invalidAction, got \(error)")
+    @Test("Crawford stays unavailable when the rule is disabled")
+    func crawfordRuleDisabledKeepsStateNotReached() throws {
+        let engine = MatchEngine()
+        var state = MatchState(
+            config: MatchConfig(targetScore: 3, usesCrawfordRule: false),
+            score: MatchScore(white: 0, black: 1),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+
+        state = try engine.apply(action: .offerResignation(.white, .single), to: state)
+        state = try engine.apply(action: .acceptResignation(.black), to: state)
+
+        #expect(state.score.score(for: .black) == 2)
+        #expect(state.crawfordState == .notReached)
+        #expect(state.completion == nil)
+    }
+
+    @Test("Crawford is queued when either player reaches one away")
+    func crawfordIsQueuedWhenEitherPlayerReachesOneAway() throws {
+        let engine = MatchEngine()
+        var state = MatchState(
+            config: .tournament(targetScore: 3),
+            score: MatchScore(white: 2, black: 1),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+
+        state = try engine.apply(action: .offerResignation(.white, .single), to: state)
+        state = try engine.apply(action: .acceptResignation(.black), to: state)
+
+        #expect(state.score.score(for: .white) == 2)
+        #expect(state.score.score(for: .black) == 2)
+        #expect(state.crawfordState == .availableNextGame)
+    }
+
+    @Test("Starting the next game increments gameNumber")
+    func startNextGameIncrementsGameNumber() throws {
+        let engine = MatchEngine()
+        let state = MatchState(
+            config: .tournament(targetScore: 5),
+            game: GameState(
+                board: .initial(),
+                phase: .gameOver(GameResult(winner: .white, winKind: .single, cubeValue: 1))
+            ),
+            gameNumber: 3
+        )
+
+        let next = try engine.apply(action: .startNextGame, to: state)
+
+        #expect(next.gameNumber == 4)
+        #expect(next.game.phase == .awaitingOpeningRoll)
+    }
+
+    @Test("Bear-off can queue Crawford and continue to the post-Crawford game")
+    func bearOffQueuesCrawfordThenMatchContinuesAfterCrawford() throws {
+        let engine = MatchEngine(diceRoller: ScriptedDiceRoller([6, 1, 6, 1]))
+        var board = Board.empty()
+        try board.setPoint(point(1), owner: .white, count: 1)
+        try board.setBorneOff(for: .white, count: 14)
+        try board.setPoint(point(7), owner: .black, count: 14)
+        try board.setBorneOff(for: .black, count: 1)
+
+        var state = try makeMatch(
+            board: board,
+            player: .white,
+            dice: [1],
+            config: .tournament(targetScore: 4),
+            score: MatchScore(white: 2, black: 0)
+        )
+
+        state = try engine.apply(
+            action: .move(Move(player: .white, source: .point(point(1)), destination: .off, die: 1)),
+            to: state
+        )
+
+        #expect(state.score.score(for: .white) == 3)
+        #expect(state.crawfordState == .availableNextGame)
+
+        state = try engine.apply(action: .startNextGame, to: state)
+        #expect(state.gameNumber == 2)
+        #expect(state.game.phase == .awaitingOpeningRoll)
+        #expect(state.game.isCrawford)
+
+        state = try engine.apply(action: .rollOpeningDice, to: state)
+        state = try engine.apply(action: .offerResignation(.white, .single), to: state)
+        state = try engine.apply(action: .acceptResignation(.black), to: state)
+
+        #expect(state.score.score(for: .black) == 1)
+        #expect(state.crawfordState == .completed)
+        #expect(state.completion == nil)
+
+        state = try engine.apply(action: .startNextGame, to: state)
+        #expect(state.gameNumber == 3)
+        #expect(!state.game.isCrawford)
+        #expect(state.game.phase == .awaitingOpeningRoll)
     }
 }

@@ -1,8 +1,16 @@
+import Foundation
 import SheshBeshGame
 import Testing
 
 @Suite("Board")
 struct BoardTests {
+    @Test("Point IDs reject values outside the board")
+    func pointIDRejectsOutOfRangeRawValues() {
+        #expect(PointID(rawValue: 0) == nil)
+        #expect(PointID(rawValue: 25) == nil)
+        #expect(PointID(rawValue: -1) == nil)
+    }
+
     @Test("Initial board has standard checker placement")
     func initialBoardPlacement() {
         let board = Board.initial()
@@ -87,15 +95,60 @@ struct BoardTests {
             _ = try Board(points: points, blackBorneOff: -1)
         }
     }
-}
 
-private func expectBoardError(_ expected: BoardError, _ body: () throws -> Void) {
-    do {
-        try body()
-        Issue.record("Expected \(expected)")
-    } catch let error as BoardError {
-        #expect(error == expected)
-    } catch {
-        Issue.record("Expected \(expected), got \(error)")
+    @Test("Set point rejects mismatched owner and count")
+    func setPointRejectsInvalidOccupancy() throws {
+        var board = Board.empty()
+
+        expectBoardError(.invalidPointOccupancy) {
+            try board.setPoint(point(1), owner: nil, count: 1)
+        }
+        expectBoardError(.invalidPointOccupancy) {
+            try board.setPoint(point(1), owner: .white, count: 0)
+        }
+    }
+
+    @Test("Game validity rejects malformed checker totals")
+    func isValidForGameRejectsWrongTotals() throws {
+        var board = Board.empty()
+        try board.setPoint(point(1), owner: .white, count: 14)
+        try board.setPoint(point(24), owner: .black, count: 15)
+
+        #expect(!board.isValidForGame())
+    }
+
+    @Test("Game validity rejects malformed point ownership")
+    func isValidForGameRejectsInvalidPointOccupancy() throws {
+        let pointsJSON = ([#"{"owner":"white","count":0}"#] + Array(repeating: #"{"count":0}"#, count: 23))
+            .joined(separator: ",")
+        let json = """
+        {
+          "points": [\(pointsJSON)],
+          "whiteBar": 0,
+          "blackBar": 0,
+          "whiteBorneOff": 15,
+          "blackBorneOff": 15
+        }
+        """
+        let board = try JSONDecoder().decode(Board.self, from: Data(json.utf8))
+
+        #expect(!board.isValidForGame())
+    }
+
+    @Test("Game validity rejects negative decoded counts")
+    func isValidForGameRejectsNegativeCounts() throws {
+        let pointsJSON = Array(repeating: #"{"count":0}"#, count: 24).joined(separator: ",")
+        let json = """
+        {
+          "points": [\(pointsJSON)],
+          "whiteBar": -1,
+          "blackBar": 0,
+          "whiteBorneOff": 15,
+          "blackBorneOff": 15
+        }
+        """
+        let board = try JSONDecoder().decode(Board.self, from: Data(json.utf8))
+
+        #expect(!board.isValidForGame())
     }
 }

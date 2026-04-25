@@ -29,6 +29,9 @@ public struct MatchEngine: Sendable {
             return actions
         case .awaitingMove(let turn):
             var actions = MoveValidator.legalFirstMoves(for: turn.player, in: state.game).map(MatchAction.move)
+            if actions.isEmpty {
+                actions.append(.passTurn(turn.player))
+            }
             actions.append(contentsOf: resignationActions(for: turn.player))
             return actions
         case .awaitingCubeResponse(let offer):
@@ -54,6 +57,8 @@ public struct MatchEngine: Sendable {
             return try rollDice(for: player, in: state)
         case .move(let move):
             return try apply(move: move, to: state)
+        case .passTurn(let player):
+            return try passTurn(by: player, in: state)
         case .offerDouble(let player):
             return try offerDouble(by: player, in: state)
         case .takeDouble(let player):
@@ -127,11 +132,21 @@ public struct MatchEngine: Sendable {
         } else {
             let nextTurn = TurnState(player: turn.player, roll: turn.roll, remainingDice: remainingDice)
             next.game.phase = .awaitingMove(nextTurn)
-            if MoveValidator.legalMoves(for: turn.player, in: next.game).isEmpty {
-                next.game.phase = .awaitingRoll(turn.player.opponent)
-            }
         }
 
+        return next
+    }
+
+    private func passTurn(by player: Player, in state: MatchState) throws -> MatchState {
+        guard case .awaitingMove(let turn) = state.game.phase, turn.player == player else {
+            throw MatchEngineError.invalidAction("\(player.rawValue) has no turn to pass.")
+        }
+        guard MoveValidator.legalMoves(for: player, in: state.game).isEmpty else {
+            throw MatchEngineError.invalidAction("\(player.rawValue) still has legal moves.")
+        }
+
+        var next = state
+        next.game.phase = .awaitingRoll(player.opponent)
         return next
     }
 
@@ -246,9 +261,6 @@ public struct MatchEngine: Sendable {
         next.phase = .awaitingMove(
             TurnState(player: player, roll: roll, remainingDice: roll.playableDice)
         )
-        if MoveValidator.legalMoves(for: player, in: next).isEmpty {
-            next.phase = .awaitingRoll(player.opponent)
-        }
         return next
     }
 

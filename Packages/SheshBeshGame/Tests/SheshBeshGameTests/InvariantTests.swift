@@ -33,8 +33,14 @@ struct InvariantTests {
                     offeredResignation = true
                     action = .offerResignation(turn.player, .single)
                 } else {
-                    let firstMove = try #require(MoveValidator.legalFirstMoves(for: turn.player, in: state.game).first)
-                    action = .move(firstMove)
+                    let legalActions = MatchEngine.legalActions(in: state)
+                    if let moveAction = legalActions.first(where: {
+                        if case .move = $0 { true } else { false }
+                    }) {
+                        action = moveAction
+                    } else {
+                        action = try #require(legalActions.first { $0 == .passTurn(turn.player) })
+                    }
                 }
             case .awaitingCubeResponse(let offer):
                 handledCubeResponse = true

@@ -215,6 +215,7 @@ public enum MatchAction: Codable, Equatable, Hashable, Sendable {
     case rollOpeningDice
     case rollDice(Player)
     case move(Move)
+    case passTurn(Player)
     case offerDouble(Player)
     case takeDouble(Player)
     case dropDouble(Player)

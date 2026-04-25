@@ -109,8 +109,8 @@ if let moveAction = legalActions.first(where: {
 ```
 
 `MatchEngine.legalActions(in:)` is the safest source of UI actions. It exposes
-rolls, cube decisions, resignations, next-game transitions, and legal checker
-moves for the current phase.
+rolls, cube decisions, resignations, next-game transitions, legal checker moves,
+and explicit pass actions for blocked turns.
 
 ## SwiftUI View Model Example
 

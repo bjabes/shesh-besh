@@ -258,6 +258,46 @@ struct MatchEngineTests {
         #expect(result == GameResult(winner: .black, winKind: .gammon, cubeValue: 2))
     }
 
+    @Test("Scoring matrix matches win kind multipliers across cube values")
+    func scoringMatrixMatchesWinKindAndCubeValue() throws {
+        let cubeValues = [1, 2, 4, 8, 16, 32, 64]
+        let startingScore = MatchScore(white: 7, black: 13)
+
+        for winner in Player.allCases {
+            let loser = winner.opponent
+            for winKind in WinKind.allCases {
+                for cubeValue in cubeValues {
+                    let expectedPoints = cubeValue * winKind.multiplier
+                    let result = GameResult(winner: winner, winKind: winKind, cubeValue: cubeValue)
+                    #expect(result.points == expectedPoints)
+
+                    var state = MatchState(
+                        config: .tournament(targetScore: 500),
+                        score: startingScore,
+                        game: GameState(
+                            board: .initial(),
+                            phase: .awaitingRoll(loser),
+                            cube: CubeState(value: cubeValue, owner: winner)
+                        )
+                    )
+
+                    state = try MatchEngine().apply(action: .offerResignation(loser, winKind), to: state)
+                    state = try MatchEngine().apply(action: .acceptResignation(winner), to: state)
+
+                    #expect(state.score.score(for: winner) == startingScore.score(for: winner) + expectedPoints)
+                    #expect(state.score.score(for: loser) == startingScore.score(for: loser))
+                    #expect(state.completion == nil)
+
+                    guard case .gameOver(let scoredResult) = state.game.phase else {
+                        Issue.record("Expected game over after accepted resignation")
+                        continue
+                    }
+                    #expect(scoredResult == result)
+                }
+            }
+        }
+    }
+
     @Test("Rejected resignation resumes the previous phase")
     func rejectedResignationResumesPlay() throws {
         let engine = MatchEngine()

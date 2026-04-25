@@ -14,6 +14,7 @@ rules engine that can be embedded in a future SwiftUI mobile app.
 
 ```text
 shesh-besh/
+  Package.swift              # repo-root entry point for swift build/test
   Packages/
     SheshBeshGame/
       Package.swift
@@ -29,11 +30,15 @@ shesh-besh/
 The game engine is intentionally isolated as a local Swift package so the app
 UI can depend on it without mixing presentation code into the rules layer.
 
-## Running Tests
+## Building and Running Tests
 
 ```sh
-swift test --package-path Packages/SheshBeshGame --enable-swift-testing
+swift build
+swift test
 ```
+
+The nested package remains usable directly with `swift build --package-path
+Packages/SheshBeshGame` and `swift test --package-path Packages/SheshBeshGame`.
 
 ## What The Engine Implements
 

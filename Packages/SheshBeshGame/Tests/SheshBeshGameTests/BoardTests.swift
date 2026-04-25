@@ -39,4 +39,24 @@ struct BoardTests {
         #expect(board.barCount(for: .white) == 1)
         #expect(board.totalCheckers(for: .white) == 15)
     }
+
+    @Test("Hitting from the bar preserves both players' total checker counts")
+    func totalsRemainFifteenAfterBarHit() throws {
+        var board = Board.empty()
+        try board.setBar(for: .white, count: 1)
+        try board.setBorneOff(for: .white, count: 14)
+        try board.setPoint(point(22), owner: .black, count: 1)
+        try board.setBorneOff(for: .black, count: 14)
+
+        let state = try makeMatch(board: board, player: .white, dice: [3])
+        let move = Move(player: .white, source: .bar, destination: .point(point(22)), die: 3)
+        let next = try MatchEngine().apply(action: .move(move), to: state)
+        board = next.game.board
+
+        #expect(board.point(point(22)) == PointState(owner: .white, count: 1))
+        #expect(board.barCount(for: .white) == 0)
+        #expect(board.barCount(for: .black) == 1)
+        #expect(board.totalCheckers(for: .white) == 15)
+        #expect(board.totalCheckers(for: .black) == 15)
+    }
 }

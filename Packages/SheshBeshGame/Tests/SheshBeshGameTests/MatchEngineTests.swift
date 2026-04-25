@@ -180,6 +180,23 @@ struct MatchEngineTests {
         #expect(state.game.phase == .awaitingRoll(.white))
     }
 
+    @Test("Rejected resignation restores awaitingMove turns")
+    func rejectedResignationResumesAwaitingMove() throws {
+        let engine = MatchEngine()
+        let board = Board.initial()
+        var state = try makeMatch(board: board, player: .white, dice: [4, 1])
+
+        state = try engine.apply(action: .offerResignation(.white, .single), to: state)
+        state = try engine.apply(action: .rejectResignation(.black), to: state)
+
+        guard case .awaitingMove(let turn) = state.game.phase else {
+            Issue.record("Expected awaitingMove after resignation rejection")
+            return
+        }
+        #expect(turn.player == .white)
+        #expect(turn.remainingDice == [4, 1])
+    }
+
     @Test("Bearing off the last checker classifies backgammon")
     func bearingOffLastCheckerEndsGame() throws {
         var board = Board.empty()
@@ -260,6 +277,22 @@ struct MatchEngineTests {
 
         #expect(state.completion == MatchCompletion(winner: .black, finalScore: state.score))
         #expect(MatchEngine.legalActions(in: state).isEmpty)
+    }
+
+    @Test("Match completion is recorded when points exceed targetScore")
+    func matchCompletionWhenScoreExceedsTarget() throws {
+        let engine = MatchEngine()
+        var state = MatchState(
+            config: .tournament(targetScore: 3),
+            score: MatchScore(white: 0, black: 2),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+
+        state = try engine.apply(action: .offerResignation(.white, .gammon), to: state)
+        state = try engine.apply(action: .acceptResignation(.black), to: state)
+
+        #expect(state.score.score(for: .black) == 4)
+        #expect(state.completion == MatchCompletion(winner: .black, finalScore: state.score))
     }
 
     @Test("A player who is one point away triggers Crawford for the next game")

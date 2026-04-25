@@ -62,6 +62,19 @@ struct MoveValidatorTests {
         ])
     }
 
+    @Test("Higher die remains forced when only one checker can enter from a stacked bar")
+    func higherDieRuleWithMultipleBarCheckers() throws {
+        var board = Board.empty()
+        try board.setBar(for: .white, count: 2)
+        try board.setPoint(point(24), owner: .black, count: 2)
+
+        let firstMoves = MoveValidator.legalFirstMoves(for: .white, board: board, dice: [1, 2])
+
+        #expect(firstMoves == [
+            Move(player: .white, source: .bar, destination: .point(point(23)), die: 2),
+        ])
+    }
+
     @Test("Oversize bear-off requires no checker farther from home")
     func oversizeBearOff() throws {
         var blocked = Board.empty()
@@ -105,6 +118,17 @@ struct MoveValidatorTests {
         #expect(sequences.allSatisfy { $0.moves.count == 4 })
     }
 
+    @Test("Doubles force the maximum available count even when fewer than four can be played")
+    func doublesUseMaximumAvailableCountWhenPartial() throws {
+        var board = Board.empty()
+        try board.setPoint(point(6), owner: .white, count: 2)
+
+        let sequences = MoveValidator.legalMoves(for: .white, board: board, dice: [6, 6, 6, 6])
+
+        #expect(!sequences.isEmpty)
+        #expect(sequences.allSatisfy { $0.moves.count == 2 })
+    }
+
     @Test("Black moves upward and bears off from the high board")
     func blackMovementAndBearOff() throws {
         var board = Board.empty()
@@ -132,6 +156,24 @@ struct MoveValidatorTests {
 
         #expect(firstMoves == [
             Move(player: .black, source: .bar, destination: .point(point(4)), die: 4),
+        ])
+    }
+
+    @Test("Black oversize bear-off uses point 19 before point 20")
+    func blackOversizeBearOffPrefersFartherChecker() throws {
+        var board = Board.empty()
+        try board.setPoint(point(20), owner: .black, count: 1)
+        try board.setPoint(point(19), owner: .black, count: 1)
+
+        let blockedOversize = MoveValidator.legalFirstMoves(for: .black, board: board, dice: [6])
+        #expect(blockedOversize == [
+            Move(player: .black, source: .point(point(19)), destination: .off, die: 6),
+        ])
+
+        try board.setPoint(point(19), owner: nil, count: 0)
+        let allowedOversize = MoveValidator.legalFirstMoves(for: .black, board: board, dice: [6])
+        #expect(allowedOversize == [
+            Move(player: .black, source: .point(point(20)), destination: .off, die: 6),
         ])
     }
 }

@@ -150,6 +150,15 @@ struct MatchEngineErrorTests {
         }
     }
 
+    @Test("Double offers are rejected during checker movement")
+    func doubleOfferDuringMovePhaseThrowsInvalidAction() throws {
+        let state = try makeMatch(board: .initial(), player: .white, dice: [4, 1])
+
+        expectInvalidAction {
+            _ = try MatchEngine().apply(action: .offerDouble(.white), to: state)
+        }
+    }
+
     @Test("Resignation offers are rejected outside roll and move phases")
     func resignationOfferOutsidePlayablePhaseThrowsInvalidAction() {
         let state = MatchEngine.newMatch(config: .tournament(targetScore: 5))

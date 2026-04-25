@@ -152,7 +152,7 @@ public struct ResignationOffer: Codable, Equatable, Hashable, Sendable {
 }
 
 public enum GamePhase: Codable, Equatable, Hashable, Sendable {
-    case awaitingOpeningRoll
+    case awaitingOpeningRoll(tiedRoll: DiceRoll? = nil)
     case awaitingRoll(Player)
     case awaitingMove(TurnState)
     case awaitingCubeResponse(CubeOffer)
@@ -175,7 +175,7 @@ public struct GameState: Codable, Equatable, Hashable, Sendable {
 
     public init(
         board: Board = .initial(),
-        phase: GamePhase = .awaitingOpeningRoll,
+        phase: GamePhase = .awaitingOpeningRoll(),
         cube: CubeState = CubeState(),
         isCrawford: Bool = false
     ) {

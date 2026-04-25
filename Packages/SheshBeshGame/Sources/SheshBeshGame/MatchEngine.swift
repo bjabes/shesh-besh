@@ -78,7 +78,10 @@ public struct MatchEngine: Sendable {
         let whiteDie = try rollDie()
         let blackDie = try rollDie()
         guard whiteDie != blackDie else {
-            return state
+            let tiedRoll = DiceRoll(uncheckedDie1: whiteDie, die2: blackDie)
+            var next = state
+            next.game.phase = .awaitingOpeningRoll(tiedRoll: tiedRoll)
+            return next
         }
 
         let player: Player = whiteDie > blackDie ? .white : .black
@@ -225,7 +228,7 @@ public struct MatchEngine: Sendable {
         next.crawfordState = isCrawford ? .active : next.crawfordState
         next.game = GameState(
             board: .initial(),
-            phase: .awaitingOpeningRoll,
+            phase: .awaitingOpeningRoll(),
             cube: CubeState(),
             isCrawford: isCrawford
         )

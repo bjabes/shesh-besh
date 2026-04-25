@@ -56,6 +56,13 @@ struct SerializationTests {
             game: GameState(board: .initial(), phase: .awaitingRoll(.white))
         )
         let openingState = MatchEngine.newMatch(config: .tournament(targetScore: 5))
+        let tiedOpeningState = MatchState(
+            config: .tournament(targetScore: 5),
+            game: GameState(
+                board: .initial(),
+                phase: .awaitingOpeningRoll(tiedRoll: try DiceRoll(die1: 4, die2: 4))
+            )
+        )
         let resignationState = MatchState(
             config: .tournament(targetScore: 5),
             game: GameState(
@@ -77,7 +84,7 @@ struct SerializationTests {
             )
         )
 
-        for state in [openingState, rollState, resignationState, gameOverState] {
+        for state in [openingState, tiedOpeningState, rollState, resignationState, gameOverState] {
             let data = try JSONEncoder().encode(state)
             let decoded = try JSONDecoder().decode(MatchState.self, from: data)
 

@@ -8,8 +8,11 @@ struct MatchEngineTests {
         let engine = MatchEngine(diceRoller: ScriptedDiceRoller([3, 3, 6, 2]))
         var state = MatchEngine.newMatch(config: .tournament(targetScore: 5))
 
+        let initialState = state
         state = try engine.apply(action: .rollOpeningDice, to: state)
-        #expect(state.game.phase == .awaitingOpeningRoll)
+        let tiedRoll = try DiceRoll(die1: 3, die2: 3)
+        #expect(state != initialState)
+        #expect(state.game.phase == .awaitingOpeningRoll(tiedRoll: tiedRoll))
 
         state = try engine.apply(action: .rollOpeningDice, to: state)
         guard case .awaitingMove(let turn) = state.game.phase else {
@@ -599,7 +602,7 @@ struct MatchEngineTests {
         let next = try engine.apply(action: .startNextGame, to: state)
 
         #expect(next.gameNumber == 4)
-        #expect(next.game.phase == .awaitingOpeningRoll)
+        #expect(next.game.phase == .awaitingOpeningRoll())
     }
 
     @Test("Bear-off can queue Crawford and continue to the post-Crawford game")
@@ -629,7 +632,7 @@ struct MatchEngineTests {
 
         state = try engine.apply(action: .startNextGame, to: state)
         #expect(state.gameNumber == 2)
-        #expect(state.game.phase == .awaitingOpeningRoll)
+        #expect(state.game.phase == .awaitingOpeningRoll())
         #expect(state.game.isCrawford)
 
         state = try engine.apply(action: .rollOpeningDice, to: state)
@@ -643,6 +646,6 @@ struct MatchEngineTests {
         state = try engine.apply(action: .startNextGame, to: state)
         #expect(state.gameNumber == 3)
         #expect(!state.game.isCrawford)
-        #expect(state.game.phase == .awaitingOpeningRoll)
+        #expect(state.game.phase == .awaitingOpeningRoll())
     }
 }

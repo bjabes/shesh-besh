@@ -48,4 +48,69 @@ struct SerializationTests {
         #expect(turn.player == .black)
         #expect(turn.remainingDice == [6, 3])
     }
+
+    @Test("Match state round-trips remaining game phases")
+    func remainingGamePhasesRoundTrip() throws {
+        let rollState = MatchState(
+            config: .tournament(targetScore: 5),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+        let openingState = MatchEngine.newMatch(config: .tournament(targetScore: 5))
+        let resignationState = MatchState(
+            config: .tournament(targetScore: 5),
+            game: GameState(
+                board: .initial(),
+                phase: .awaitingResignationResponse(
+                    ResignationOffer(
+                        offeredBy: .black,
+                        winKind: .gammon,
+                        resumePhase: .awaitingRoll(.black)
+                    )
+                )
+            )
+        )
+        let gameOverState = MatchState(
+            config: .tournament(targetScore: 5),
+            game: GameState(
+                board: .initial(),
+                phase: .gameOver(GameResult(winner: .white, winKind: .single, cubeValue: 2))
+            )
+        )
+
+        for state in [openingState, rollState, resignationState, gameOverState] {
+            let data = try JSONEncoder().encode(state)
+            let decoded = try JSONDecoder().decode(MatchState.self, from: data)
+
+            #expect(decoded == state)
+        }
+    }
+
+    @Test("Match state round-trips completion and Crawford states")
+    func completionAndCrawfordStatesRoundTrip() throws {
+        for crawfordState in [
+            CrawfordState.notReached,
+            .availableNextGame,
+            .active,
+            .completed,
+        ] {
+            let state = MatchState(
+                config: .tournament(targetScore: 5),
+                score: MatchScore(white: 5, black: 3),
+                game: GameState(
+                    board: .initial(),
+                    phase: .gameOver(GameResult(winner: .white, winKind: .single, cubeValue: 1))
+                ),
+                gameNumber: 6,
+                crawfordState: crawfordState,
+                completion: MatchCompletion(winner: .white, finalScore: MatchScore(white: 5, black: 3))
+            )
+
+            let data = try JSONEncoder().encode(state)
+            let decoded = try JSONDecoder().decode(MatchState.self, from: data)
+
+            #expect(decoded == state)
+            #expect(decoded.completion == state.completion)
+            #expect(decoded.crawfordState == crawfordState)
+        }
+    }
 }

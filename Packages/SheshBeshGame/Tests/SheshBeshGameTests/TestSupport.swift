@@ -57,3 +57,54 @@ func expectNoMixedPoints(_ board: Board) {
         #expect((state.owner == nil) == (state.count == 0))
     }
 }
+
+func playFirstLegalMovesUntilRoll(
+    from state: MatchState,
+    using engine: MatchEngine,
+    limit: Int = 4
+) throws -> MatchState {
+    var next = state
+    for _ in 0..<limit {
+        guard case .awaitingMove(let turn) = next.game.phase else { return next }
+        let move = try #require(MoveValidator.legalFirstMoves(for: turn.player, in: next.game).first)
+        next = try engine.apply(action: .move(move), to: next)
+    }
+    return next
+}
+
+func expectInvalidAction(_ body: () throws -> Void) {
+    do {
+        try body()
+        Issue.record("Expected MatchEngineError.invalidAction")
+    } catch let error as MatchEngineError {
+        guard case .invalidAction(let message) = error else {
+            Issue.record("Expected MatchEngineError.invalidAction, got \(error)")
+            return
+        }
+        #expect(!message.isEmpty)
+    } catch {
+        Issue.record("Expected MatchEngineError.invalidAction, got \(error)")
+    }
+}
+
+func expectMatchEngineError(_ expected: MatchEngineError, _ body: () throws -> Void) {
+    do {
+        try body()
+        Issue.record("Expected \(expected)")
+    } catch let error as MatchEngineError {
+        #expect(error == expected)
+    } catch {
+        Issue.record("Expected \(expected), got \(error)")
+    }
+}
+
+func expectBoardError(_ expected: BoardError, _ body: () throws -> Void) {
+    do {
+        try body()
+        Issue.record("Expected \(expected)")
+    } catch let error as BoardError {
+        #expect(error == expected)
+    } catch {
+        Issue.record("Expected \(expected), got \(error)")
+    }
+}

@@ -11,6 +11,10 @@ struct InvariantTests {
         ]
         let engine = MatchEngine(diceRoller: ScriptedDiceRoller(dice))
         var state = MatchEngine.newMatch(config: .tournament(targetScore: 7))
+        var offeredDouble = false
+        var handledCubeResponse = false
+        var offeredResignation = false
+        var handledResignationResponse = false
 
         for _ in 0..<80 {
             let action: MatchAction
@@ -18,13 +22,25 @@ struct InvariantTests {
             case .awaitingOpeningRoll:
                 action = .rollOpeningDice
             case .awaitingRoll(let player):
-                action = .rollDice(player)
+                if !offeredDouble, MatchEngine.legalActions(in: state).contains(.offerDouble(player)) {
+                    offeredDouble = true
+                    action = .offerDouble(player)
+                } else {
+                    action = .rollDice(player)
+                }
             case .awaitingMove(let turn):
-                let firstMove = try #require(MoveValidator.legalFirstMoves(for: turn.player, in: state.game).first)
-                action = .move(firstMove)
+                if !offeredResignation {
+                    offeredResignation = true
+                    action = .offerResignation(turn.player, .single)
+                } else {
+                    let firstMove = try #require(MoveValidator.legalFirstMoves(for: turn.player, in: state.game).first)
+                    action = .move(firstMove)
+                }
             case .awaitingCubeResponse(let offer):
+                handledCubeResponse = true
                 action = .takeDouble(offer.offeredBy.opponent)
             case .awaitingResignationResponse(let offer):
+                handledResignationResponse = true
                 action = .rejectResignation(offer.offeredBy.opponent)
             case .gameOver:
                 if state.completion != nil { return }
@@ -39,5 +55,10 @@ struct InvariantTests {
             #expect(state.score.score(for: .white) >= 0)
             #expect(state.score.score(for: .black) >= 0)
         }
+
+        #expect(offeredDouble)
+        #expect(handledCubeResponse)
+        #expect(offeredResignation)
+        #expect(handledResignationResponse)
     }
 }

@@ -3,6 +3,16 @@ import Testing
 
 @Suite("Match engine errors")
 struct MatchEngineErrorTests {
+    @Test("Dice roll initializer rejects invalid dice values")
+    func diceRollInitializerRejectsInvalidValues() {
+        expectMatchEngineError(.invalidDiceValue) {
+            _ = try DiceRoll(die1: 0, die2: 4)
+        }
+        expectMatchEngineError(.invalidDiceValue) {
+            _ = try DiceRoll(die1: 3, die2: 7)
+        }
+    }
+
     @Test("Opening roll rejects invalid dice values")
     func openingRollRejectsInvalidDiceValues() {
         let engine = MatchEngine(diceRoller: ScriptedDiceRoller([0, 4]))
@@ -33,7 +43,7 @@ struct MatchEngineErrorTests {
             game: GameState(board: .initial(), phase: .awaitingRoll(.white))
         )
 
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try MatchEngine().apply(action: .rollOpeningDice, to: state)
         }
     }
@@ -45,7 +55,7 @@ struct MatchEngineErrorTests {
             game: GameState(board: .initial(), phase: .awaitingRoll(.white))
         )
 
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try MatchEngine().apply(action: .rollDice(.black), to: state)
         }
     }
@@ -54,7 +64,7 @@ struct MatchEngineErrorTests {
     func rollDuringMovePhaseThrowsInvalidAction() throws {
         let state = try makeMatch(board: .initial(), player: .white, dice: [4, 1])
 
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try MatchEngine().apply(action: .rollDice(.white), to: state)
         }
     }
@@ -67,7 +77,7 @@ struct MatchEngineErrorTests {
         )
         let move = Move(player: .white, source: .point(point(24)), destination: .point(point(21)), die: 3)
 
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try MatchEngine().apply(action: .move(move), to: state)
         }
     }
@@ -99,10 +109,10 @@ struct MatchEngineErrorTests {
             game: GameState(board: .initial(), phase: .awaitingRoll(.white))
         )
 
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try MatchEngine().apply(action: .takeDouble(.black), to: state)
         }
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try MatchEngine().apply(action: .dropDouble(.black), to: state)
         }
     }
@@ -116,10 +126,10 @@ struct MatchEngineErrorTests {
         )
         let offered = try engine.apply(action: .offerDouble(.white), to: state)
 
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try engine.apply(action: .takeDouble(.white), to: offered)
         }
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try engine.apply(action: .dropDouble(.white), to: offered)
         }
     }
@@ -135,7 +145,7 @@ struct MatchEngineErrorTests {
             )
         )
 
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try MatchEngine().apply(action: .offerDouble(.white), to: state)
         }
     }
@@ -144,7 +154,7 @@ struct MatchEngineErrorTests {
     func resignationOfferOutsidePlayablePhaseThrowsInvalidAction() {
         let state = MatchEngine.newMatch(config: .tournament(targetScore: 5))
 
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try MatchEngine().apply(action: .offerResignation(.white, .single), to: state)
         }
     }
@@ -156,10 +166,10 @@ struct MatchEngineErrorTests {
             game: GameState(board: .initial(), phase: .awaitingRoll(.white))
         )
 
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try MatchEngine().apply(action: .acceptResignation(.black), to: state)
         }
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try MatchEngine().apply(action: .rejectResignation(.black), to: state)
         }
     }
@@ -173,10 +183,10 @@ struct MatchEngineErrorTests {
         )
         let offered = try engine.apply(action: .offerResignation(.white, .single), to: state)
 
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try engine.apply(action: .acceptResignation(.white), to: offered)
         }
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try engine.apply(action: .rejectResignation(.white), to: offered)
         }
     }
@@ -188,7 +198,7 @@ struct MatchEngineErrorTests {
             game: GameState(board: .initial(), phase: .awaitingRoll(.white))
         )
 
-        expectInvalidMatchAction {
+        expectInvalidAction {
             _ = try MatchEngine().apply(action: .startNextGame, to: state)
         }
     }
@@ -211,31 +221,5 @@ struct MatchEngineErrorTests {
         expectMatchEngineError(.matchAlreadyCompleted) {
             _ = try MatchEngine().apply(action: .startNextGame, to: state)
         }
-    }
-}
-
-private func expectInvalidMatchAction(_ body: () throws -> Void) {
-    do {
-        try body()
-        Issue.record("Expected MatchEngineError.invalidAction")
-    } catch let error as MatchEngineError {
-        guard case .invalidAction(let message) = error else {
-            Issue.record("Expected MatchEngineError.invalidAction, got \(error)")
-            return
-        }
-        #expect(!message.isEmpty)
-    } catch {
-        Issue.record("Expected MatchEngineError.invalidAction, got \(error)")
-    }
-}
-
-private func expectMatchEngineError(_ expected: MatchEngineError, _ body: () throws -> Void) {
-    do {
-        try body()
-        Issue.record("Expected \(expected)")
-    } catch let error as MatchEngineError {
-        #expect(error == expected)
-    } catch {
-        Issue.record("Expected \(expected), got \(error)")
     }
 }

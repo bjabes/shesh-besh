@@ -66,7 +66,12 @@ struct MoveValidatorTests {
             Move(player: .white, source: .point(point(6)), destination: .point(point(5)), die: 1),
             Move(player: .white, source: .point(point(5)), destination: .off, die: 6),
         ])))
-        #expect(sequences.allSatisfy { $0.moves.count == 2 })
+        #expect(sequences == [
+            MoveSequence(moves: [
+                Move(player: .white, source: .point(point(6)), destination: .point(point(5)), die: 1),
+                Move(player: .white, source: .point(point(5)), destination: .off, die: 6),
+            ]),
+        ])
     }
 
     @Test("When only one die can be played, the higher die is forced")
@@ -104,6 +109,7 @@ struct MoveValidatorTests {
         #expect(blockedMoves == [
             Move(player: .white, source: .point(point(6)), destination: .off, die: 6),
         ])
+        #expect(!blockedMoves.contains(Move(player: .white, source: .point(point(5)), destination: .off, die: 6)))
 
         var allowed = Board.empty()
         try allowed.setPoint(point(5), owner: .white, count: 1)
@@ -194,5 +200,16 @@ struct MoveValidatorTests {
         #expect(allowedOversize == [
             Move(player: .black, source: .point(point(20)), destination: .off, die: 6),
         ])
+    }
+
+    @Test("Game phase helpers return no moves outside the matching turn")
+    func gamePhaseHelpersRequireAwaitingMoveForPlayer() throws {
+        let awaitingRoll = GameState(board: .initial(), phase: .awaitingRoll(.white))
+        #expect(MoveValidator.legalMoves(for: .white, in: awaitingRoll).isEmpty)
+        #expect(MoveValidator.legalFirstMoves(for: .white, in: awaitingRoll).isEmpty)
+
+        let awaitingWhiteMove = try makeGame(board: .initial(), player: .white, dice: [3, 1])
+        #expect(MoveValidator.legalMoves(for: .black, in: awaitingWhiteMove).isEmpty)
+        #expect(MoveValidator.legalFirstMoves(for: .black, in: awaitingWhiteMove).isEmpty)
     }
 }

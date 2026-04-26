@@ -1,7 +1,7 @@
 # Shesh Besh
 
-An iOS backgammon game repo. The current implementation is a UI-free Swift
-rules engine that can be embedded in a future SwiftUI mobile app.
+An iOS backgammon game repo. The current implementation has a pure Swift rules
+engine plus an early SwiftUI app shell with a Linen & Brass portrait board.
 
 ## Requirements
 
@@ -21,20 +21,30 @@ shesh-besh/
       Sources/SheshBeshGame/
       Tests/SheshBeshGameTests/
 
-  SheshBesh.xcodeproj      # future SwiftUI app project
-  SheshBesh/               # future app target
-  SheshBeshTests/          # future app-level tests
+  SheshBesh.xcodeproj      # iOS SwiftUI app project
+  SheshBesh/
+    App/                   # @main app entry
+    Shared/                # SwiftUI views + app view models
+  SheshBeshTests/          # app-level tests
   SheshBeshUITests/        # future UI tests
 ```
 
-The game engine is intentionally isolated as a local Swift package so the app
-UI can depend on it without mixing presentation code into the rules layer.
+The game engine remains isolated as a local Swift package so app UI can depend
+on it without mixing presentation code into the rules layer. The root package
+also exposes `SheshBeshApp` for app-level tests and a small `SheshBesh`
+SwiftUI executable for local compiler coverage.
 
 ## Building and Running Tests
 
 ```sh
 swift build
 swift test
+```
+
+To build the iOS app target from the checked-in Xcode project:
+
+```sh
+xcodebuild -project SheshBesh.xcodeproj -target SheshBesh -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
 ```
 
 The nested package remains usable directly with `swift build --package-path
@@ -112,48 +122,16 @@ if let moveAction = legalActions.first(where: {
 rolls, cube decisions, resignations, next-game transitions, legal checker moves,
 and explicit pass actions for blocked turns.
 
-## SwiftUI View Model Example
+## SwiftUI App Surface
 
-The package contains no SwiftUI code, but it is designed to sit behind a small
-observable model:
+`SheshBesh/Shared/MatchViewModel.swift` is the app bridge over `MatchEngine`.
+It owns the current `MatchState`, exposes reducer-backed legal actions, computes
+pip counts, and applies checker moves through the engine.
 
-```swift
-import Observation
-import SheshBeshGame
-
-@MainActor
-@Observable
-final class MatchViewModel {
-    private let engine: MatchEngine
-
-    var state: MatchState
-    var lastError: String?
-
-    init(
-        engine: MatchEngine = MatchEngine(),
-        config: MatchConfig = .tournament(targetScore: 5)
-    ) {
-        self.engine = engine
-        self.state = MatchEngine.newMatch(config: config)
-    }
-
-    var legalActions: [MatchAction] {
-        MatchEngine.legalActions(in: state)
-    }
-
-    func send(_ action: MatchAction) {
-        do {
-            state = try engine.apply(action: action, to: state)
-            lastError = nil
-        } catch {
-            lastError = String(describing: error)
-        }
-    }
-}
-```
-
-Views can bind buttons, taps, and alerts to `send(_:)` while rendering directly
-from `state`.
+`SheshBesh/Shared/BoardView.swift` renders the approved Linen & Brass direction:
+portrait board, linen texture, coffee frame, rust/cream checker identities,
+brass cube in the bar well, pip dice, header pip counts, and thumb-zone actions.
+Views still render directly from value-type engine state.
 
 ## Rendering Board State
 
@@ -201,8 +179,8 @@ let data = try JSONEncoder().encode(viewModel.state)
 let restored = try JSONDecoder().decode(MatchState.self, from: data)
 ```
 
-The package does not choose a persistence store. The future app can put encoded
-state in a file, SwiftData, CloudKit, or a multiplayer transport.
+The package does not choose a persistence store. The app can put encoded state
+in a file, SwiftData, CloudKit, or a multiplayer transport.
 
 ## Deterministic Dice In Tests
 

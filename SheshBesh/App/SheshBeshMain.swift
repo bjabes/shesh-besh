@@ -1,5 +1,8 @@
 import SwiftUI
+
+#if canImport(SheshBeshApp)
 import SheshBeshApp
+#endif
 
 @main
 struct SheshBeshMain: App {

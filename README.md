@@ -36,6 +36,16 @@ SwiftUI executable for local compiler coverage.
 
 ## Building and Running Tests
 
+Run the same top-level verification that CI runs:
+
+```sh
+./scripts/test.sh
+```
+
+This builds and tests the Swift package, then builds the checked-in Xcode
+project for iOS Simulator, catching drift between the SwiftPM and Xcode build
+paths.
+
 ```sh
 swift build
 swift test

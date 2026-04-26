@@ -9,6 +9,9 @@ public final class MatchViewModel {
 
     public private(set) var state: MatchState
     public private(set) var lastError: String?
+    public private(set) var legalActions: [MatchAction]
+    public private(set) var legalMoves: [Move]
+    public private(set) var pipCounts: [Player: Int]
 
     public let localPlayer: Player
     public let opponentName: String
@@ -19,24 +22,22 @@ public final class MatchViewModel {
         localPlayer: Player = .white,
         opponentName: String = "Dan"
     ) {
+        let initialState = MatchEngine.newMatch(config: config)
+        let initialLegalActions = engine.legalActions(in: initialState)
+
         self.engine = engine
-        self.state = MatchEngine.newMatch(config: config)
+        self.state = initialState
         self.localPlayer = localPlayer
         self.opponentName = opponentName
-    }
-
-    public var legalActions: [MatchAction] {
-        engine.legalActions(in: state)
-    }
-
-    public var legalMoves: [Move] {
-        legalActions.compactMap { action in
+        self.legalActions = initialLegalActions
+        self.legalMoves = initialLegalActions.compactMap { action in
             if case .move(let move) = action {
                 move
             } else {
                 nil
             }
         }
+        self.pipCounts = Self.computePipCounts(for: initialState.game.board)
     }
 
     public var activePlayer: Player? {
@@ -69,19 +70,24 @@ public final class MatchViewModel {
     }
 
     public var phaseTitle: String {
+        if let completion = state.completion {
+            return completion.winner == localPlayer ? "You won the match" : "\(opponentName) won the match"
+        }
+
         switch state.game.phase {
         case .awaitingOpeningRoll(let tiedRoll):
-            tiedRoll == nil ? "Opening roll" : "Tie. Roll again"
+            return tiedRoll == nil ? "Opening roll" : "Tie. Roll again"
         case .awaitingRoll(let player):
-            player == localPlayer ? "Your turn" : "\(opponentName)'s turn"
+            return player == localPlayer ? "Your turn" : "\(opponentName)'s turn"
         case .awaitingMove(let turn):
-            turn.player == localPlayer ? "Your turn" : "\(opponentName)'s turn"
+            return turn.player == localPlayer ? "Your turn" : "\(opponentName)'s turn"
         case .awaitingCubeResponse(let offer):
-            offer.offeredBy == localPlayer ? "Double offered" : "\(opponentName) offers double"
+            return offer.offeredBy == localPlayer ? "Double offered" : "\(opponentName) offers double"
         case .awaitingResignationResponse(let offer):
-            offer.offeredBy == localPlayer ? "Resignation offered" : "\(opponentName) offered to resign"
+            let description = winKindText(offer.winKind)
+            return offer.offeredBy == localPlayer ? "Resignation offered (\(description))" : "\(opponentName) offered to resign (\(description))"
         case .gameOver(let result):
-            result.winner == localPlayer ? "You won game \(state.gameNumber)" : "\(opponentName) won game \(state.gameNumber)"
+            return result.winner == localPlayer ? "You won game \(state.gameNumber)" : "\(opponentName) won game \(state.gameNumber)"
         }
     }
 
@@ -97,8 +103,9 @@ public final class MatchViewModel {
         do {
             state = try engine.apply(action: action, to: state)
             lastError = nil
+            refreshDerivedState()
         } catch {
-            lastError = String(describing: error)
+            lastError = friendlyErrorMessage(error)
         }
     }
 
@@ -116,9 +123,20 @@ public final class MatchViewModel {
         send(.offerDouble(localPlayer))
     }
 
+    public func offerResignationIfAllowed(_ winKind: WinKind) {
+        guard containsAction(.offerResignation(localPlayer, winKind)) else { return }
+        send(.offerResignation(localPlayer, winKind))
+    }
+
     public func passIfAllowed() {
         guard containsAction(.passTurn(localPlayer)) else { return }
         send(.passTurn(localPlayer))
+    }
+
+    public func restartMatch() {
+        state = MatchEngine.newMatch(config: state.config)
+        lastError = nil
+        refreshDerivedState()
     }
 
     @discardableResult
@@ -144,14 +162,63 @@ public final class MatchViewModel {
     }
 
     public func pipCount(for player: Player) -> Int {
-        let board = state.game.board
-        let boardPips = board.points.enumerated().reduce(0) { total, item in
-            let rawPoint = item.offset + 1
-            let point = item.element
-            guard point.owner == player else { return total }
-            let distance = player == .white ? rawPoint : 25 - rawPoint
-            return total + (distance * point.count)
+        pipCounts[player, default: 0]
+    }
+
+    private func refreshDerivedState() {
+        legalActions = engine.legalActions(in: state)
+        legalMoves = legalActions.compactMap { action in
+            if case .move(let move) = action {
+                move
+            } else {
+                nil
+            }
         }
-        return boardPips + board.barCount(for: player) * 25
+        pipCounts = Self.computePipCounts(for: state.game.board)
+    }
+
+    private func friendlyErrorMessage(_ error: Error) -> String {
+        guard let engineError = error as? MatchEngineError else {
+            return error.localizedDescription
+        }
+
+        switch engineError {
+        case .invalidDiceValue:
+            return "The dice roll was invalid. Please roll again."
+        case .invalidAction(let reason):
+            return reason
+        case .illegalMove:
+            return "That move is not legal for the current dice."
+        case .matchAlreadyCompleted:
+            return "The match is already complete. Start a new match to continue."
+        }
+    }
+
+    private static func computePipCounts(for board: Board) -> [Player: Int] {
+        var white = 0
+        var black = 0
+
+        for (offset, point) in board.points.enumerated() {
+            let rawPoint = offset + 1
+            switch point.owner {
+            case .white:
+                white += rawPoint * point.count
+            case .black:
+                black += (25 - rawPoint) * point.count
+            case nil:
+                continue
+            }
+        }
+        white += board.barCount(for: .white) * 25
+        black += board.barCount(for: .black) * 25
+        return [.white: white, .black: black]
+    }
+
+    private func winKindText(_ winKind: WinKind) -> String {
+        switch winKind {
+        case .single: return "single"
+        case .gammon: return "gammon"
+        case .backgammon: return "backgammon"
+        }
     }
 }

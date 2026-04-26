@@ -62,6 +62,41 @@ struct MatchViewModelTests {
         #expect(viewModel.state.game.board.point(PointID(rawValue: 18)!).owner == .white)
         #expect(viewModel.state.game.board.point(PointID(rawValue: 18)!).count == 1)
     }
+
+    @Test("offering resignation enters resignation response phase")
+    @MainActor
+    func offerResignationWhenAllowed() {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1])),
+            config: .tournament(targetScore: 7)
+        )
+
+        viewModel.rollOpeningDice()
+        viewModel.offerResignationIfAllowed(.gammon)
+
+        guard case .awaitingResignationResponse(let offer) = viewModel.state.game.phase else {
+            Issue.record("Expected resignation response phase after resignation offer.")
+            return
+        }
+
+        #expect(offer.offeredBy == .white)
+        #expect(offer.winKind == .gammon)
+        #expect(viewModel.lastError == nil)
+    }
+
+    @Test("invalid move is surfaced as a friendly message")
+    @MainActor
+    func invalidMoveMessageIsFriendly() {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1])),
+            config: .tournament(targetScore: 7)
+        )
+
+        viewModel.rollOpeningDice()
+        viewModel.send(.move(Move(player: .white, source: .point(PointID(rawValue: 1)!), destination: .point(PointID(rawValue: 2)!), die: 1)))
+
+        #expect(viewModel.lastError == "That move is not legal for the current dice.")
+    }
 }
 
 private final class ScriptedDiceRoller: DiceRolling, @unchecked Sendable {

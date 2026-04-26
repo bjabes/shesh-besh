@@ -27,7 +27,7 @@ public struct BoardView: View {
                     onBearOffTap: handleBearOffTap
                 )
                 .aspectRatio(0.78, contentMode: .fit)
-                .frame(maxHeight: 560)
+                .frame(maxHeight: 600)
 
                 ActionBar(viewModel: viewModel) {
                     selectedSource = nil
@@ -49,11 +49,19 @@ public struct BoardView: View {
             .padding(.top, 14)
             .padding(.bottom, 12)
         }
+        .onChange(of: viewModel.state.game.phase) { _, _ in
+            selectedSource = nil
+        }
     }
 
     private func handlePointTap(_ pointID: PointID) {
         let source: MoveSource = .point(pointID)
         let destination: MoveDestination = .point(pointID)
+
+        if selectedSource == source {
+            selectedSource = nil
+            return
+        }
 
         if viewModel.applyMove(from: selectedSource ?? source, to: destination) {
             selectedSource = nil
@@ -184,6 +192,12 @@ private struct PipStrip: View {
             pipCount(for: viewModel.localPlayer.opponent)
         }
         .padding(.horizontal, 4)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 7)
+                .fill(LinenBrass.coffee)
+        )
     }
 
     private func pipCount(for player: Player) -> some View {
@@ -202,12 +216,15 @@ private struct BoardSurface: View {
     let onBarTap: () -> Void
     let onBearOffTap: () -> Void
 
-    private let barWidth: CGFloat = 38
-
     var body: some View {
         GeometryReader { geometry in
             let trayHeight = max(68, geometry.size.height * 0.18)
             let halfHeight = (geometry.size.height - trayHeight) / 2
+            let barWidth = max(38, geometry.size.width * 0.08)
+            let legalSources = Set(viewModel.legalMoves.map(\.source))
+            let legalDestinations = selectedSource.map { source in
+                Set(viewModel.legalMoves.lazy.filter { $0.source == source }.map(\.destination))
+            } ?? []
 
             VStack(spacing: 0) {
                 BoardHalf(
@@ -215,7 +232,10 @@ private struct BoardSurface: View {
                     selectedSource: selectedSource,
                     leftPoints: pointIDs(13...18),
                     rightPoints: pointIDs(19...24),
+                    barWidth: barWidth,
                     pointsDown: true,
+                    legalSources: legalSources,
+                    legalDestinations: legalDestinations,
                     onPointTap: onPointTap,
                     onBarTap: onBarTap
                 )
@@ -224,6 +244,8 @@ private struct BoardSurface: View {
                 TrayRow(
                     viewModel: viewModel,
                     selectedSource: selectedSource,
+                    barWidth: barWidth,
+                    legalDestinations: legalDestinations,
                     onBarTap: onBarTap,
                     onBearOffTap: onBearOffTap
                 )
@@ -234,7 +256,10 @@ private struct BoardSurface: View {
                     selectedSource: selectedSource,
                     leftPoints: pointIDs(stride(from: 12, through: 7, by: -1)),
                     rightPoints: pointIDs(stride(from: 6, through: 1, by: -1)),
+                    barWidth: barWidth,
                     pointsDown: false,
+                    legalSources: legalSources,
+                    legalDestinations: legalDestinations,
                     onPointTap: onPointTap,
                     onBarTap: onBarTap
                 )
@@ -261,7 +286,10 @@ private struct BoardHalf: View {
     let selectedSource: MoveSource?
     let leftPoints: [PointID]
     let rightPoints: [PointID]
+    let barWidth: CGFloat
     let pointsDown: Bool
+    let legalSources: Set<MoveSource>
+    let legalDestinations: Set<MoveDestination>
     let onPointTap: (PointID) -> Void
     let onBarTap: () -> Void
 
@@ -273,6 +301,8 @@ private struct BoardHalf: View {
                 pointIDs: leftPoints,
                 pointsDown: pointsDown,
                 startsWithDarkPoint: pointsDown,
+                legalSources: legalSources,
+                legalDestinations: legalDestinations,
                 onPointTap: onPointTap
             )
 
@@ -280,9 +310,11 @@ private struct BoardHalf: View {
                 viewModel: viewModel,
                 selectedSource: selectedSource,
                 segment: pointsDown ? .top : .bottom,
+                isLegalSource: legalSources.contains(.bar),
+                isLegalDestination: false,
                 onBarTap: onBarTap
             )
-            .frame(width: 38)
+            .frame(width: barWidth)
 
             PointRun(
                 viewModel: viewModel,
@@ -290,6 +322,8 @@ private struct BoardHalf: View {
                 pointIDs: rightPoints,
                 pointsDown: pointsDown,
                 startsWithDarkPoint: !pointsDown,
+                legalSources: legalSources,
+                legalDestinations: legalDestinations,
                 onPointTap: onPointTap
             )
         }
@@ -302,6 +336,8 @@ private struct PointRun: View {
     let pointIDs: [PointID]
     let pointsDown: Bool
     let startsWithDarkPoint: Bool
+    let legalSources: Set<MoveSource>
+    let legalDestinations: Set<MoveDestination>
     let onPointTap: (PointID) -> Void
 
     var body: some View {
@@ -313,8 +349,8 @@ private struct PointRun: View {
                     pointsDown: pointsDown,
                     isDarkPoint: (index.isMultiple(of: 2)) == startsWithDarkPoint,
                     isSelected: selectedSource == .point(pointID),
-                    isLegalSource: viewModel.isLegalSource(.point(pointID)),
-                    isLegalDestination: viewModel.isLegalDestination(.point(pointID), from: selectedSource),
+                    isLegalSource: legalSources.contains(.point(pointID)),
+                    isLegalDestination: legalDestinations.contains(.point(pointID)),
                     localPlayer: viewModel.localPlayer
                 ) {
                     onPointTap(pointID)
@@ -362,20 +398,21 @@ private struct PointCell: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(accessibilityHint)
     }
 
     @ViewBuilder
     private var highlight: some View {
         if isSelected {
-            Rectangle()
+            PointTriangle(pointsDown: pointsDown)
                 .stroke(LinenBrass.brass, lineWidth: 3)
                 .padding(2)
         } else if isLegalDestination {
-            Rectangle()
+            PointTriangle(pointsDown: pointsDown)
                 .stroke(LinenBrass.brass.opacity(0.88), lineWidth: 2)
                 .padding(4)
         } else if isLegalSource {
-            Rectangle()
+            PointTriangle(pointsDown: pointsDown)
                 .stroke(LinenBrass.cream.opacity(0.48), lineWidth: 1)
                 .padding(5)
         }
@@ -383,10 +420,25 @@ private struct PointCell: View {
 
     private var accessibilityLabel: String {
         guard let owner = point.owner else {
-            return "Point \(pointID.rawValue), empty"
+            return "Point \(pointID.rawValue), empty\(stateSuffix)"
         }
-        let player = owner == localPlayer ? "you" : "opponent"
-        return "Point \(pointID.rawValue), \(point.count) \(player) checkers"
+        let player = owner == localPlayer ? "your" : "opponent"
+        let checkerWord = point.count == 1 ? "checker" : "checkers"
+        return "Point \(pointID.rawValue), \(point.count) \(player) \(checkerWord)\(stateSuffix)"
+    }
+
+    private var stateSuffix: String {
+        if isSelected { return ", selected" }
+        if isLegalDestination { return ", legal destination" }
+        if isLegalSource { return ", legal source" }
+        return ""
+    }
+
+    private var accessibilityHint: String {
+        if isSelected { return "Tap to deselect this point." }
+        if isLegalDestination { return "Tap to move the selected checker here." }
+        if isLegalSource { return "Tap to select this point as a move source." }
+        return "Tap to inspect this point."
     }
 }
 
@@ -417,7 +469,7 @@ private struct CheckerStack: View {
     var body: some View {
         GeometryReader { geometry in
             let visibleCount = min(point.count, 5)
-            let diameter = min(geometry.size.width * 0.88, geometry.size.height / 5.4)
+            let diameter = max(6, min(geometry.size.width * 0.88, geometry.size.height / 5.4))
             let spacing = max(-diameter * 0.12, -3)
 
             VStack(spacing: spacing) {
@@ -506,6 +558,8 @@ private struct BarWell: View {
     let viewModel: MatchViewModel
     let selectedSource: MoveSource?
     let segment: BarSegment
+    let isLegalSource: Bool
+    let isLegalDestination: Bool
     let onBarTap: () -> Void
 
     var body: some View {
@@ -514,17 +568,17 @@ private struct BarWell: View {
                 LinenBrass.saddle
 
                 Rectangle()
-                    .stroke(LinenBrass.brass.opacity(selectedSource == .bar ? 0.9 : 0.28), lineWidth: selectedSource == .bar ? 2 : 1)
+                    .stroke(borderColor, lineWidth: borderWidth)
                     .padding(5)
 
                 VStack(spacing: 3) {
-                    if segment != .bottom {
+                    if segment == .top {
                         barCheckers(for: viewModel.localPlayer.opponent)
                     }
 
                     Spacer(minLength: 3)
 
-                    if segment != .top {
+                    if segment == .bottom {
                         barCheckers(for: viewModel.localPlayer)
                     }
                 }
@@ -533,7 +587,7 @@ private struct BarWell: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Bar")
+        .accessibilityLabel(accessibilityLabel)
     }
 
     private func barCheckers(for player: Player) -> some View {
@@ -549,11 +603,38 @@ private struct BarWell: View {
             }
         }
     }
+
+    private var borderColor: Color {
+        if selectedSource == .bar { return LinenBrass.brass.opacity(0.9) }
+        if isLegalDestination { return LinenBrass.brass.opacity(0.88) }
+        if isLegalSource { return LinenBrass.brass.opacity(0.4) }
+        return LinenBrass.brass.opacity(0.28)
+    }
+
+    private var borderWidth: CGFloat {
+        selectedSource == .bar || isLegalDestination ? 2 : 1
+    }
+
+    private var accessibilityLabel: String {
+        let yourCount = viewModel.state.game.board.barCount(for: viewModel.localPlayer)
+        let opponentCount = viewModel.state.game.board.barCount(for: viewModel.localPlayer.opponent)
+        var label = "Bar, your \(yourCount), opponent \(opponentCount)"
+        if selectedSource == .bar {
+            label += ", selected"
+        } else if isLegalDestination {
+            label += ", legal destination"
+        } else if isLegalSource {
+            label += ", legal source"
+        }
+        return label
+    }
 }
 
 private struct TrayRow: View {
     let viewModel: MatchViewModel
     let selectedSource: MoveSource?
+    let barWidth: CGFloat
+    let legalDestinations: Set<MoveDestination>
     let onBarTap: () -> Void
     let onBearOffTap: () -> Void
 
@@ -568,8 +649,15 @@ private struct TrayRow: View {
                 onTap: {}
             )
 
-            BarWell(viewModel: viewModel, selectedSource: selectedSource, segment: .tray, onBarTap: onBarTap)
-                .frame(width: 38)
+            BarWell(
+                viewModel: viewModel,
+                selectedSource: selectedSource,
+                segment: .tray,
+                isLegalSource: viewModel.isLegalSource(.bar),
+                isLegalDestination: false,
+                onBarTap: onBarTap
+            )
+                .frame(width: barWidth)
                 .overlay(alignment: cubeAlignment) {
                     CubeView(cube: viewModel.state.game.cube, localPlayer: viewModel.localPlayer)
                         .frame(width: 32, height: 32)
@@ -720,19 +808,25 @@ private struct DieFace: View {
     }
 
     private var pipPositions: [CGPoint] {
+        guard (1...6).contains(value) else {
+            return [CGPoint(x: 0.5, y: 0.5)]
+        }
+
         switch value {
         case 1:
-            [CGPoint(x: 0.5, y: 0.5)]
+            return [CGPoint(x: 0.5, y: 0.5)]
         case 2:
-            [CGPoint(x: 0.3, y: 0.3), CGPoint(x: 0.7, y: 0.7)]
+            return [CGPoint(x: 0.3, y: 0.3), CGPoint(x: 0.7, y: 0.7)]
         case 3:
-            [CGPoint(x: 0.3, y: 0.3), CGPoint(x: 0.5, y: 0.5), CGPoint(x: 0.7, y: 0.7)]
+            return [CGPoint(x: 0.3, y: 0.3), CGPoint(x: 0.5, y: 0.5), CGPoint(x: 0.7, y: 0.7)]
         case 4:
-            [CGPoint(x: 0.3, y: 0.3), CGPoint(x: 0.7, y: 0.3), CGPoint(x: 0.3, y: 0.7), CGPoint(x: 0.7, y: 0.7)]
+            return [CGPoint(x: 0.3, y: 0.3), CGPoint(x: 0.7, y: 0.3), CGPoint(x: 0.3, y: 0.7), CGPoint(x: 0.7, y: 0.7)]
         case 5:
-            [CGPoint(x: 0.3, y: 0.3), CGPoint(x: 0.7, y: 0.3), CGPoint(x: 0.5, y: 0.5), CGPoint(x: 0.3, y: 0.7), CGPoint(x: 0.7, y: 0.7)]
+            return [CGPoint(x: 0.3, y: 0.3), CGPoint(x: 0.7, y: 0.3), CGPoint(x: 0.5, y: 0.5), CGPoint(x: 0.3, y: 0.7), CGPoint(x: 0.7, y: 0.7)]
+        case 6:
+            return [CGPoint(x: 0.3, y: 0.25), CGPoint(x: 0.7, y: 0.25), CGPoint(x: 0.3, y: 0.5), CGPoint(x: 0.7, y: 0.5), CGPoint(x: 0.3, y: 0.75), CGPoint(x: 0.7, y: 0.75)]
         default:
-            [CGPoint(x: 0.3, y: 0.25), CGPoint(x: 0.7, y: 0.25), CGPoint(x: 0.3, y: 0.5), CGPoint(x: 0.7, y: 0.5), CGPoint(x: 0.3, y: 0.75), CGPoint(x: 0.7, y: 0.75)]
+            return [CGPoint(x: 0.5, y: 0.5)]
         }
     }
 }
@@ -756,8 +850,8 @@ private struct ActionBar: View {
     var body: some View {
         HStack(spacing: 12) {
             switch viewModel.state.game.phase {
-            case .awaitingOpeningRoll:
-                PrimaryActionButton(title: "Opening roll") {
+            case .awaitingOpeningRoll(let tiedRoll):
+                PrimaryActionButton(title: tiedRoll == nil ? "Opening roll" : "Reroll") {
                     viewModel.rollOpeningDice()
                     onAction()
                 }
@@ -769,6 +863,7 @@ private struct ActionBar: View {
                         onAction()
                     }
                 }
+                resignationMenu
                 PrimaryActionButton(title: "Roll dice") {
                     viewModel.rollDiceIfAllowed()
                     onAction()
@@ -786,9 +881,10 @@ private struct ActionBar: View {
                         .foregroundStyle(LinenBrass.cream)
                         .frame(maxWidth: .infinity, minHeight: 48)
                 }
+                resignationMenu
 
             case .awaitingCubeResponse(let offer) where offer.offeredBy.opponent == viewModel.localPlayer:
-                PrimaryActionButton(title: "Take") {
+                PrimaryActionButton(title: "Take \(offer.proposedValue)") {
                     viewModel.send(.takeDouble(viewModel.localPlayer))
                     onAction()
                 }
@@ -798,32 +894,67 @@ private struct ActionBar: View {
                 }
 
             case .awaitingResignationResponse(let offer) where offer.offeredBy.opponent == viewModel.localPlayer:
-                PrimaryActionButton(title: "Accept") {
+                PrimaryActionButton(title: "Accept \(offer.winKind.rawValue)") {
                     viewModel.send(.acceptResignation(viewModel.localPlayer))
                     onAction()
                 }
-                SecondaryActionButton(title: "Reject") {
+                SecondaryActionButton(title: "Reject \(offer.winKind.rawValue)") {
                     viewModel.send(.rejectResignation(viewModel.localPlayer))
                     onAction()
                 }
 
             case .gameOver:
-                PrimaryActionButton(title: "Next game") {
-                    viewModel.send(.startNextGame)
-                    onAction()
+                if viewModel.state.completion == nil {
+                    PrimaryActionButton(title: "Next game") {
+                        viewModel.send(.startNextGame)
+                        onAction()
+                    }
+                } else {
+                    PrimaryActionButton(title: "New match") {
+                        viewModel.restartMatch()
+                        onAction()
+                    }
                 }
 
             default:
-                HStack {
-                    Text(viewModel.phaseTitle)
-                        .font(LinenBrass.uiFont(size: 15, weight: .semibold))
-                        .foregroundStyle(LinenBrass.cream)
-                    Spacer()
-                    SecondaryActionButton(title: "Nudge") {}
-                        .frame(maxWidth: 116)
+                if case .awaitingRoll(let player) = viewModel.state.game.phase,
+                   viewModel.containsAction(.rollDice(player))
+                {
+                    PrimaryActionButton(title: "Roll for \(viewModel.displayName(for: player))") {
+                        viewModel.send(.rollDice(player))
+                        onAction()
+                    }
+                } else {
+                    HStack {
+                        Text("Pass device to continue.")
+                            .font(LinenBrass.uiFont(size: 15, weight: .semibold))
+                            .foregroundStyle(LinenBrass.cream)
+                        Spacer()
+                    }
+                    .frame(minHeight: 48)
                 }
-                .frame(minHeight: 48)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var resignationMenu: some View {
+        if viewModel.containsAction(.offerResignation(viewModel.localPlayer, .single)) {
+            Menu("Resign…") {
+                Button("Offer single") {
+                    viewModel.offerResignationIfAllowed(.single)
+                    onAction()
+                }
+                Button("Offer gammon") {
+                    viewModel.offerResignationIfAllowed(.gammon)
+                    onAction()
+                }
+                Button("Offer backgammon") {
+                    viewModel.offerResignationIfAllowed(.backgammon)
+                    onAction()
+                }
+            }
+            .buttonStyle(LinenButtonStyle(kind: .secondary))
         }
     }
 }

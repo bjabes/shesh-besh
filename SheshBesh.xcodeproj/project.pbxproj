@@ -37,7 +37,6 @@
 		AF1000000000000000000006 /* MatchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchViewModel.swift; sourceTree = "<group>"; };
 		AF1000000000000000000008 /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
 		AF100000000000000000000A /* SheshBeshGame.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SheshBeshGame.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		AF100000000000000000001C /* SheshBesh.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SheshBesh.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF100000000000000000000C /* Board.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Board.swift; sourceTree = "<group>"; };
 		AF100000000000000000000E /* Dice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dice.swift; sourceTree = "<group>"; };
 		AF1000000000000000000010 /* MatchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchEngine.swift; sourceTree = "<group>"; };
@@ -45,6 +44,7 @@
 		AF1000000000000000000014 /* MoveValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoveValidator.swift; sourceTree = "<group>"; };
 		AF1000000000000000000016 /* Player.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Player.swift; sourceTree = "<group>"; };
 		AF1000000000000000000018 /* State.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = State.swift; sourceTree = "<group>"; };
+		AF100000000000000000001C /* SheshBesh.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SheshBesh.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +84,23 @@
 			path = SheshBesh;
 			sourceTree = "<group>";
 		};
+		AF1000000000000000000021 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				AF1000000000000000000025 /* SheshBeshGame */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		AF1000000000000000000022 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AF100000000000000000001C /* SheshBesh.app */,
+				AF100000000000000000000A /* SheshBeshGame.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		AF1000000000000000000023 /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -100,14 +117,6 @@
 				AF1000000000000000000004 /* RootView.swift */,
 			);
 			path = Shared;
-			sourceTree = "<group>";
-		};
-		AF1000000000000000000021 /* Packages */ = {
-			isa = PBXGroup;
-			children = (
-				AF1000000000000000000025 /* SheshBeshGame */,
-			);
-			path = Packages;
 			sourceTree = "<group>";
 		};
 		AF1000000000000000000025 /* SheshBeshGame */ = {
@@ -140,18 +149,25 @@
 			path = SheshBeshGame;
 			sourceTree = "<group>";
 		};
-		AF1000000000000000000022 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				AF100000000000000000001C /* SheshBesh.app */,
-				AF100000000000000000000A /* SheshBeshGame.framework */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		AF100000000000000000001B /* SheshBeshGame */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AF100000000000000000002D /* Build configuration list for PBXNativeTarget "SheshBeshGame" */;
+			buildPhases = (
+				AF100000000000000000002E /* Sources */,
+				AF100000000000000000001E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SheshBeshGame;
+			productName = SheshBeshGame;
+			productReference = AF100000000000000000000A /* SheshBeshGame.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		AF1000000000000000000028 /* SheshBesh */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AF1000000000000000000029 /* Build configuration list for PBXNativeTarget "SheshBesh" */;
@@ -169,22 +185,6 @@
 			productName = SheshBesh;
 			productReference = AF100000000000000000001C /* SheshBesh.app */;
 			productType = "com.apple.product-type.application";
-		};
-		AF100000000000000000001B /* SheshBeshGame */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AF100000000000000000002D /* Build configuration list for PBXNativeTarget "SheshBeshGame" */;
-			buildPhases = (
-				AF100000000000000000002E /* Sources */,
-				AF100000000000000000001E /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = SheshBeshGame;
-			productName = SheshBeshGame;
-			productReference = AF100000000000000000000A /* SheshBeshGame.framework */;
-			productType = "com.apple.product-type.framework";
 		};
 /* End PBXNativeTarget section */
 
@@ -358,6 +358,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8DDY9Z9MX6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Shesh Besh";
@@ -386,6 +387,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8DDY9Z9MX6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Shesh Besh";
@@ -414,6 +416,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				DEFINES_MODULE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 0.1.0;
@@ -431,6 +434,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				DEFINES_MODULE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 0.1.0;
@@ -446,15 +450,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		AF100000000000000000002F /* Build configuration list for PBXProject "SheshBesh" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				AF1000000000000000000030 /* Debug */,
-				AF1000000000000000000031 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		AF1000000000000000000029 /* Build configuration list for PBXNativeTarget "SheshBesh" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -469,6 +464,15 @@
 			buildConfigurations = (
 				AF1000000000000000000034 /* Debug */,
 				AF1000000000000000000035 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AF100000000000000000002F /* Build configuration list for PBXProject "SheshBesh" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AF1000000000000000000030 /* Debug */,
+				AF1000000000000000000031 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

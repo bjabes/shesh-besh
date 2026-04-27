@@ -95,7 +95,7 @@ public struct GameCenterMatchEnvelope: Codable, Equatable, Hashable, Sendable {
     }
 
     public static func decoded(from data: Data) throws -> GameCenterMatchEnvelope {
-        let envelope = try JSONDecoder.gameCenterEnvelope.decode(GameCenterMatchEnvelope.self, from: data)
+        let envelope = try JSONDecoder().decode(GameCenterMatchEnvelope.self, from: data)
         try envelope.validateSupported()
         return envelope
     }
@@ -163,11 +163,5 @@ private extension JSONEncoder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         return encoder
-    }
-}
-
-private extension JSONDecoder {
-    static var gameCenterEnvelope: JSONDecoder {
-        JSONDecoder()
     }
 }

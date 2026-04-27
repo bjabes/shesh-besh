@@ -119,13 +119,18 @@ public struct BoardView: View {
 public struct OpponentTurnView: View {
     public let viewModel: MatchViewModel
     private let onBackToRivals: (() -> Void)?
+    private let onSendReminder: (@MainActor () async -> Void)?
+
+    @State private var isSendingReminder = false
 
     public init(
         viewModel: MatchViewModel,
-        onBackToRivals: (() -> Void)? = nil
+        onBackToRivals: (() -> Void)? = nil,
+        onSendReminder: (@MainActor () async -> Void)? = nil
     ) {
         self.viewModel = viewModel
         self.onBackToRivals = onBackToRivals
+        self.onSendReminder = onSendReminder
     }
 
     public var body: some View {
@@ -155,6 +160,10 @@ public struct OpponentTurnView: View {
                 .minimumScaleFactor(0.76)
 
             Spacer(minLength: 0)
+
+            if let onSendReminder {
+                reminderButton(action: onSendReminder)
+            }
         }
         .padding(.horizontal, 14)
         .frame(minHeight: 42)
@@ -165,6 +174,25 @@ public struct OpponentTurnView: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("opponent-turn-status")
+    }
+
+    private func reminderButton(action: @escaping @MainActor () async -> Void) -> some View {
+        Button {
+            isSendingReminder = true
+            Task {
+                await action()
+                isSendingReminder = false
+            }
+        } label: {
+            Label("Remind", systemImage: "bell.badge")
+                .font(LinenBrass.uiFont(size: 13, weight: .semibold))
+                .labelStyle(.titleAndIcon)
+        }
+        .buttonStyle(.bordered)
+        .tint(LinenBrass.brass)
+        .foregroundStyle(LinenBrass.cream)
+        .disabled(isSendingReminder)
+        .accessibilityIdentifier("opponent-turn-remind")
     }
 
     private var statusText: String {

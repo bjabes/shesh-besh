@@ -18,22 +18,34 @@ public struct RootView: View {
     @State private var routeError: String?
     #if canImport(GameKit) && canImport(UIKit)
     @State private var gameCenterSession = GameCenterSession()
+    @State private var gameCenterMatchCoordinator: GameCenterMatchCoordinator
     @State private var activeGameCenterMatch: GameCenterLoadedMatch?
     #endif
 
     public init() {
+        let ledger = LedgerCoordinator(store: InMemoryLedgerStore())
         _singleMatchViewModel = State(initialValue: nil)
-        _coordinator = State(initialValue: LedgerCoordinator(store: InMemoryLedgerStore()))
+        _coordinator = State(initialValue: ledger)
+        #if canImport(GameKit) && canImport(UIKit)
+        _gameCenterMatchCoordinator = State(initialValue: GameCenterMatchCoordinator(ledgerCoordinator: ledger))
+        #endif
     }
 
     public init(coordinator: LedgerCoordinator) {
         _singleMatchViewModel = State(initialValue: nil)
         _coordinator = State(initialValue: coordinator)
+        #if canImport(GameKit) && canImport(UIKit)
+        _gameCenterMatchCoordinator = State(initialValue: GameCenterMatchCoordinator(ledgerCoordinator: coordinator))
+        #endif
     }
 
     public init(viewModel: MatchViewModel) {
+        let ledger = LedgerCoordinator(store: InMemoryLedgerStore())
         _singleMatchViewModel = State(initialValue: viewModel)
-        _coordinator = State(initialValue: LedgerCoordinator(store: InMemoryLedgerStore()))
+        _coordinator = State(initialValue: ledger)
+        #if canImport(GameKit) && canImport(UIKit)
+        _gameCenterMatchCoordinator = State(initialValue: GameCenterMatchCoordinator(ledgerCoordinator: ledger))
+        #endif
     }
 
     public var body: some View {
@@ -41,9 +53,11 @@ public struct RootView: View {
             if let singleMatchViewModel {
                 matchView(for: singleMatchViewModel)
             } else if let activeMatchViewModel {
-                matchView(for: activeMatchViewModel) {
-                    self.activeMatchViewModel = nil
-                }
+                matchView(
+                    for: activeMatchViewModel,
+                    onBackToRivals: { self.activeMatchViewModel = nil },
+                    onSendReminder: reminderActionForActiveMatch
+                )
                     .sheet(item: $completedRecord) { record in
                         MatchEndSheet(
                             record: record,
@@ -59,7 +73,7 @@ public struct RootView: View {
                 GameCenterHomeView(
                     session: gameCenterSession,
                     ledgerCoordinator: coordinator,
-                    matchCoordinator: GameCenterMatchCoordinator(ledgerCoordinator: coordinator),
+                    matchCoordinator: gameCenterMatchCoordinator,
                     onOpenLocalMatch: openMatch,
                     onOpenMatch: openGameCenterMatch
                 )
@@ -90,15 +104,28 @@ public struct RootView: View {
         }
     }
 
+    private var reminderActionForActiveMatch: (@MainActor () async -> Void)? {
+        #if canImport(GameKit) && canImport(UIKit)
+        return gameCenterReminderAction()
+        #else
+        return nil
+        #endif
+    }
+
     @ViewBuilder
     private func matchView(
         for viewModel: MatchViewModel,
-        onBackToRivals: (() -> Void)? = nil
+        onBackToRivals: (() -> Void)? = nil,
+        onSendReminder: (@MainActor () async -> Void)? = nil
     ) -> some View {
         if viewModel.doubleOfferForLocalPlayer != nil {
             DoubleOfferSheet(viewModel: viewModel, onBackToRivals: onBackToRivals)
         } else if viewModel.isOpponentTurn {
-            OpponentTurnView(viewModel: viewModel, onBackToRivals: onBackToRivals)
+            OpponentTurnView(
+                viewModel: viewModel,
+                onBackToRivals: onBackToRivals,
+                onSendReminder: onSendReminder
+            )
         } else {
             BoardView(viewModel: viewModel, onBackToRivals: onBackToRivals)
         }
@@ -162,24 +189,51 @@ public struct RootView: View {
     #if canImport(GameKit) && canImport(UIKit)
     private func configureGameCenterCallbacks() {
         gameCenterSession.onTurnEvent = { match, _ in
-            Task {
-                await loadAndOpenGameCenterMatch(match)
-            }
+            Task { await loadAndOpenGameCenterMatch(match) }
         }
         gameCenterSession.onMatchEnded = { match in
-            Task {
-                await loadAndOpenGameCenterMatch(match)
-            }
+            Task { await loadAndOpenGameCenterMatch(match) }
+        }
+        gameCenterSession.onWantsToQuitMatch = { match in
+            Task { await handleWantsToQuit(match) }
         }
     }
 
     private func loadAndOpenGameCenterMatch(_ match: GKTurnBasedMatch) async {
         do {
-            let loaded = try await GameCenterMatchCoordinator(ledgerCoordinator: coordinator)
-                .load(match: match)
+            let loaded = try await gameCenterMatchCoordinator.load(match: match)
             openGameCenterMatch(loaded)
         } catch {
             routeError = error.localizedDescription
+        }
+    }
+
+    private func handleWantsToQuit(_ match: GKTurnBasedMatch) async {
+        let loaded: GameCenterLoadedMatch
+        do {
+            loaded = try await gameCenterMatchCoordinator.load(match: match)
+            try await gameCenterMatchCoordinator.quit(loaded: loaded)
+        } catch {
+            routeError = error.localizedDescription
+            return
+        }
+
+        if activeGameCenterMatch?.match.matchID == match.matchID {
+            activeMatchViewModel = nil
+            activeGameCenterMatch = nil
+        }
+        await coordinator.refresh()
+    }
+
+    private func gameCenterReminderAction() -> (@MainActor () async -> Void)? {
+        guard activeGameCenterMatch != nil else { return nil }
+        return { [gameCenterMatchCoordinator] in
+            guard let current = activeGameCenterMatch else { return }
+            do {
+                try await gameCenterMatchCoordinator.sendReminder(for: current)
+            } catch {
+                routeError = error.localizedDescription
+            }
         }
     }
 
@@ -202,12 +256,11 @@ public struct RootView: View {
             isOpponentAutoplayEnabled: false
         )
 
-        viewModel.onStateChange = { state in
+        viewModel.onStateChange = { [gameCenterMatchCoordinator] state in
             Task {
                 do {
                     guard let current = activeGameCenterMatch else { return }
-                    let updated = try await GameCenterMatchCoordinator(ledgerCoordinator: coordinator)
-                        .commit(state: state, for: current)
+                    let updated = try await gameCenterMatchCoordinator.commit(state: state, for: current)
                     activeGameCenterMatch = updated
                 } catch {
                     routeError = error.localizedDescription
@@ -215,12 +268,11 @@ public struct RootView: View {
             }
         }
 
-        viewModel.onCompletion = { state in
+        viewModel.onCompletion = { [gameCenterMatchCoordinator] state in
             Task {
                 do {
                     guard let current = activeGameCenterMatch else { return }
-                    let updated = try await GameCenterMatchCoordinator(ledgerCoordinator: coordinator)
-                        .commit(state: state, for: current)
+                    let updated = try await gameCenterMatchCoordinator.commit(state: state, for: current)
                     activeGameCenterMatch = updated
                     completedRecord = coordinator.latestCompletedRecord
                 } catch {

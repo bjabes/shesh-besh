@@ -23,7 +23,7 @@ public enum GameCenterAuthState: Equatable, Sendable {
 
 @MainActor
 @Observable
-public final class GameCenterSession: NSObject, GKLocalPlayerListener {
+public final class GameCenterSession: NSObject, @preconcurrency GKLocalPlayerListener {
     public private(set) var authState: GameCenterAuthState = .notStarted
     public private(set) var localPlayerID: String?
     public private(set) var localDisplayName: String?
@@ -33,6 +33,7 @@ public final class GameCenterSession: NSObject, GKLocalPlayerListener {
 
     @ObservationIgnored public var onTurnEvent: (@MainActor (GKTurnBasedMatch, Bool) -> Void)?
     @ObservationIgnored public var onMatchEnded: (@MainActor (GKTurnBasedMatch) -> Void)?
+    @ObservationIgnored public var onWantsToQuitMatch: (@MainActor (GKTurnBasedMatch) -> Void)?
 
     public func authenticate() {
         let attemptID = UUID()
@@ -108,44 +109,24 @@ public final class GameCenterSession: NSObject, GKLocalPlayerListener {
         }
     }
 
-    public func loadMatches() async throws -> [GameCenterTurnBasedMatchBox] {
-        try await withCheckedThrowingContinuation { continuation in
-            GKTurnBasedMatch.loadMatches { matches, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: (matches ?? []).map(GameCenterTurnBasedMatchBox.init(match:)))
-                }
-            }
-        }
+    public func loadMatches() async throws -> [GKTurnBasedMatch] {
+        try await GKTurnBasedMatch.loadMatches() ?? []
     }
 
-    nonisolated public func player(
+    public func player(
         _ player: GKPlayer,
         receivedTurnEventFor match: GKTurnBasedMatch,
         didBecomeActive: Bool
     ) {
-        let matchBox = GameCenterTurnBasedMatchBox(match: match)
-        DispatchQueue.main.async { [weak self] in
-            self?.onTurnEvent?(matchBox.match, didBecomeActive)
-        }
+        onTurnEvent?(match, didBecomeActive)
     }
 
-    nonisolated public func player(_ player: GKPlayer, matchEnded match: GKTurnBasedMatch) {
-        let matchBox = GameCenterTurnBasedMatchBox(match: match)
-        DispatchQueue.main.async { [weak self] in
-            self?.onMatchEnded?(matchBox.match)
-        }
+    public func player(_ player: GKPlayer, matchEnded match: GKTurnBasedMatch) {
+        onMatchEnded?(match)
     }
-}
 
-public final class GameCenterTurnBasedMatchBox: @unchecked Sendable, Identifiable {
-    public let id: String
-    public let match: GKTurnBasedMatch
-
-    public init(match: GKTurnBasedMatch) {
-        self.id = match.matchID
-        self.match = match
+    public func player(_ player: GKPlayer, wantsToQuitMatch match: GKTurnBasedMatch) {
+        onWantsToQuitMatch?(match)
     }
 }
 
@@ -197,7 +178,7 @@ public final class GameCenterMatchCoordinator {
 
     public func load(match: GKTurnBasedMatch, targetScore: Int = 7) async throws -> GameCenterLoadedMatch {
         let localPlayerID = GKLocalPlayer.local.gamePlayerID
-        let data = try await match.loadGameData()
+        let data = try await match.loadMatchData()
         let envelope: GameCenterMatchEnvelope
 
         if let data, !data.isEmpty {
@@ -226,7 +207,9 @@ public final class GameCenterMatchCoordinator {
     }
 
     public func commit(state: MatchState, for loaded: GameCenterLoadedMatch) async throws -> GameCenterLoadedMatch {
-        guard loaded.match.currentParticipant?.player?.gamePlayerID == loaded.localPlayerID else {
+        let match = try await GKTurnBasedMatch.load(withID: loaded.match.matchID)
+
+        guard match.currentParticipant?.player?.gamePlayerID == loaded.localPlayerID else {
             throw GameCenterCoordinatorError.notLocalPlayersTurn
         }
 
@@ -236,22 +219,30 @@ public final class GameCenterMatchCoordinator {
         envelope.state = state
         envelope.config = state.config
 
-        let data = try validatedData(for: envelope, maximumSize: loaded.match.matchDataMaximumSize)
+        let data = try validatedData(for: envelope, maximumSize: match.matchDataMaximumSize)
 
         if state.completion != nil {
-            try await endMatch(loaded.match, envelope: envelope, data: data)
+            try await endMatch(match, envelope: envelope, data: data)
         } else if let activePlayer = activePlayer(in: state),
                   activePlayer != loaded.localPlayer {
             envelope.turnCounter += 1
-            let turnData = try validatedData(for: envelope, maximumSize: loaded.match.matchDataMaximumSize)
-            let nextParticipant = try participant(for: activePlayer, in: loaded.match, envelope: envelope)
-            try await loaded.match.endTurn(to: nextParticipant, data: turnData)
+            let turnData = try validatedData(for: envelope, maximumSize: match.matchDataMaximumSize)
+            let nextParticipant = try participant(for: activePlayer, in: match, envelope: envelope)
+            match.setLocalizableMessageWithKey(
+                "%@ played a turn in Shesh Besh.",
+                arguments: [GKLocalPlayer.local.displayName]
+            )
+            try await match.endTurn(
+                withNextParticipants: [nextParticipant],
+                turnTimeout: GKTurnTimeoutDefault,
+                match: turnData
+            )
         } else {
-            try await loaded.match.saveCurrentTurnData(data)
+            try await match.saveCurrentTurn(withMatch: data)
         }
 
         let updated = try await reconcileLedger(
-            for: loaded.match,
+            for: match,
             envelope: envelope,
             localPlayerID: loaded.localPlayerID
         )
@@ -264,8 +255,28 @@ public final class GameCenterMatchCoordinator {
     }
 
     public func sendReminder(for loaded: GameCenterLoadedMatch) async throws {
-        let nextParticipant = try participant(for: loaded.opponentPlayer, in: loaded.match, envelope: loaded.envelope)
-        try await loaded.match.sendGameCenterReminder(to: nextParticipant)
+        let match = try await GKTurnBasedMatch.load(withID: loaded.match.matchID)
+        let nextParticipant = try participant(for: loaded.opponentPlayer, in: match, envelope: loaded.envelope)
+        try await match.sendReminder(
+            to: [nextParticipant],
+            localizableMessageKey: "Your move in Shesh Besh.",
+            arguments: []
+        )
+    }
+
+    public func quit(loaded: GameCenterLoadedMatch) async throws {
+        let match = try await GKTurnBasedMatch.load(withID: loaded.match.matchID)
+        if match.currentParticipant?.player?.gamePlayerID == loaded.localPlayerID {
+            let nextParticipants = match.participants.filter { $0 != match.currentParticipant }
+            try await match.participantQuitInTurn(
+                with: .quit,
+                nextParticipants: nextParticipants,
+                turnTimeout: GKTurnTimeoutDefault,
+                match: match.matchData ?? Data()
+            )
+        } else {
+            try await match.participantQuitOutOfTurn(with: .quit)
+        }
     }
 
     private func reconcileLedger(
@@ -311,7 +322,7 @@ public final class GameCenterMatchCoordinator {
 
     private func save(envelope: GameCenterMatchEnvelope, to match: GKTurnBasedMatch) async throws {
         let data = try validatedData(for: envelope, maximumSize: match.matchDataMaximumSize)
-        try await match.saveCurrentTurnData(data)
+        try await match.saveCurrentTurn(withMatch: data)
     }
 
     private func endMatch(
@@ -326,7 +337,7 @@ public final class GameCenterMatchCoordinator {
             participant.matchOutcome = participant.player?.gamePlayerID == winnerID ? .won : .lost
         }
 
-        try await match.endMatch(data: data)
+        try await match.endMatchInTurn(withMatch: data)
     }
 
     private func validatedData(for envelope: GameCenterMatchEnvelope, maximumSize: Int) throws -> Data {
@@ -684,15 +695,7 @@ public struct GameCenterHomeView: View {
         defer { isLoadingMatches = false }
 
         do {
-            let matchBoxes = try await session.loadMatches()
-            var gameCenterMatches: [GKTurnBasedMatch] = []
-            for box in matchBoxes {
-                let match = box.match
-                let status = match.status
-                if status == .open || status == .matching || status == .ended {
-                    gameCenterMatches.append(match)
-                }
-            }
+            let gameCenterMatches = try await session.loadMatches()
             var loaded: [GameCenterLoadedMatch] = []
             for match in gameCenterMatches {
                 loaded.append(try await matchCoordinator.load(match: match, targetScore: selectedTargetScore))
@@ -824,79 +827,5 @@ private struct EmptyGameCenterLedgerView: View {
 private struct AuthenticationController: Identifiable {
     let id = UUID()
     let viewController: UIViewController
-}
-
-@MainActor
-private extension GKTurnBasedMatch {
-    func loadGameData() async throws -> Data? {
-        try await withCheckedThrowingContinuation { continuation in
-            loadMatchData { data, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: data)
-                }
-            }
-        }
-    }
-
-    func saveCurrentTurnData(_ data: Data) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            saveCurrentTurn(withMatch: data) { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
-                }
-            }
-        }
-    }
-
-    func endTurn(to participant: GKTurnBasedParticipant, data: Data) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            endTurn(
-                withNextParticipants: [participant],
-                turnTimeout: GKTurnTimeoutDefault,
-                match: data
-            ) { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
-                }
-            }
-        }
-    }
-
-    func endMatch(data: Data) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            endMatchInTurn(withMatch: data) { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
-                }
-            }
-        }
-    }
-}
-
-private extension GKTurnBasedMatch {
-    @MainActor
-    func sendGameCenterReminder(to participant: GKTurnBasedParticipant) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            sendReminder(
-                to: [participant],
-                localizableMessageKey: "Your move in Shesh Besh.",
-                arguments: []
-            ) { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
-                }
-            }
-        }
-    }
 }
 #endif

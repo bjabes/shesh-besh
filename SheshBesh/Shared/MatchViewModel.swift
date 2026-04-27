@@ -6,7 +6,7 @@ import SheshBeshGame
 @Observable
 public final class MatchViewModel {
     private let engine: MatchEngine
-    private let opponentController: RandomDanOpponent
+    private let opponentController: LocalAIOpponent
     private let opponentDelay: @Sendable () async -> Void
     @ObservationIgnored private var opponentTask: Task<Void, Never>?
 
@@ -33,11 +33,11 @@ public final class MatchViewModel {
         engine: MatchEngine = MatchEngine(),
         config: MatchConfig = .tournament(targetScore: 1),
         localPlayer: Player = .white,
-        opponentName: String = "Random Dan",
+        opponentName: String = "Local AI",
         activeMatchID: UUID = UUID(),
         initialState: MatchState? = nil,
         isOpponentAutoplayEnabled: Bool = true,
-        opponentController: RandomDanOpponent = RandomDanOpponent(),
+        opponentController: LocalAIOpponent = LocalAIOpponent(),
         opponentDelay: @escaping @Sendable () async -> Void = {
             let nanoseconds = UInt64(Double.random(in: 0.8...1.2) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: nanoseconds)
@@ -478,7 +478,7 @@ public final class MatchViewModel {
     }
 }
 
-public struct RandomDanOpponent: Sendable {
+public struct LocalAIOpponent: Sendable {
     private let randomIndex: @Sendable (Int) -> Int
 
     public init(randomIndex: @escaping @Sendable (Int) -> Int = { upperBound in

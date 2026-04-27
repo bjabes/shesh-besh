@@ -30,12 +30,24 @@ public final class GameCenterSession: NSObject, @preconcurrency GKLocalPlayerLis
     public var authenticationViewController: UIViewController?
     public var lastErrorMessage: String?
     private var authenticationAttemptID = UUID()
+    private var hasStarted = false
 
     @ObservationIgnored public var onTurnEvent: (@MainActor (GKTurnBasedMatch, Bool) -> Void)?
     @ObservationIgnored public var onMatchEnded: (@MainActor (GKTurnBasedMatch) -> Void)?
     @ObservationIgnored public var onWantsToQuitMatch: (@MainActor (GKTurnBasedMatch) -> Void)?
 
-    public func authenticate() {
+    public func start() {
+        guard !hasStarted else { return }
+        hasStarted = true
+        beginAuthentication()
+    }
+
+    public func retry() {
+        guard !authState.isAuthenticated, authState != .authenticating else { return }
+        beginAuthentication()
+    }
+
+    private func beginAuthentication() {
         let attemptID = UUID()
         authenticationAttemptID = attemptID
         authState = .authenticating
@@ -652,7 +664,7 @@ public struct GameCenterHomeView: View {
 
             if !session.authState.isAuthenticated {
                 Button {
-                    session.authenticate()
+                    session.retry()
                 } label: {
                     Label(authButtonTitle, systemImage: "person.crop.circle.badge.checkmark")
                         .frame(maxWidth: .infinity)
@@ -726,7 +738,7 @@ public struct GameCenterHomeView: View {
 
     private func startGameCenterInvite() {
         guard session.authState.isAuthenticated else {
-            session.authenticate()
+            session.retry()
             return
         }
         isShowingMatchmaker = true
@@ -825,7 +837,7 @@ private struct EmptyGameCenterLedgerView: View {
 }
 
 private struct AuthenticationController: Identifiable {
-    let id = UUID()
     let viewController: UIViewController
+    var id: ObjectIdentifier { ObjectIdentifier(viewController) }
 }
 #endif

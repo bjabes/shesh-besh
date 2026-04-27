@@ -95,15 +95,7 @@ public actor JSONLedgerStore: LedgerStore {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(snapshot)
 
-        let temporaryURL = Self.temporaryURL(for: fileURL)
-        try? fileManager.removeItem(at: temporaryURL)
-        try data.write(to: temporaryURL)
-
-        if fileManager.fileExists(atPath: fileURL.path) {
-            _ = try fileManager.replaceItemAt(fileURL, withItemAt: temporaryURL)
-        } else {
-            try fileManager.moveItem(at: temporaryURL, to: fileURL)
-        }
+        try data.write(to: fileURL, options: [.atomic])
     }
 
     private static func loadSnapshot(from fileURL: URL) throws -> PersistedSnapshot {
@@ -119,11 +111,6 @@ public actor JSONLedgerStore: LedgerStore {
         return decoded
     }
 
-    private static func temporaryURL(for fileURL: URL) -> URL {
-        fileURL
-            .deletingLastPathComponent()
-            .appendingPathComponent(".\(fileURL.lastPathComponent).tmp")
-    }
 }
 
 private struct PersistedSnapshot: Codable, Equatable, Sendable {

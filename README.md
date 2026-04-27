@@ -51,7 +51,7 @@ runnable app bundle.
 
 ## Building and Running Tests
 
-Run the same top-level verification that CI runs:
+Run the full local verification on macOS:
 
 ```sh
 ./scripts/test.sh
@@ -59,7 +59,14 @@ Run the same top-level verification that CI runs:
 
 This builds and tests the Swift package, then builds the checked-in Xcode
 project for iOS Simulator, catching drift between the SwiftPM and Xcode build
-paths. GitHub Actions runs this script for pushes and pull requests to `main`.
+paths. On macOS, root `swift test` includes the pure engine and ledger tests
+plus `SheshBeshAppTests`.
+
+GitHub Actions runs root `swift test` in a Linux Swift container for pushes and
+pull requests to `main`. On Linux, the root package intentionally exposes only
+the SwiftUI-independent `SheshBeshGame` and `SheshBeshLedger` targets and their
+tests, so the cloud runner does not compile app code that depends on Apple UI
+frameworks.
 
 Pull requests also run a dedicated screenshot workflow. It drives the
 deterministic UI test flow, exports the kept screenshots, uploads them as the

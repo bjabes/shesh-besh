@@ -296,11 +296,14 @@ public final class MatchViewModel {
             return false
         }
 
-        let hadCompletion = turnDraftSnapshots.first?.completion != nil
         turnDraftSnapshots.removeAll()
         lastError = nil
         refreshDerivedState()
-        notifyStorageCallbacks(hadCompletion: hadCompletion)
+        if state.completion != nil {
+            notifyCompletionIfNeeded()
+        } else {
+            onStateChange?(state)
+        }
         turnNotice = nil
         scheduleOpponentTurnIfNeeded()
         return true
@@ -419,12 +422,17 @@ public final class MatchViewModel {
     }
 
     private func notifyStorageCallbacks(hadCompletion: Bool) {
-        if !hadCompletion, state.completion != nil, !didNotifyCompletion {
-            didNotifyCompletion = true
-            onCompletion?(state)
+        if !hadCompletion, state.completion != nil {
+            notifyCompletionIfNeeded()
         } else if state.completion == nil {
             onStateChange?(state)
         }
+    }
+
+    private func notifyCompletionIfNeeded() {
+        guard !didNotifyCompletion else { return }
+        didNotifyCompletion = true
+        onCompletion?(state)
     }
 
     private func friendlyErrorMessage(_ error: Error) -> String {

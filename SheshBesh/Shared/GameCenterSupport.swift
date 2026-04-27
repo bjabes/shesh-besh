@@ -120,6 +120,38 @@ public final class GameCenterSession: NSObject, GKLocalPlayerListener {
         }
     }
 
+    public func loadFriends() async throws -> [GameCenterPlayerBox] {
+        try await withCheckedThrowingContinuation { continuation in
+            GKLocalPlayer.local.loadFriends { friends, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: (friends ?? []).map(GameCenterPlayerBox.init(player:)))
+                }
+            }
+        }
+    }
+
+    public func startMatch(with friend: GameCenterPlayerBox, targetScore: Int) async throws -> GameCenterTurnBasedMatchBox {
+        let request = GKMatchRequest()
+        request.minPlayers = 2
+        request.maxPlayers = 2
+        request.recipients = [friend.player]
+        request.inviteMessage = "Play a \(targetScore)-point Shesh Besh match."
+
+        return try await withCheckedThrowingContinuation { continuation in
+            GKTurnBasedMatch.find(for: request) { match, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let match {
+                    continuation.resume(returning: GameCenterTurnBasedMatchBox(match: match))
+                } else {
+                    continuation.resume(throwing: GameCenterInviteError.matchUnavailable)
+                }
+            }
+        }
+    }
+
     nonisolated public func player(
         _ player: GKPlayer,
         receivedTurnEventFor match: GKTurnBasedMatch,
@@ -139,6 +171,20 @@ public final class GameCenterSession: NSObject, GKLocalPlayerListener {
     }
 }
 
+public final class GameCenterPlayerBox: @unchecked Sendable, Identifiable {
+    public let id: String
+    public let player: GKPlayer
+
+    public var displayName: String {
+        player.displayName
+    }
+
+    public init(player: GKPlayer) {
+        self.id = player.gamePlayerID
+        self.player = player
+    }
+}
+
 public final class GameCenterTurnBasedMatchBox: @unchecked Sendable, Identifiable {
     public let id: String
     public let match: GKTurnBasedMatch
@@ -146,6 +192,17 @@ public final class GameCenterTurnBasedMatchBox: @unchecked Sendable, Identifiabl
     public init(match: GKTurnBasedMatch) {
         self.id = match.matchID
         self.match = match
+    }
+}
+
+public enum GameCenterInviteError: Error, LocalizedError, Sendable {
+    case matchUnavailable
+
+    public var errorDescription: String? {
+        switch self {
+        case .matchUnavailable:
+            "Game Center did not return a match for that friend."
+        }
     }
 }
 
@@ -429,77 +486,6 @@ public enum GameCenterCoordinatorError: Error, LocalizedError, Sendable {
     }
 }
 
-public struct GameCenterMatchmakerSheet: UIViewControllerRepresentable {
-    public let targetScore: Int
-    public let onMatchFound: @MainActor (GKTurnBasedMatch, Int) -> Void
-    public let onCancel: @MainActor () -> Void
-    public let onError: @MainActor (Error) -> Void
-
-    public init(
-        targetScore: Int,
-        onMatchFound: @escaping @MainActor (GKTurnBasedMatch, Int) -> Void,
-        onCancel: @escaping @MainActor () -> Void,
-        onError: @escaping @MainActor (Error) -> Void
-    ) {
-        self.targetScore = targetScore
-        self.onMatchFound = onMatchFound
-        self.onCancel = onCancel
-        self.onError = onError
-    }
-
-    public func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
-
-    public func makeUIViewController(context: Context) -> GKTurnBasedMatchmakerViewController {
-        let request = GKMatchRequest()
-        request.minPlayers = 2
-        request.maxPlayers = 2
-        request.defaultNumberOfPlayers = 2
-        request.inviteMessage = "Play a \(targetScore)-point Shesh Besh match."
-
-        let controller = GKTurnBasedMatchmakerViewController(matchRequest: request)
-        controller.turnBasedMatchmakerDelegate = context.coordinator
-        controller.showExistingMatches = true
-        return controller
-    }
-
-    public func updateUIViewController(_ uiViewController: GKTurnBasedMatchmakerViewController, context: Context) {}
-
-    @MainActor
-    public final class Coordinator: NSObject, @preconcurrency GKTurnBasedMatchmakerViewControllerDelegate {
-        private let parent: GameCenterMatchmakerSheet
-
-        init(parent: GameCenterMatchmakerSheet) {
-            self.parent = parent
-        }
-
-        @MainActor
-        public func turnBasedMatchmakerViewControllerWasCancelled(_ viewController: GKTurnBasedMatchmakerViewController) {
-            viewController.dismiss(animated: true)
-            parent.onCancel()
-        }
-
-        @MainActor
-        public func turnBasedMatchmakerViewController(
-            _ viewController: GKTurnBasedMatchmakerViewController,
-            didFailWithError error: any Error
-        ) {
-            viewController.dismiss(animated: true)
-            parent.onError(error)
-        }
-
-        @MainActor
-        public func turnBasedMatchmakerViewController(
-            _ viewController: GKTurnBasedMatchmakerViewController,
-            didFind match: GKTurnBasedMatch
-        ) {
-            viewController.dismiss(animated: true)
-            parent.onMatchFound(match, parent.targetScore)
-        }
-    }
-}
-
 public struct GameCenterHomeView: View {
     public let session: GameCenterSession
     public let ledgerCoordinator: LedgerCoordinator
@@ -510,7 +496,11 @@ public struct GameCenterHomeView: View {
     @State private var matches: [GameCenterLoadedMatch] = []
     @State private var isLoadingMatches = false
     @State private var isWorking = false
-    @State private var isShowingMatchmaker = false
+    @State private var isShowingFriends = false
+    @State private var gameCenterFriends: [GameCenterPlayerBox] = []
+    @State private var isLoadingFriends = false
+    @State private var friendsError: String?
+    @State private var invitingFriendID: String?
     @State private var selectedTargetScore = 7
     @State private var localError: String?
 
@@ -575,15 +565,19 @@ public struct GameCenterHomeView: View {
         .sheet(item: authenticationBinding) { controller in
             GameCenterAuthenticationSheet(viewController: controller.viewController)
         }
-        .sheet(isPresented: $isShowingMatchmaker) {
-            GameCenterMatchmakerSheet(
-                targetScore: selectedTargetScore,
-                onMatchFound: { match, targetScore in
-                    Task { await loadAndOpen(match: match, targetScore: targetScore) }
-                },
-                onCancel: {},
-                onError: { error in localError = error.localizedDescription }
+        .sheet(isPresented: $isShowingFriends) {
+            GameCenterFriendsSheet(
+                friends: gameCenterFriends,
+                isLoading: isLoadingFriends,
+                errorMessage: friendsError,
+                invitingFriendID: invitingFriendID,
+                onRefresh: loadGameCenterFriends,
+                onInvite: invite,
+                onCancel: { isShowingFriends = false }
             )
+            .task {
+                await loadGameCenterFriendsIfNeeded()
+            }
         }
         .alert(
             "Game Center Error",
@@ -726,7 +720,44 @@ public struct GameCenterHomeView: View {
             session.authenticate()
             return
         }
-        isShowingMatchmaker = true
+        isShowingFriends = true
+    }
+
+    private func loadGameCenterFriendsIfNeeded() async {
+        guard gameCenterFriends.isEmpty, friendsError == nil else { return }
+        await loadGameCenterFriends()
+    }
+
+    private func loadGameCenterFriends() async {
+        guard session.authState.isAuthenticated else { return }
+        isLoadingFriends = true
+        friendsError = nil
+        defer { isLoadingFriends = false }
+
+        do {
+            gameCenterFriends = try await session.loadFriends()
+                .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+        } catch {
+            friendsError = error.localizedDescription
+        }
+    }
+
+    private func invite(_ friend: GameCenterPlayerBox) {
+        guard invitingFriendID == nil else { return }
+        invitingFriendID = friend.id
+        friendsError = nil
+
+        Task {
+            defer { invitingFriendID = nil }
+
+            do {
+                let matchBox = try await session.startMatch(with: friend, targetScore: selectedTargetScore)
+                isShowingFriends = false
+                await loadAndOpen(match: matchBox.match, targetScore: selectedTargetScore)
+            } catch {
+                friendsError = error.localizedDescription
+            }
+        }
     }
 
     private func startMatch(for ledger: RivalLedger) {
@@ -793,6 +824,99 @@ public struct GameCenterHomeView: View {
             onOpenMatch(loaded)
         } catch {
             localError = error.localizedDescription
+        }
+    }
+}
+
+private struct GameCenterFriendsSheet: View {
+    let friends: [GameCenterPlayerBox]
+    let isLoading: Bool
+    let errorMessage: String?
+    let invitingFriendID: String?
+    let onRefresh: () async -> Void
+    let onInvite: (GameCenterPlayerBox) -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if isLoading {
+                    HStack(spacing: 12) {
+                        ProgressView()
+                        Text("Loading friends")
+                            .font(LedgerTheme.uiFont(size: 15, weight: .semibold))
+                            .foregroundStyle(LedgerTheme.mutedInk)
+                    }
+                    .padding(.vertical, 10)
+                    .accessibilityIdentifier("game-center-friends-loading")
+                } else if let errorMessage {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Friends unavailable")
+                            .font(LedgerTheme.uiFont(size: 17, weight: .bold))
+                            .foregroundStyle(LedgerTheme.ink)
+                        Text(errorMessage)
+                            .font(LedgerTheme.uiFont(size: 14))
+                            .foregroundStyle(LedgerTheme.mutedInk)
+                        Button("Try Again") {
+                            Task { await onRefresh() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(LedgerTheme.rust)
+                    }
+                    .padding(.vertical, 10)
+                    .accessibilityIdentifier("game-center-friends-error")
+                } else if friends.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("No Game Center friends")
+                            .font(LedgerTheme.uiFont(size: 17, weight: .bold))
+                            .foregroundStyle(LedgerTheme.ink)
+                        Text("Friends appear here after they grant Shesh Besh access to their Game Center friends list.")
+                            .font(LedgerTheme.uiFont(size: 14))
+                            .foregroundStyle(LedgerTheme.mutedInk)
+                    }
+                    .padding(.vertical, 10)
+                    .accessibilityIdentifier("game-center-friends-empty")
+                } else {
+                    ForEach(friends) { friend in
+                        Button {
+                            onInvite(friend)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "person.crop.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(LedgerTheme.rust)
+                                    .frame(width: 30)
+
+                                Text(friend.displayName)
+                                    .font(LedgerTheme.uiFont(size: 16, weight: .semibold))
+                                    .foregroundStyle(LedgerTheme.ink)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.76)
+
+                                Spacer(minLength: 8)
+
+                                if invitingFriendID == friend.id {
+                                    ProgressView()
+                                } else {
+                                    Image(systemName: "paperplane.fill")
+                                        .foregroundStyle(LedgerTheme.brass)
+                                }
+                            }
+                            .padding(.vertical, 7)
+                        }
+                        .disabled(invitingFriendID != nil)
+                        .accessibilityIdentifier("game-center-friend-\(friend.id)")
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Game Center Friends")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+            }
         }
     }
 }

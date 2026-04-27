@@ -119,7 +119,7 @@ struct LedgerCoordinatorTests {
         #expect(records.first?.gameIndex == 0)
     }
 
-    @Test("AI rivalry starts or resumes a Random Dan quick match")
+    @Test("AI rivalry starts or resumes a Local AI quick match")
     @MainActor
     func aiRivalryStartsOrResumesQuickMatch() async throws {
         let store = InMemoryLedgerStore()
@@ -131,11 +131,27 @@ struct LedgerCoordinatorTests {
         let rivals = try await store.loadRivals()
 
         #expect(rivals.count == 1)
-        #expect(rival.displayName == "Random Dan")
+        #expect(rival.displayName == "Local AI")
         #expect(rival.gameCenterPlayerID == nil)
         #expect(firstMatch.id == secondMatch.id)
         #expect(firstMatch.userPlayed == .white)
         #expect(firstMatch.state.config.targetScore == 1)
+    }
+
+    @Test("AI rivalry renames legacy Random Dan rival to Local AI")
+    @MainActor
+    func aiRivalryRenamesLegacyRandomDanRival() async throws {
+        let legacyRival = Rival(displayName: "Random Dan")
+        let store = InMemoryLedgerStore(rivals: [legacyRival])
+        let coordinator = LedgerCoordinator(store: store)
+
+        let match = try await coordinator.startAIRivalry()
+        let rivals = try await store.loadRivals()
+
+        #expect(rivals.count == 1)
+        #expect(rivals.first?.id == legacyRival.id)
+        #expect(rivals.first?.displayName == "Local AI")
+        #expect(match.rivalID == legacyRival.id)
     }
 }
 

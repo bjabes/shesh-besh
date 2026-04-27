@@ -6,15 +6,15 @@ Deferred items surfaced during /plan-eng-review on 2026-04-23. Each captures wha
 
 ## Commit-reveal dice protocol (post-V1)
 
-**What:** Replace the deterministic-seed dice RNG with a commit-reveal protocol. Each player generates a private random seed contribution, commits a hash of it before their opponent's turn, and reveals the preimage with the turn. Combined seeds drive `GKMersenneTwisterRandomSource`.
+**What:** Replace the current production dice roller with a commit-reveal protocol. Each player generates a private random seed contribution, commits a hash of it before their opponent's turn, and reveals the preimage with the turn. Combined seeds drive the roll.
 
-**Why:** Current V1 dice are deterministic from `SHA256(matchID) XOR turnCounter`. Both players can compute the same seed — and therefore any motivated player can compute all future rolls. Documented as friendly-game-only in `Dice.swift`. Commit-reveal removes the caveat entirely without a server.
+**Why:** Production `MatchEngine()` currently uses `SystemDiceRoller`, which calls `Int.random(in: 1...6)`. That is fine for local play and deterministic tests can inject a scripted `DiceRolling`, but async multiplayer needs a verifiable fairness story. Commit-reveal removes the need to trust one device or a server for dice.
 
-**Pros:** Trust model extends to strangers / money play. Removes a known limitation before it's ever exploited. Enables honest app-store positioning as "fair dice."
+**Pros:** Trust model extends beyond friendly local play. Enables honest app-store positioning around fair dice. Keeps the engine testable through the existing `DiceRolling` injection point.
 
-**Cons:** Adds round-trips to `MatchState` serialization (commit field per turn). Reveal-missing recovery needed (what if opponent drops the app mid-turn after committing?). ~1 weekend of careful work including tests.
+**Cons:** Adds round-trips to `MatchState` serialization. Reveal-missing recovery is needed (what if an opponent drops the app mid-turn after committing?). Requires careful migration for saved games if shipped after persistence.
 
-**Context:** Rules engine in `Game/` already decouples RNG from turn logic. Swap is localized to `Dice.swift` + `MatchState` two-field addition (`myCommit`, `myReveal`). Existing schemaVersion gating handles the transition.
+**Context:** The rules engine is in `Packages/SheshBeshGame/Sources/SheshBeshGame`. Dice are already decoupled from turn logic through `DiceRolling` in `Dice.swift`; current state types live in `State.swift`.
 
 **Depends on / blocked by:** None. Can land any time post-V1.
 
@@ -22,15 +22,15 @@ Deferred items surfaced during /plan-eng-review on 2026-04-23. Each captures wha
 
 ## CloudKit ledger sync (post-V1)
 
-**What:** Sync `LedgerStore` JSON file into CloudKit private database so head-to-head records survive reinstalls and cross over to a new iPhone.
+**What:** Once the V1 head-to-head ledger exists, sync it into CloudKit private database so records survive reinstalls and cross over to a new iPhone.
 
-**Why:** V1 ledger is a local JSON file in the app's Documents directory. Reinstall = wipe. "47-42 across 89 matches" is the thesis of the app; losing it because you switched phones is a brand-damaging bug-shaped UX problem.
+**Why:** The current repo has match state and app UI tests, but no ledger module yet. When the ledger is added, local-only storage will make reinstall or phone migration wipe the core "47-42 across 89 matches" history.
 
 **Pros:** Ledger persists across devices. Free with a normal Apple ID. No custom backend. Matches iOS-native expectations.
 
-**Cons:** CloudKit private DB has its own conflict resolution and schema-migration surface. Need to handle offline-first read/write. Adds ~2-3 days of integration + QA.
+**Cons:** CloudKit private DB has its own conflict resolution and schema-migration surface. Need to handle offline-first read/write. Adds integration and QA time after the ledger shape stabilizes.
 
-**Context:** `LedgerStore` has a tight interface (`recordMatch(_:)`, `fetchRival(id:)`, `all()`). CloudKit replacement is a drop-in with a sync layer behind the same protocol. Read `Rival` and `MatchRecord` types from `Ledger/` module.
+**Context:** No `LedgerStore`, `Rival`, `MatchRecord`, or `Ledger/` module exists in this repo yet. Define a small storage protocol when the ledger lands, then make CloudKit a backing implementation behind that protocol.
 
 **Depends on / blocked by:** V1 ledger shape must stabilize before migrating to CloudKit schema.
 
@@ -46,19 +46,19 @@ Deferred items surfaced during /plan-eng-review on 2026-04-23. Each captures wha
 
 **Cons:** Legal-destination computation must run on gesture predicates, not post-tap — more perf pressure. Accessibility concern (drag is harder than tap for motor-impaired users — keep tap as fallback). ~2-3 days with polish.
 
-**Context:** `BoardView` already needs legal-dest computation per tap; expand to track drag position. `Game/` exports `MoveValidator.legalDestinations(from:dice:)`.
+**Context:** `BoardView` already computes legal destinations for tap selection through `MatchViewModel.legalDestinations(from:)`, which filters reducer-backed legal moves from `MatchEngine.legalActions(in:)`. Expand that flow to track drag position and legal drop targets.
 
 **Depends on / blocked by:** V1 tap interaction must ship and real friends must play 10+ matches to confirm the tap model is the baseline to compare against.
 
 ---
 
-## CI/CD (Xcode Cloud or Fastlane) (post-V1)
+## TestFlight upload automation (post-V1)
 
-**What:** Automated TestFlight build + upload on push to main. Optionally run tests on PR.
+**What:** Automated TestFlight build + upload on push to main.
 
-**Why:** Manual `Product > Archive > Upload to App Store Connect` is fine for V1. The moment iteration rate picks up (daily-ish TestFlight builds), that friction compounds.
+**Why:** GitHub Actions already runs `./scripts/test.sh` on pushes and PRs to `main`. Manual `Product > Archive > Upload to App Store Connect` is fine for V1, but the moment iteration rate picks up, upload friction compounds.
 
-**Pros:** Removes a 5-10 minute manual step per build. Enforces tests passing before each TestFlight drop. Enables continuous invite-friend-to-try workflow.
+**Pros:** Removes a manual build/upload step. Can require tests to pass before each TestFlight drop. Enables continuous invite-friend-to-try workflow.
 
 **Cons:** Xcode Cloud has a per-month free tier then paid. Fastlane is free but one-time setup is fiddly (API keys, certificates, Match for cert management). ~1 day to set up either.
 
@@ -84,22 +84,22 @@ Deferred items surfaced during /plan-eng-review on 2026-04-23. Each captures wha
 
 ---
 
-## Secondary-screen mockups (before BoardView implementation)
+## Secondary-screen mockups (completed)
 
 **Status:** Completed on 2026-04-26. Approved manifest:
 `~/.gstack/projects/bjabes-shesh-besh/designs/secondary-screens-20260424/approved.json`.
 
-**What:** Run `/design-shotgun` on each of the four unsketched V1 screens, pick a direction, save `approved.json` alongside the Linen & Brass BoardView mockup. Screens: HomeView (0-rival empty, 1-rival hero, multi-rival scrollable), Opponent-Turn read-only board, DoubleOfferSheet ("Dan is offering a double to 4 — Take/Drop"), Match-End sheet overlay.
+**What:** Approved design directions exist for the four secondary V1 screens. Screens: HomeView (0-rival empty, 1-rival hero, multi-rival scrollable), Opponent-Turn read-only board, DoubleOfferSheet ("Dan is offering a double to 4 - Take/Drop"), Match-End sheet overlay.
 
 **Why:** BoardView has a locked visual identity (Linen & Brass) but half the V1 experience lives on the other four screens. Without mockups, engineering ships placeholders and the visual language fragments across states.
 
 **Pros:** Coherent visual vocabulary across all V1 screens. Catches IA problems early. Reuses the BoardView brief-base so mockups calibrate to the approved palette + typography.
 
-**Cons:** ~30 minutes of mockup + pick per screen. Some OpenAI API credit cost. Needs 4 more `/design-shotgun` runs.
+**Cons:** Completed item; keep the manifest path below as historical design context.
 
-**Context:** The BoardView mockup is at `~/.gstack/projects/bjabes-shesh-besh/designs/boardview-round2-20260424/variant-E.png` (Linen & Brass). Reuse that direction's palette, cube mechanics, typography hierarchy. DoubleOfferSheet is the most emotionally-loaded — invest the most iteration time there.
+**Context:** The BoardView mockup is at `~/.gstack/projects/bjabes-shesh-besh/designs/boardview-round2-20260424/variant-E.png` (Linen & Brass). Reuse that direction's palette, cube mechanics, and typography hierarchy when implementing the approved secondary screens.
 
-**Depends on / blocked by:** None. Can start immediately.
+**Depends on / blocked by:** None. Design exploration is complete; implementation can use the approved manifest.
 
 ---
 

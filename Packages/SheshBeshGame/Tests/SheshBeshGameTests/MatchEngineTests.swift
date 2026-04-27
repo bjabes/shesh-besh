@@ -72,8 +72,8 @@ struct MatchEngineTests {
         #expect(state.game.phase == .awaitingRoll(.black))
     }
 
-    @Test("A roll with no legal moves preserves the turn until passed")
-    func blockedRollPreservesDiceUntilPassed() throws {
+    @Test("A roll with no legal moves automatically passes the turn")
+    func blockedRollAutomaticallyPasses() throws {
         var board = Board.empty()
         try board.setBar(for: .white, count: 1)
         try board.setBorneOff(for: .white, count: 14)
@@ -89,27 +89,11 @@ struct MatchEngineTests {
         let next = try engine.apply(action: .rollDice(.white), to: state)
 
         #expect(next.game.board == board)
-        guard case .awaitingMove(let turn) = next.game.phase else {
-            Issue.record("Expected blocked roll to remain awaitingMove")
-            return
-        }
-        #expect(turn.player == .white)
-        #expect(turn.roll == (try DiceRoll(die1: 1, die2: 2)))
-        #expect(turn.remainingDice == [1, 2])
-        #expect(MatchEngine.legalActions(in: next) == [
-            .passTurn(.white),
-            .offerResignation(.white, .single),
-            .offerResignation(.white, .gammon),
-            .offerResignation(.white, .backgammon),
-        ])
-
-        let passed = try engine.apply(action: .passTurn(.white), to: next)
-        #expect(passed.game.board == board)
-        #expect(passed.game.phase == .awaitingRoll(.black))
+        #expect(next.game.phase == .awaitingRoll(.black))
     }
 
-    @Test("Blocked remaining dice preserve the turn until passed")
-    func blockedRemainingDicePreserveTurnUntilPassed() throws {
+    @Test("Blocked remaining dice automatically pass the turn")
+    func blockedRemainingDiceAutomaticallyPass() throws {
         var board = Board.empty()
         try board.setPoint(point(6), owner: .white, count: 1)
         try board.setBorneOff(for: .white, count: 14)
@@ -122,17 +106,27 @@ struct MatchEngineTests {
 
         state = try engine.apply(action: .move(move), to: state)
 
-        guard case .awaitingMove(let turn) = state.game.phase else {
-            Issue.record("Expected blocked remaining dice to remain awaitingMove")
-            return
-        }
-        #expect(turn.player == .white)
-        #expect(turn.roll == (try DiceRoll(die1: 1, die2: 1)))
-        #expect(turn.remainingDice == [1, 1, 1])
+        #expect(state.game.board.point(point(6)) == .empty)
+        #expect(state.game.board.point(point(5)) == PointState(owner: .white, count: 1))
+        #expect(state.game.phase == .awaitingRoll(.black))
+    }
+
+    @Test("A manually restored blocked turn can still be passed")
+    func manuallyRestoredBlockedTurnCanBePassed() throws {
+        var board = Board.empty()
+        try board.setBar(for: .white, count: 1)
+        try board.setBorneOff(for: .white, count: 14)
+        try board.setPoint(point(24), owner: .black, count: 2)
+        try board.setPoint(point(23), owner: .black, count: 2)
+        try board.setBorneOff(for: .black, count: 11)
+
+        let state = try makeMatch(board: board, player: .white, dice: [1, 2])
+
         #expect(MatchEngine.legalActions(in: state).contains(.passTurn(.white)))
 
-        state = try engine.apply(action: .passTurn(.white), to: state)
-        #expect(state.game.phase == .awaitingRoll(.black))
+        let passed = try MatchEngine().apply(action: .passTurn(.white), to: state)
+        #expect(passed.game.board == board)
+        #expect(passed.game.phase == .awaitingRoll(.black))
     }
 
     @Test("A turn with legal moves cannot be passed")

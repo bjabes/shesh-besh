@@ -132,6 +132,9 @@ public struct MatchEngine: Sendable {
         } else {
             let nextTurn = TurnState(player: turn.player, roll: turn.roll, remainingDice: remainingDice)
             next.game.phase = .awaitingMove(nextTurn)
+            if MoveValidator.legalFirstMoves(for: turn.player, in: next.game).isEmpty {
+                next.game.phase = .awaitingRoll(turn.player.opponent)
+            }
         }
 
         return next
@@ -261,6 +264,9 @@ public struct MatchEngine: Sendable {
         next.phase = .awaitingMove(
             TurnState(player: player, roll: roll, remainingDice: roll.playableDice)
         )
+        if MoveValidator.legalFirstMoves(for: player, in: next).isEmpty {
+            next.phase = .awaitingRoll(player.opponent)
+        }
         return next
     }
 

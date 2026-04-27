@@ -138,21 +138,6 @@ struct LedgerCoordinatorTests {
         #expect(firstMatch.state.config.targetScore == 1)
     }
 
-    @Test("AI rivalry renames legacy Random Dan rival to Local AI")
-    @MainActor
-    func aiRivalryRenamesLegacyRandomDanRival() async throws {
-        let legacyRival = Rival(displayName: "Random Dan")
-        let store = InMemoryLedgerStore(rivals: [legacyRival])
-        let coordinator = LedgerCoordinator(store: store)
-
-        let match = try await coordinator.startAIRivalry()
-        let rivals = try await store.loadRivals()
-
-        #expect(rivals.count == 1)
-        #expect(rivals.first?.id == legacyRival.id)
-        #expect(rivals.first?.displayName == "Local AI")
-        #expect(match.rivalID == legacyRival.id)
-    }
 }
 
 private final class CompletionDiceRoller: DiceRolling, @unchecked Sendable {

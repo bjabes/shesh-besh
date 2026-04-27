@@ -97,6 +97,27 @@ struct MatchViewModelTests {
 
         #expect(viewModel.lastError == "That move is not legal for the current dice.")
     }
+
+    @Test("completion callback fires once when match completion appears")
+    @MainActor
+    func completionCallbackFiresOnce() {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1])),
+            config: MatchConfig(targetScore: 1, usesDoublingCube: false)
+        )
+        var completionCount = 0
+
+        viewModel.onCompletion = { _ in
+            completionCount += 1
+        }
+
+        viewModel.rollOpeningDice()
+        viewModel.send(.offerResignation(.white, .single))
+        viewModel.send(.acceptResignation(.black))
+        viewModel.rollDiceIfAllowed()
+
+        #expect(completionCount == 1)
+    }
 }
 
 private final class ScriptedDiceRoller: DiceRolling, @unchecked Sendable {

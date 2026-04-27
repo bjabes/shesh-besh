@@ -1,0 +1,146 @@
+import Foundation
+
+public actor JSONLedgerStore: LedgerStore {
+    public static let schemaVersion = 1
+
+    private let fileURL: URL
+    private var snapshot: PersistedSnapshot
+
+    public init(fileURL: URL) throws {
+        self.fileURL = fileURL
+        self.snapshot = try Self.loadSnapshot(from: fileURL)
+    }
+
+    public static func defaultFileURL(
+        applicationName: String = "SheshBesh",
+        fileManager: FileManager = .default
+    ) throws -> URL {
+        guard let applicationSupportURL = fileManager.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+
+        return applicationSupportURL
+            .appendingPathComponent(applicationName, isDirectory: true)
+            .appendingPathComponent("ledger.json")
+    }
+
+    public func loadRivals() async throws -> [Rival] {
+        snapshot.rivals
+    }
+
+    public func upsertRival(_ rival: Rival) async throws {
+        if let index = snapshot.rivals.firstIndex(where: { $0.id == rival.id }) {
+            snapshot.rivals[index] = rival
+        } else {
+            snapshot.rivals.append(rival)
+        }
+        try persist()
+    }
+
+    public func deleteRival(id: Rival.ID) async throws {
+        let hasRecords = snapshot.records.contains { $0.rivalID == id }
+        let hasActiveMatch = snapshot.activeMatches.contains { $0.rivalID == id }
+        guard !hasRecords, !hasActiveMatch else {
+            throw LedgerStoreError.rivalHasHistory
+        }
+
+        snapshot.rivals.removeAll { $0.id == id }
+        try persist()
+    }
+
+    public func loadMatchRecords(rivalID: Rival.ID) async throws -> [MatchRecord] {
+        snapshot.records.filter { $0.rivalID == rivalID }
+    }
+
+    public func appendMatchRecord(_ record: MatchRecord) async throws {
+        snapshot.records.append(record)
+        try persist()
+    }
+
+    public func loadActiveMatch(rivalID: Rival.ID) async throws -> ActiveMatch? {
+        snapshot.activeMatches.first { $0.rivalID == rivalID }
+    }
+
+    public func saveActiveMatch(_ match: ActiveMatch) async throws {
+        if let index = snapshot.activeMatches.firstIndex(where: { $0.rivalID == match.rivalID }) {
+            snapshot.activeMatches[index] = match
+        } else {
+            snapshot.activeMatches.append(match)
+        }
+        try persist()
+    }
+
+    public func clearActiveMatch(rivalID: Rival.ID) async throws {
+        snapshot.activeMatches.removeAll { $0.rivalID == rivalID }
+        try persist()
+    }
+
+    public func loadAllLedgerData() async throws -> LedgerSnapshot {
+        LedgerSnapshot(
+            rivals: snapshot.rivals,
+            recordsByRival: Dictionary(grouping: snapshot.records, by: \.rivalID),
+            activeMatchesByRival: Dictionary(uniqueKeysWithValues: snapshot.activeMatches.map { ($0.rivalID, $0) })
+        )
+    }
+
+    private func persist() throws {
+        let fileManager = FileManager.default
+        let directoryURL = fileURL.deletingLastPathComponent()
+        try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(snapshot)
+
+        let temporaryURL = Self.temporaryURL(for: fileURL)
+        try? fileManager.removeItem(at: temporaryURL)
+        try data.write(to: temporaryURL)
+
+        if fileManager.fileExists(atPath: fileURL.path) {
+            _ = try fileManager.replaceItemAt(fileURL, withItemAt: temporaryURL)
+        } else {
+            try fileManager.moveItem(at: temporaryURL, to: fileURL)
+        }
+    }
+
+    private static func loadSnapshot(from fileURL: URL) throws -> PersistedSnapshot {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            return PersistedSnapshot()
+        }
+
+        let data = try Data(contentsOf: fileURL)
+        let decoded = try JSONDecoder().decode(PersistedSnapshot.self, from: data)
+        guard decoded.schemaVersion == schemaVersion else {
+            throw LedgerStoreError.unsupportedSchemaVersion(decoded.schemaVersion)
+        }
+        return decoded
+    }
+
+    private static func temporaryURL(for fileURL: URL) -> URL {
+        fileURL
+            .deletingLastPathComponent()
+            .appendingPathComponent(".\(fileURL.lastPathComponent).tmp")
+    }
+}
+
+private struct PersistedSnapshot: Codable, Equatable, Sendable {
+    var schemaVersion: Int
+    var rivals: [Rival]
+    var records: [MatchRecord]
+    var activeMatches: [ActiveMatch]
+
+    init(
+        schemaVersion: Int = JSONLedgerStore.schemaVersion,
+        rivals: [Rival] = [],
+        records: [MatchRecord] = [],
+        activeMatches: [ActiveMatch] = []
+    ) {
+        self.schemaVersion = schemaVersion
+        self.rivals = rivals
+        self.records = records
+        self.activeMatches = activeMatches
+    }
+}

@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 final class SheshBeshUITests: XCTestCase {
     private var app: XCUIApplication!
 

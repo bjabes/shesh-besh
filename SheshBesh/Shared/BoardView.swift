@@ -1167,7 +1167,26 @@ private struct ActionBar: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            switch viewModel.state.game.phase {
+            if viewModel.isTurnDraftPending {
+                SecondaryActionButton(title: "Undo move") {
+                    viewModel.undoLastMove()
+                    onAction()
+                }
+
+                Text(draftStatusText)
+                    .font(LinenBrass.uiFont(size: 15, weight: .semibold))
+                    .foregroundStyle(LinenBrass.cream)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+
+                PrimaryActionButton(title: "Submit turn", isEnabled: viewModel.canSubmitTurn) {
+                    if viewModel.submitTurnIfAllowed() {
+                        onAction()
+                    }
+                }
+            } else {
+                switch viewModel.state.game.phase {
             case .awaitingOpeningRoll(let tiedRoll):
                 PrimaryActionButton(title: tiedRoll == nil ? "Opening roll" : "Reroll") {
                     viewModel.rollOpeningDice()
@@ -1263,6 +1282,7 @@ private struct ActionBar: View {
                     .frame(minHeight: 48)
                 }
             }
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -1304,10 +1324,19 @@ private struct ActionBar: View {
             .accessibilityIdentifier("action-resign")
         }
     }
+
+    private var draftStatusText: String {
+        guard !viewModel.canSubmitTurn else { return "Ready" }
+        if case .awaitingMove(let turn) = viewModel.state.game.phase, turn.player == viewModel.localPlayer {
+            return "\(turn.remainingDice.count) move\(turn.remainingDice.count == 1 ? "" : "s") left"
+        }
+        return "Finish moves"
+    }
 }
 
 private struct PrimaryActionButton: View {
     let title: String
+    var isEnabled: Bool = true
     let action: () -> Void
 
     var body: some View {
@@ -1319,6 +1348,7 @@ private struct PrimaryActionButton: View {
                 .frame(maxWidth: .infinity, minHeight: 48)
         }
         .buttonStyle(LinenButtonStyle(kind: .primary))
+        .disabled(!isEnabled)
         .accessibilityIdentifier(actionAccessibilityIdentifier(for: title))
     }
 }

@@ -68,9 +68,146 @@ struct MatchViewModelTests {
         )
 
         #expect(moved)
+        #expect(viewModel.isTurnDraftPending)
         #expect(viewModel.state.game.board.point(PointID(rawValue: 24)!).count == 1)
         #expect(viewModel.state.game.board.point(PointID(rawValue: 18)!).owner == .white)
         #expect(viewModel.state.game.board.point(PointID(rawValue: 18)!).count == 1)
+    }
+
+    @Test("drafted checker moves do not notify storage before submit")
+    @MainActor
+    func draftedCheckerMovesDoNotNotifyBeforeSubmit() {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1])),
+            config: .tournament(targetScore: 7),
+            isOpponentAutoplayEnabled: false
+        )
+
+        viewModel.rollOpeningDice()
+
+        var stateChangeCount = 0
+        viewModel.onStateChange = { _ in
+            stateChangeCount += 1
+        }
+
+        #expect(viewModel.applyMove(from: .point(PointID(rawValue: 24)!), to: .point(PointID(rawValue: 18)!)))
+
+        #expect(viewModel.isTurnDraftPending)
+        #expect(stateChangeCount == 0)
+        #expect(viewModel.state.game.board.point(PointID(rawValue: 24)!).count == 1)
+    }
+
+    @Test("undo restores the previous drafted move state")
+    @MainActor
+    func undoRestoresPreviousDraftState() {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1])),
+            config: .tournament(targetScore: 7),
+            isOpponentAutoplayEnabled: false
+        )
+
+        viewModel.rollOpeningDice()
+        let rolledState = viewModel.state
+
+        #expect(viewModel.applyMove(from: .point(PointID(rawValue: 24)!), to: .point(PointID(rawValue: 18)!)))
+        viewModel.undoLastMove()
+
+        #expect(viewModel.state == rolledState)
+        #expect(!viewModel.isTurnDraftPending)
+        #expect(!viewModel.canUndoTurnMove)
+        #expect(viewModel.lastError == nil)
+    }
+
+    @Test("submit commits a completed local turn once")
+    @MainActor
+    func submitCommitsCompletedLocalTurnOnce() {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1])),
+            config: .tournament(targetScore: 7),
+            isOpponentAutoplayEnabled: false
+        )
+
+        viewModel.rollOpeningDice()
+
+        var stateChangeCount = 0
+        viewModel.onStateChange = { _ in
+            stateChangeCount += 1
+        }
+
+        #expect(viewModel.applyMove(from: .point(PointID(rawValue: 24)!), to: .point(PointID(rawValue: 18)!)))
+        #expect(viewModel.applyMove(from: .point(PointID(rawValue: 24)!), to: .point(PointID(rawValue: 23)!)))
+        #expect(viewModel.canSubmitTurn)
+
+        #expect(viewModel.submitTurnIfAllowed())
+
+        #expect(stateChangeCount == 1)
+        #expect(!viewModel.isTurnDraftPending)
+        guard case .awaitingRoll(.black) = viewModel.state.game.phase else {
+            Issue.record("Expected submitted turn to pass to black's roll.")
+            return
+        }
+    }
+
+    @Test("submit is rejected while local legal moves remain")
+    @MainActor
+    func submitIsRejectedWhileMovesRemain() {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1])),
+            config: .tournament(targetScore: 7),
+            isOpponentAutoplayEnabled: false
+        )
+
+        viewModel.rollOpeningDice()
+        var stateChangeCount = 0
+        viewModel.onStateChange = { _ in
+            stateChangeCount += 1
+        }
+
+        #expect(viewModel.applyMove(from: .point(PointID(rawValue: 24)!), to: .point(PointID(rawValue: 18)!)))
+        #expect(!viewModel.submitTurnIfAllowed())
+
+        #expect(viewModel.isTurnDraftPending)
+        #expect(stateChangeCount == 0)
+        #expect(viewModel.lastError == "Finish all legal moves before submitting.")
+    }
+
+    @Test("game ending checker move completes only after submit and can be undone")
+    @MainActor
+    func gameEndingMoveCompletesOnlyAfterSubmitAndCanBeUndone() throws {
+        var board = Board.empty()
+        try board.setPoint(PointID(rawValue: 1)!, owner: .white, count: 1)
+        try board.setPoint(PointID(rawValue: 24)!, owner: .black, count: 15)
+        try board.setBorneOff(for: .white, count: 14)
+
+        let roll = try DiceRoll(die1: 1, die2: 1)
+        let state = MatchState(
+            config: .tournament(targetScore: 1),
+            game: GameState(
+                board: board,
+                phase: .awaitingMove(TurnState(player: .white, roll: roll, remainingDice: [1]))
+            )
+        )
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([1, 1])),
+            initialState: state,
+            isOpponentAutoplayEnabled: false
+        )
+        var completionCount = 0
+        viewModel.onCompletion = { _ in
+            completionCount += 1
+        }
+
+        #expect(viewModel.applyMove(from: .point(PointID(rawValue: 1)!), to: .off))
+        #expect(viewModel.state.completion?.winner == .white)
+        #expect(completionCount == 0)
+
+        viewModel.undoLastMove()
+        #expect(viewModel.state.completion == nil)
+        #expect(!viewModel.isTurnDraftPending)
+
+        #expect(viewModel.applyMove(from: .point(PointID(rawValue: 1)!), to: .off))
+        #expect(viewModel.submitTurnIfAllowed())
+        #expect(completionCount == 1)
     }
 
     @Test("offering resignation enters resignation response phase")
@@ -186,6 +323,7 @@ struct MatchViewModelTests {
         viewModel.rollOpeningDice()
         #expect(viewModel.applyMove(from: .point(PointID(rawValue: 24)!), to: .point(PointID(rawValue: 18)!)))
         #expect(viewModel.applyMove(from: .point(PointID(rawValue: 24)!), to: .point(PointID(rawValue: 23)!)))
+        #expect(viewModel.submitTurnIfAllowed())
 
         let returnedToWhite = await waitUntil {
             if case .awaitingRoll(.white) = viewModel.state.game.phase {
@@ -196,6 +334,44 @@ struct MatchViewModelTests {
 
         #expect(returnedToWhite)
         #expect(viewModel.lastError == nil)
+        #expect(viewModel.pipCount(for: .black) < 167)
+    }
+
+    @Test("Random Dan waits for local drafted turn submission")
+    @MainActor
+    func randomDanWaitsForDraftSubmit() async {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1, 3, 2])),
+            config: .tournament(targetScore: 1),
+            opponentController: RandomDanOpponent(randomIndex: { _ in 0 }),
+            opponentDelay: {}
+        )
+
+        viewModel.rollOpeningDice()
+        #expect(viewModel.applyMove(from: .point(PointID(rawValue: 24)!), to: .point(PointID(rawValue: 18)!)))
+        #expect(viewModel.applyMove(from: .point(PointID(rawValue: 24)!), to: .point(PointID(rawValue: 23)!)))
+
+        for _ in 0..<5 {
+            await Task.yield()
+        }
+
+        #expect(viewModel.isTurnDraftPending)
+        #expect(viewModel.pipCount(for: .black) == 167)
+        guard case .awaitingRoll(.black) = viewModel.state.game.phase else {
+            Issue.record("Expected drafted local turn to wait at black's roll before submission.")
+            return
+        }
+
+        #expect(viewModel.submitTurnIfAllowed())
+
+        let returnedToWhite = await waitUntil {
+            if case .awaitingRoll(.white) = viewModel.state.game.phase {
+                return true
+            }
+            return false
+        }
+
+        #expect(returnedToWhite)
         #expect(viewModel.pipCount(for: .black) < 167)
     }
 
@@ -337,7 +513,10 @@ struct MatchViewModelTests {
         var actionCount = 0
         while viewModel.state.completion == nil, actionCount < 1_000 {
             actionCount += 1
-            switch viewModel.state.game.phase {
+            if viewModel.isTurnDraftPending, viewModel.canSubmitTurn {
+                viewModel.submitTurnIfAllowed()
+            } else {
+                switch viewModel.state.game.phase {
             case .awaitingOpeningRoll:
                 viewModel.rollOpeningDice()
             case .awaitingRoll(.white):
@@ -354,6 +533,7 @@ struct MatchViewModelTests {
                 viewModel.send(.rejectResignation(.white))
             default:
                 await Task.yield()
+                }
             }
 
             #expect(viewModel.lastError == nil)
@@ -396,6 +576,7 @@ private func advanceToOpponentRoll(_ viewModel: MatchViewModel) {
         from: .point(PointID(rawValue: 24)!),
         to: .point(PointID(rawValue: 23)!)
     )
+    _ = viewModel.submitTurnIfAllowed()
 }
 
 private final class ScriptedDiceRoller: DiceRolling, @unchecked Sendable {

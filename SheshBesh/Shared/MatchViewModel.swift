@@ -17,6 +17,7 @@ public final class MatchViewModel {
     public private(set) var pipCounts: [Player: Int]
     public private(set) var isOpponentThinking: Bool
     public private(set) var turnNotice: String?
+    private var turnDraftSnapshots: [MatchState]
 
     public let localPlayer: Player
     public let opponentName: String
@@ -55,6 +56,7 @@ public final class MatchViewModel {
         self.opponentDelay = opponentDelay
         self.isOpponentThinking = false
         self.turnNotice = nil
+        self.turnDraftSnapshots = []
         self.legalActions = initialLegalActions
         self.legalMoves = initialLegalActions.compactMap { action in
             if case .move(let move) = action {
@@ -87,11 +89,11 @@ public final class MatchViewModel {
     }
 
     public var isLocalTurn: Bool {
-        activePlayer == localPlayer
+        isTurnDraftPending || activePlayer == localPlayer
     }
 
     public var isOpponentTurn: Bool {
-        activePlayer == localPlayer.opponent
+        !isTurnDraftPending && activePlayer == localPlayer.opponent
     }
 
     public var currentCubeOffer: CubeOffer? {
@@ -110,6 +112,7 @@ public final class MatchViewModel {
 
     public var isOpponentAutomationActive: Bool {
         guard isOpponentAutoplayEnabled else { return false }
+        guard !isTurnDraftPending else { return false }
         return opponentController.canAct(
             as: localPlayer.opponent,
             in: state,
@@ -119,6 +122,7 @@ public final class MatchViewModel {
 
     public var interactiveLegalMoves: [Move] {
         guard !isOpponentAutomationActive else { return [] }
+        guard activePlayer == localPlayer else { return [] }
         return legalMoves
     }
 
@@ -130,9 +134,36 @@ public final class MatchViewModel {
         state.score.score(for: localPlayer.opponent)
     }
 
+    public var isTurnDraftPending: Bool {
+        !turnDraftSnapshots.isEmpty
+    }
+
+    public var canUndoTurnMove: Bool {
+        isTurnDraftPending
+    }
+
+    public var canSubmitTurn: Bool {
+        guard isTurnDraftPending else { return false }
+
+        if state.completion != nil {
+            return true
+        }
+
+        switch state.game.phase {
+        case .awaitingMove(let turn) where turn.player == localPlayer:
+            return MoveValidator.legalFirstMoves(for: localPlayer, in: state.game).isEmpty
+        default:
+            return activePlayer != localPlayer
+        }
+    }
+
     public var phaseTitle: String {
         if let completion = state.completion {
             return completion.winner == localPlayer ? "You won the match" : "\(opponentName) won the match"
+        }
+
+        if isTurnDraftPending, canSubmitTurn {
+            return "Ready to submit"
         }
 
         if isOpponentAutomationActive {
@@ -169,6 +200,11 @@ public final class MatchViewModel {
     }
 
     public func send(_ action: MatchAction) {
+        if case .move(let move) = action, shouldDraft(move) {
+            applyDraft(move)
+            return
+        }
+
         apply(action, schedulesOpponent: true)
     }
 
@@ -177,6 +213,7 @@ public final class MatchViewModel {
             let hadCompletion = state.completion != nil
             state = try engine.apply(action: action, to: state)
             lastError = nil
+            turnDraftSnapshots.removeAll()
             refreshDerivedState()
             notifyStorageCallbacks(hadCompletion: hadCompletion)
             if schedulesOpponent {
@@ -225,6 +262,7 @@ public final class MatchViewModel {
     public func restartMatch() {
         state = MatchEngine.newMatch(config: state.config)
         lastError = nil
+        turnDraftSnapshots.removeAll()
         didNotifyCompletion = false
         refreshDerivedState()
         onStateChange?(state)
@@ -239,8 +277,38 @@ public final class MatchViewModel {
         guard let move = legalMoves.first(where: { $0.source == source && $0.destination == destination }) else {
             return false
         }
-        send(.move(move))
+        applyDraft(move)
         return lastError == nil
+    }
+
+    public func undoLastMove() {
+        guard let previousState = turnDraftSnapshots.popLast() else { return }
+        state = previousState
+        lastError = nil
+        turnNotice = nil
+        refreshDerivedState()
+    }
+
+    @discardableResult
+    public func submitTurnIfAllowed() -> Bool {
+        guard isTurnDraftPending else {
+            lastError = "Make a move before submitting."
+            return false
+        }
+
+        guard canSubmitTurn else {
+            lastError = "Finish all legal moves before submitting."
+            return false
+        }
+
+        let hadCompletion = turnDraftSnapshots.first?.completion != nil
+        turnDraftSnapshots.removeAll()
+        lastError = nil
+        refreshDerivedState()
+        notifyStorageCallbacks(hadCompletion: hadCompletion)
+        turnNotice = nil
+        scheduleOpponentTurnIfNeeded()
+        return true
     }
 
     public func legalDestinations(from source: MoveSource) -> [MoveDestination] {
@@ -270,6 +338,33 @@ public final class MatchViewModel {
             }
         }
         pipCounts = Self.computePipCounts(for: state.game.board)
+    }
+
+    private func shouldDraft(_ move: Move) -> Bool {
+        guard move.player == localPlayer else { return false }
+        guard !isOpponentAutomationActive else { return false }
+        guard case .awaitingMove(let turn) = state.game.phase, turn.player == localPlayer else {
+            return false
+        }
+        return true
+    }
+
+    private func applyDraft(_ move: Move) {
+        guard shouldDraft(move) else {
+            apply(.move(move), schedulesOpponent: true)
+            return
+        }
+
+        turnDraftSnapshots.append(state)
+        do {
+            state = try engine.apply(action: .move(move), to: state)
+            lastError = nil
+            turnNotice = nil
+            refreshDerivedState()
+        } catch {
+            _ = turnDraftSnapshots.popLast()
+            lastError = friendlyErrorMessage(error)
+        }
     }
 
     private func scheduleOpponentTurnIfNeeded() {

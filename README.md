@@ -5,8 +5,8 @@ engine plus an early SwiftUI app shell with a Linen & Brass portrait board.
 
 ## Requirements
 
-- Xcode 26.4+
-- Apple Swift 6.3+
+- Validated with Xcode 26.4 and Apple Swift 6.3
+- Swift tools 6.1+ with Swift 6 language mode
 - iOS 17+
 - Swift Testing
 
@@ -26,7 +26,6 @@ shesh-besh/
     App/                   # @main app entry
     Shared/                # SwiftUI views + app view models
   SheshBeshTests/          # app-level tests
-  SheshBeshUITests/        # future UI tests
 ```
 
 The game engine remains isolated as a local Swift package so app UI can depend
@@ -44,7 +43,7 @@ Run the same top-level verification that CI runs:
 
 This builds and tests the Swift package, then builds the checked-in Xcode
 project for iOS Simulator, catching drift between the SwiftPM and Xcode build
-paths.
+paths. GitHub Actions runs this script for pushes and pull requests to `main`.
 
 ```sh
 swift build
@@ -54,7 +53,7 @@ swift test
 To build the iOS app target from the checked-in Xcode project:
 
 ```sh
-xcodebuild -project SheshBesh.xcodeproj -target SheshBesh -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project SheshBesh.xcodeproj -scheme SheshBesh -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO build
 ```
 
 The nested package remains usable directly with `swift build --package-path
@@ -130,7 +129,7 @@ if let moveAction = legalActions.first(where: {
 
 `MatchEngine.legalActions(in:)` is the safest source of UI actions. It exposes
 rolls, cube decisions, resignations, next-game transitions, legal checker moves,
-and explicit pass actions for blocked turns.
+and automatic pass transitions for blocked turns.
 
 ## SwiftUI App Surface
 

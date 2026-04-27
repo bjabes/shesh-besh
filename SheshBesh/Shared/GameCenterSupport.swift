@@ -504,10 +504,12 @@ public struct GameCenterHomeView: View {
     public let session: GameCenterSession
     public let ledgerCoordinator: LedgerCoordinator
     public let matchCoordinator: GameCenterMatchCoordinator
+    public let onOpenLocalMatch: (ActiveMatch) -> Void
     public let onOpenMatch: (GameCenterLoadedMatch) -> Void
 
     @State private var matches: [GameCenterLoadedMatch] = []
     @State private var isLoadingMatches = false
+    @State private var isWorking = false
     @State private var isShowingMatchmaker = false
     @State private var isSelectingTargetScore = false
     @State private var selectedTargetScore = 7
@@ -517,11 +519,13 @@ public struct GameCenterHomeView: View {
         session: GameCenterSession,
         ledgerCoordinator: LedgerCoordinator,
         matchCoordinator: GameCenterMatchCoordinator,
+        onOpenLocalMatch: @escaping (ActiveMatch) -> Void,
         onOpenMatch: @escaping (GameCenterLoadedMatch) -> Void
     ) {
         self.session = session
         self.ledgerCoordinator = ledgerCoordinator
         self.matchCoordinator = matchCoordinator
+        self.onOpenLocalMatch = onOpenLocalMatch
         self.onOpenMatch = onOpenMatch
     }
 
@@ -533,12 +537,29 @@ public struct GameCenterHomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     header
-                    authPanel
+                    RivalryLaunchActions(
+                        primaryTitle: "Practice vs AI",
+                        primarySystemImage: "cpu",
+                        secondaryTitle: "Invite Friend",
+                        secondarySystemImage: "person.badge.plus",
+                        onPrimary: startAIRivalry,
+                        onSecondary: startGameCenterInvite
+                    )
 
-                    if session.authState.isAuthenticated {
-                        matchControls
-                        matchList
-                        ledgerSummary
+                    if !session.authState.isAuthenticated {
+                        authPanel
+                    }
+
+                    if ledgerCoordinator.ledgers.isEmpty {
+                        EmptyGameCenterLedgerView()
+                    } else {
+                        RivalryStack(
+                            ledgers: ledgerCoordinator.ledgers,
+                            onStart: startMatch,
+                            onResume: resumeMatch,
+                            startTitle: startTitle,
+                            startSystemImage: startSystemImage
+                        )
                     }
                 }
                 .padding(.horizontal, 18)
@@ -613,7 +634,7 @@ public struct GameCenterHomeView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
 
-            Text("Game Center async matches")
+            Text("AI practice and Game Center matches")
                 .font(LedgerTheme.uiFont(size: 14, weight: .semibold))
                 .foregroundStyle(LedgerTheme.mutedInk)
                 .textCase(.uppercase)
@@ -668,123 +689,13 @@ public struct GameCenterHomeView: View {
         session.authState == .authenticating ? "Connecting" : "Sign in"
     }
 
-    private var matchControls: some View {
-        HStack(spacing: 10) {
-            Button {
-                isSelectingTargetScore = true
-            } label: {
-                Label("New match", systemImage: "plus")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(LedgerTheme.rust)
-
-            Button {
-                Task { await refresh() }
-            } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
-                    .labelStyle(.iconOnly)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.bordered)
-            .tint(LedgerTheme.coffee)
-            .disabled(isLoadingMatches)
-        }
-    }
-
-    private var matchList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Matches")
-                .font(LedgerTheme.uiFont(size: 13, weight: .bold))
-                .foregroundStyle(LedgerTheme.mutedInk)
-                .textCase(.uppercase)
-
-            if isLoadingMatches {
-                ProgressView()
-                    .frame(maxWidth: .infinity, minHeight: 64)
-            } else if matches.isEmpty {
-                Text("No Game Center matches yet.")
-                    .font(LedgerTheme.uiFont(size: 15))
-                    .foregroundStyle(LedgerTheme.mutedInk)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                    .background(LedgerTheme.cream, in: RoundedRectangle(cornerRadius: 7))
-            } else {
-                ForEach(matches, id: \.match.matchID) { loaded in
-                    Button {
-                        onOpenMatch(loaded)
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("YOU vs \(loaded.opponentDisplayName.uppercased())")
-                                    .font(LedgerTheme.displayFont(size: 22, weight: .bold))
-                                    .foregroundStyle(LedgerTheme.ink)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.68)
-
-                                Text(loaded.isLocalTurn ? "Your turn" : "\(loaded.opponentDisplayName)'s turn")
-                                    .font(LedgerTheme.uiFont(size: 14, weight: .semibold))
-                                    .foregroundStyle(LedgerTheme.mutedInk)
-                            }
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(LedgerTheme.rust)
-                        }
-                        .padding(15)
-                        .background(LedgerTheme.cream, in: RoundedRectangle(cornerRadius: 7))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
-    private var ledgerSummary: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Ledger")
-                .font(LedgerTheme.uiFont(size: 13, weight: .bold))
-                .foregroundStyle(LedgerTheme.mutedInk)
-                .textCase(.uppercase)
-
-            if ledgerCoordinator.ledgers.isEmpty {
-                Text("Completed Game Center matches will appear here.")
-                    .font(LedgerTheme.uiFont(size: 15))
-                    .foregroundStyle(LedgerTheme.mutedInk)
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(LedgerTheme.cream, in: RoundedRectangle(cornerRadius: 7))
-            } else {
-                ForEach(ledgerCoordinator.ledgers, id: \.rival.id) { ledger in
-                    HStack {
-                        Text("YOU vs \(ledger.rival.displayName.uppercased())")
-                            .font(LedgerTheme.displayFont(size: 20, weight: .bold))
-                            .foregroundStyle(LedgerTheme.ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.68)
-
-                        Spacer()
-
-                        Text("\(ledger.userWins)-\(ledger.rivalWins)")
-                            .font(LedgerTheme.displayFont(size: 26, weight: .bold))
-                            .foregroundStyle(LedgerTheme.rust)
-                            .monospacedDigit()
-                    }
-                    .padding(15)
-                    .background(LedgerTheme.cream, in: RoundedRectangle(cornerRadius: 7))
-                }
-            }
-        }
-    }
-
     private func refresh() async {
+        await ledgerCoordinator.refresh()
         guard session.authState.isAuthenticated else { return }
         isLoadingMatches = true
         defer { isLoadingMatches = false }
 
         do {
-            await ledgerCoordinator.refresh()
             let matchBoxes = try await session.loadMatches()
             var gameCenterMatches: [GKTurnBasedMatch] = []
             for box in matchBoxes {
@@ -809,6 +720,100 @@ public struct GameCenterHomeView: View {
         }
     }
 
+    private func startAIRivalry() {
+        guard !isWorking else { return }
+        isWorking = true
+        Task {
+            do {
+                let rival: Rival
+                if let existingRival = ledgerCoordinator.ledgers
+                    .map(\.rival)
+                    .first(where: { $0.gameCenterPlayerID == nil && $0.displayName == "Random Dan" }) {
+                    rival = existingRival
+                } else {
+                    rival = try await ledgerCoordinator.addRival(displayName: "Random Dan")
+                }
+                let match: ActiveMatch
+                if let activeMatch = ledgerCoordinator.ledger(for: rival.id)?.activeMatch {
+                    match = activeMatch
+                } else {
+                    match = try await ledgerCoordinator.startMatch(
+                        against: rival,
+                        userPlays: .white,
+                        config: .tournament(targetScore: 1)
+                    )
+                }
+                onOpenLocalMatch(match)
+            } catch {
+                localError = error.localizedDescription
+            }
+            isWorking = false
+        }
+    }
+
+    private func startGameCenterInvite() {
+        guard session.authState.isAuthenticated else {
+            session.authenticate()
+            return
+        }
+        isSelectingTargetScore = true
+    }
+
+    private func startMatch(for ledger: RivalLedger) {
+        if ledger.rival.gameCenterPlayerID != nil {
+            startGameCenterInvite()
+        } else {
+            startLocalMatch(for: ledger)
+        }
+    }
+
+    private func startLocalMatch(for ledger: RivalLedger) {
+        guard !isWorking else { return }
+        isWorking = true
+        Task {
+            do {
+                let match = try await ledgerCoordinator.startMatch(
+                    against: ledger.rival,
+                    userPlays: ledger.totalMatches.isMultiple(of: 2) ? .white : .black,
+                    config: .tournament(targetScore: 7)
+                )
+                onOpenLocalMatch(match)
+            } catch {
+                localError = error.localizedDescription
+            }
+            isWorking = false
+        }
+    }
+
+    private func resumeMatch(_ match: ActiveMatch) {
+        guard let gameCenterMatchID = match.gameCenterMatchID else {
+            onOpenLocalMatch(match)
+            return
+        }
+
+        if let loaded = matches.first(where: { $0.match.matchID == gameCenterMatchID }) {
+            onOpenMatch(loaded)
+            return
+        }
+
+        Task {
+            await refresh()
+            if let loaded = matches.first(where: { $0.match.matchID == gameCenterMatchID }) {
+                onOpenMatch(loaded)
+            } else {
+                localError = "This Game Center match is not available right now."
+            }
+        }
+    }
+
+    private func startTitle(for ledger: RivalLedger) -> String {
+        ledger.rival.gameCenterPlayerID == nil ? "Start match" : "Invite again"
+    }
+
+    private func startSystemImage(for ledger: RivalLedger) -> String {
+        ledger.rival.gameCenterPlayerID == nil ? "play.fill" : "person.badge.plus"
+    }
+
     private func loadAndOpen(match: GKTurnBasedMatch, targetScore: Int) async {
         do {
             let loaded = try await matchCoordinator.load(match: match, targetScore: targetScore)
@@ -816,6 +821,30 @@ public struct GameCenterHomeView: View {
         } catch {
             localError = error.localizedDescription
         }
+    }
+}
+
+private struct EmptyGameCenterLedgerView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Start a rivalry")
+                .font(LedgerTheme.displayFont(size: 26, weight: .bold))
+                .foregroundStyle(LedgerTheme.ink)
+                .lineLimit(2)
+                .minimumScaleFactor(0.72)
+
+            Text("Practice against Random Dan now, or invite a friend through Game Center.")
+                .font(LedgerTheme.uiFont(size: 15))
+                .foregroundStyle(LedgerTheme.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(LedgerTheme.cream, in: RoundedRectangle(cornerRadius: 7))
+        .overlay(
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(LedgerTheme.brass.opacity(0.72), lineWidth: 1)
+        )
     }
 }
 

@@ -4,14 +4,14 @@ import Testing
 
 @Suite("Match view model")
 struct MatchViewModelTests {
-    @Test("default match is a one point Random Dan quick match")
+    @Test("default match is a one point Local AI quick match")
     @MainActor
-    func defaultMatchIsRandomDanQuickMatch() {
+    func defaultMatchIsLocalAIQuickMatch() {
         let viewModel = MatchViewModel(isOpponentAutoplayEnabled: false)
 
         #expect(viewModel.state.config.targetScore == 1)
         #expect(viewModel.localPlayer == .white)
-        #expect(viewModel.opponentName == "Random Dan")
+        #expect(viewModel.opponentName == "Local AI")
     }
 
     @Test("opening roll is applied through the engine")
@@ -148,13 +148,13 @@ struct MatchViewModelTests {
         }
     }
 
-    @Test("opening roll can hand first turn to Random Dan")
+    @Test("opening roll can hand first turn to Local AI")
     @MainActor
-    func openingRollCanHandFirstTurnToDan() async {
+    func openingRollCanHandFirstTurnToLocalAI() async {
         let viewModel = MatchViewModel(
             engine: MatchEngine(diceRoller: ScriptedDiceRoller([1, 6])),
             config: .tournament(targetScore: 1),
-            opponentController: RandomDanOpponent(randomIndex: { _ in 0 }),
+            opponentController: LocalAIOpponent(randomIndex: { _ in 0 }),
             opponentDelay: {}
         )
 
@@ -173,13 +173,13 @@ struct MatchViewModelTests {
         #expect(!viewModel.isOpponentThinking)
     }
 
-    @Test("Random Dan rolls and moves after local turn ends")
+    @Test("Local AI rolls and moves after local turn ends")
     @MainActor
-    func randomDanRollsAndMovesAfterLocalTurnEnds() async {
+    func localAIRollsAndMovesAfterLocalTurnEnds() async {
         let viewModel = MatchViewModel(
             engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1, 3, 2])),
             config: .tournament(targetScore: 1),
-            opponentController: RandomDanOpponent(randomIndex: { _ in 0 }),
+            opponentController: LocalAIOpponent(randomIndex: { _ in 0 }),
             opponentDelay: {}
         )
 
@@ -199,9 +199,9 @@ struct MatchViewModelTests {
         #expect(viewModel.pipCount(for: .black) < 167)
     }
 
-    @Test("Random Dan passes when blocked")
+    @Test("Local AI passes when blocked")
     @MainActor
-    func randomDanPassesWhenBlocked() async throws {
+    func localAIPassesWhenBlocked() async throws {
         var board = Board.empty()
         try board.setPoint(PointID(rawValue: 5)!, owner: .white, count: 2)
         try board.setPoint(PointID(rawValue: 6)!, owner: .white, count: 2)
@@ -232,12 +232,12 @@ struct MatchViewModelTests {
 
         #expect(passed)
         #expect(viewModel.lastError == nil)
-        #expect(viewModel.phaseTitle == "Random Dan had no legal moves")
+        #expect(viewModel.phaseTitle == "Local AI had no legal moves")
     }
 
-    @Test("Random Dan passes after rolling blocked bar entries")
+    @Test("Local AI passes after rolling blocked bar entries")
     @MainActor
-    func randomDanPassesAfterRollingBlockedBarEntries() async throws {
+    func localAIPassesAfterRollingBlockedBarEntries() async throws {
         var board = Board.empty()
         try board.setPoint(PointID(rawValue: 5)!, owner: .white, count: 2)
         try board.setPoint(PointID(rawValue: 6)!, owner: .white, count: 2)
@@ -267,12 +267,12 @@ struct MatchViewModelTests {
 
         #expect(passed)
         #expect(viewModel.lastError == nil)
-        #expect(viewModel.phaseTitle == "Random Dan had no legal moves")
+        #expect(viewModel.phaseTitle == "Local AI had no legal moves")
     }
 
-    @Test("Random Dan prefers the biggest pip reduction and breaks ties deterministically")
+    @Test("Local AI prefers the biggest pip reduction and breaks ties deterministically")
     @MainActor
-    func randomDanPipBiasedSelectionUsesDeterministicTieBreaking() throws {
+    func localAIPipBiasedSelectionUsesDeterministicTieBreaking() throws {
         let roll = try DiceRoll(die1: 6, die2: 1)
         let state = MatchState(
             config: .tournament(targetScore: 1),
@@ -282,7 +282,7 @@ struct MatchViewModelTests {
             )
         )
         let legalActions = MatchEngine.legalActions(in: state)
-        let opponent = RandomDanOpponent(randomIndex: { upperBound in upperBound - 1 })
+        let opponent = LocalAIOpponent(randomIndex: { upperBound in upperBound - 1 })
 
         let move = try #require(opponent.selectPipBiasedMove(
             for: .black,
@@ -296,9 +296,9 @@ struct MatchViewModelTests {
         #expect(move.destination == .point(PointID(rawValue: 23)!))
     }
 
-    @Test("Random Dan takes normal doubles and drops only clearly bad match-deciding doubles")
+    @Test("Local AI takes normal doubles and drops only clearly bad match-deciding doubles")
     @MainActor
-    func randomDanCubeResponsePolicy() {
+    func localAICubeResponsePolicy() {
         let state = MatchState(
             config: .tournament(targetScore: 1),
             game: GameState(
@@ -307,7 +307,7 @@ struct MatchViewModelTests {
             )
         )
         let legalActions = MatchEngine.legalActions(in: state)
-        let opponent = RandomDanOpponent(randomIndex: { _ in 0 })
+        let opponent = LocalAIOpponent(randomIndex: { _ in 0 })
 
         #expect(opponent.action(
             as: .black,
@@ -324,13 +324,13 @@ struct MatchViewModelTests {
         ) == .dropDouble(.black))
     }
 
-    @Test("Random Dan quick match can complete from automated legal play")
+    @Test("Local AI quick match can complete from automated legal play")
     @MainActor
-    func randomDanQuickMatchCompletesFromLegalPlay() async {
+    func localAIQuickMatchCompletesFromLegalPlay() async {
         let viewModel = MatchViewModel(
             engine: MatchEngine(diceRoller: CyclingDiceRoller()),
             config: .tournament(targetScore: 1),
-            opponentController: RandomDanOpponent(randomIndex: { _ in 0 }),
+            opponentController: LocalAIOpponent(randomIndex: { _ in 0 }),
             opponentDelay: {}
         )
 

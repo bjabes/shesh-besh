@@ -279,6 +279,12 @@ public final class GameCenterMatchCoordinator {
         }
     }
 
+    public func remove(loaded: GameCenterLoadedMatch) async throws {
+        try await quit(loaded: loaded)
+        let match = try await GKTurnBasedMatch.load(withID: loaded.match.matchID)
+        try await match.remove()
+    }
+
     private func reconcileLedger(
         for match: GKTurnBasedMatch,
         envelope: GameCenterMatchEnvelope,
@@ -521,6 +527,7 @@ public struct GameCenterHomeView: View {
     @State private var matches: [GameCenterLoadedMatch] = []
     @State private var isLoadingMatches = false
     @State private var isWorking = false
+    @State private var isShowingRemoveAllConfirmation = false
     @State private var isShowingMatchmaker = false
     @State private var selectedTargetScore = 7
     @State private var localError: String?
@@ -555,6 +562,14 @@ public struct GameCenterHomeView: View {
                         onPrimary: startAIRivalry,
                         onSecondary: startGameCenterInvite
                     )
+
+                    if activeMatches.count > 0 {
+                        RemoveAllMatchesButton(
+                            activeMatchCount: activeMatches.count,
+                            isDisabled: isWorking,
+                            action: { isShowingRemoveAllConfirmation = true }
+                        )
+                    }
 
                     if !session.authState.isAuthenticated {
                         authPanel
@@ -596,6 +611,14 @@ public struct GameCenterHomeView: View {
                 onError: { error in localError = error.localizedDescription }
             )
         }
+        .alert("Remove All Matches?", isPresented: $isShowingRemoveAllConfirmation) {
+            Button("Remove All Matches", role: .destructive) {
+                removeAllActiveMatches()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(removeAllConfirmationMessage)
+        }
         .alert(
             "Game Center Error",
             isPresented: Binding(
@@ -613,6 +636,35 @@ public struct GameCenterHomeView: View {
         } message: {
             Text(localError ?? session.lastErrorMessage ?? ledgerCoordinator.lastErrorMessage ?? "")
         }
+    }
+
+    private var activeMatches: [ActiveMatch] {
+        ledgerCoordinator.ledgers.compactMap(\.activeMatch)
+    }
+
+    private var localActiveMatches: [ActiveMatch] {
+        activeMatches.filter { $0.gameCenterMatchID == nil }
+    }
+
+    private var gameCenterActiveMatches: [ActiveMatch] {
+        activeMatches.filter { $0.gameCenterMatchID != nil }
+    }
+
+    private var loadedMatchesByID: [String: GameCenterLoadedMatch] {
+        Dictionary(matches.map { ($0.match.matchID, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private var removeAllConfirmationMessage: String {
+        var parts: [String] = []
+        if gameCenterActiveMatches.count > 0 {
+            parts.append("forfeit \(matchPhrase(gameCenterActiveMatches.count)) in Game Center")
+        }
+        if localActiveMatches.count > 0 {
+            parts.append("clear \(matchPhrase(localActiveMatches.count)) locally")
+        }
+
+        let action = parts.isEmpty ? "remove active matches" : parts.joined(separator: " and ")
+        return "This will \(action). Completed rivalry history stays."
     }
 
     private var authenticationBinding: Binding<AuthenticationController?> {
@@ -724,6 +776,55 @@ public struct GameCenterHomeView: View {
         }
     }
 
+    private func removeAllActiveMatches() {
+        guard !isWorking else { return }
+
+        let localMatchesToClear = localActiveMatches
+        let gameCenterMatchesToRemove = gameCenterActiveMatches
+        guard !localMatchesToClear.isEmpty || !gameCenterMatchesToRemove.isEmpty else { return }
+
+        isWorking = true
+        Task {
+            defer { isWorking = false }
+
+            do {
+                if !localMatchesToClear.isEmpty {
+                    try await ledgerCoordinator.clearActiveMatches(localMatchesToClear)
+                }
+            } catch {
+                localError = error.localizedDescription
+                return
+            }
+
+            guard !gameCenterMatchesToRemove.isEmpty else { return }
+
+            await refresh()
+            let loadedByID = loadedMatchesByID
+            var failedGameCenterCount = 0
+
+            for activeMatch in gameCenterMatchesToRemove {
+                guard let gameCenterMatchID = activeMatch.gameCenterMatchID,
+                      let loaded = loadedByID[gameCenterMatchID] else {
+                    failedGameCenterCount += 1
+                    continue
+                }
+
+                do {
+                    try await matchCoordinator.remove(loaded: loaded)
+                    try await ledgerCoordinator.clearActiveMatches([activeMatch])
+                } catch {
+                    failedGameCenterCount += 1
+                }
+            }
+
+            await refresh()
+
+            if failedGameCenterCount > 0 {
+                localError = "\(failedGameCenterCount) Game Center \(failedGameCenterCount == 1 ? "match" : "matches") could not be forfeited. Those matches were left active."
+            }
+        }
+    }
+
     private func startGameCenterInvite() {
         guard session.authState.isAuthenticated else {
             session.authenticate()
@@ -797,6 +898,10 @@ public struct GameCenterHomeView: View {
         } catch {
             localError = error.localizedDescription
         }
+    }
+
+    private func matchPhrase(_ count: Int) -> String {
+        "\(count) active \(count == 1 ? "match" : "matches")"
     }
 }
 

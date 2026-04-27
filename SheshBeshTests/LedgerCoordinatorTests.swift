@@ -138,6 +138,73 @@ struct LedgerCoordinatorTests {
         #expect(firstMatch.state.config.targetScore == 1)
     }
 
+    @Test("clearing active matches preserves rivals and completed records")
+    @MainActor
+    func clearActiveMatchesPreservesHistory() async throws {
+        let rival = Rival(displayName: "Dan")
+        let record = MatchRecord(
+            rivalID: rival.id,
+            userPlayed: .white,
+            winner: .you,
+            userScore: 7,
+            rivalScore: 3,
+            targetScore: 7,
+            startedAt: Date(timeIntervalSince1970: 100),
+            completedAt: Date(timeIntervalSince1970: 200)
+        )
+        let active = ActiveMatch(
+            rivalID: rival.id,
+            userPlayed: .black,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 7))
+        )
+        let store = InMemoryLedgerStore(rivals: [rival], records: [record], activeMatches: [active])
+        let coordinator = LedgerCoordinator(store: store)
+
+        await coordinator.refresh()
+        try await coordinator.clearActiveMatches([active])
+
+        #expect(try await store.loadRivals() == [rival])
+        #expect(try await store.loadMatchRecords(rivalID: rival.id) == [record])
+        #expect(try await store.loadActiveMatch(rivalID: rival.id) == nil)
+        #expect(coordinator.ledger(for: rival.id)?.totalMatches == 1)
+        #expect(coordinator.ledger(for: rival.id)?.activeMatch == nil)
+    }
+
+    @Test("clearing multiple active matches leaves unselected active matches")
+    @MainActor
+    func clearMultipleActiveMatches() async throws {
+        let firstRival = Rival(displayName: "Dan")
+        let secondRival = Rival(displayName: "Lee")
+        let thirdRival = Rival(displayName: "Mira")
+        let firstActive = ActiveMatch(
+            rivalID: firstRival.id,
+            userPlayed: .white,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 3))
+        )
+        let secondActive = ActiveMatch(
+            rivalID: secondRival.id,
+            userPlayed: .black,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 5))
+        )
+        let thirdActive = ActiveMatch(
+            rivalID: thirdRival.id,
+            userPlayed: .white,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 7))
+        )
+        let store = InMemoryLedgerStore(
+            rivals: [firstRival, secondRival, thirdRival],
+            activeMatches: [firstActive, secondActive, thirdActive]
+        )
+        let coordinator = LedgerCoordinator(store: store)
+
+        await coordinator.refresh()
+        try await coordinator.clearActiveMatches([firstActive, secondActive])
+
+        #expect(try await store.loadActiveMatch(rivalID: firstRival.id) == nil)
+        #expect(try await store.loadActiveMatch(rivalID: secondRival.id) == nil)
+        #expect(try await store.loadActiveMatch(rivalID: thirdRival.id) == thirdActive)
+        #expect(coordinator.ledger(for: thirdRival.id)?.activeMatch == thirdActive)
+    }
 }
 
 private final class CompletionDiceRoller: DiceRolling, @unchecked Sendable {

@@ -72,6 +72,13 @@ public final class LedgerCoordinator {
         await refresh()
     }
 
+    public func clearActiveMatches(_ matches: [ActiveMatch]) async throws {
+        for match in matches {
+            try await store.clearActiveMatch(rivalID: match.rivalID)
+        }
+        await refresh()
+    }
+
     public func recordCompletion(of match: ActiveMatch) async throws {
         let record = try makeRecord(from: match, completedAt: Date())
         try await store.saveActiveMatch(match)

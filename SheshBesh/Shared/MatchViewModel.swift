@@ -90,6 +90,24 @@ public final class MatchViewModel {
         activePlayer == localPlayer
     }
 
+    public var isOpponentTurn: Bool {
+        activePlayer == localPlayer.opponent
+    }
+
+    public var currentCubeOffer: CubeOffer? {
+        if case .awaitingCubeResponse(let offer) = state.game.phase {
+            return offer
+        }
+        return nil
+    }
+
+    public var doubleOfferForLocalPlayer: CubeOffer? {
+        guard let offer = currentCubeOffer, offer.offeredBy.opponent == localPlayer else {
+            return nil
+        }
+        return offer
+    }
+
     public var isOpponentAutomationActive: Bool {
         guard isOpponentAutoplayEnabled else { return false }
         return opponentController.canAct(
@@ -182,6 +200,16 @@ public final class MatchViewModel {
     public func offerDoubleIfAllowed() {
         guard containsAction(.offerDouble(localPlayer)) else { return }
         send(.offerDouble(localPlayer))
+    }
+
+    public func takeDoubleIfAllowed() {
+        guard containsAction(.takeDouble(localPlayer)) else { return }
+        send(.takeDouble(localPlayer))
+    }
+
+    public func dropDoubleIfAllowed() {
+        guard containsAction(.dropDouble(localPlayer)) else { return }
+        send(.dropDouble(localPlayer))
     }
 
     public func offerResignationIfAllowed(_ winKind: WinKind) {

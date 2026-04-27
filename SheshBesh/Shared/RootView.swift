@@ -30,9 +30,9 @@ public struct RootView: View {
     public var body: some View {
         Group {
             if let singleMatchViewModel {
-                BoardView(viewModel: singleMatchViewModel)
+                matchView(for: singleMatchViewModel)
             } else if let activeMatchViewModel {
-                BoardView(viewModel: activeMatchViewModel)
+                matchView(for: activeMatchViewModel)
                     .sheet(item: $completedRecord) { record in
                         MatchEndSheet(
                             record: record,
@@ -61,6 +61,17 @@ public struct RootView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(routeError ?? "")
+        }
+    }
+
+    @ViewBuilder
+    private func matchView(for viewModel: MatchViewModel) -> some View {
+        if viewModel.doubleOfferForLocalPlayer != nil {
+            DoubleOfferSheet(viewModel: viewModel)
+        } else if viewModel.isOpponentTurn {
+            OpponentTurnView(viewModel: viewModel)
+        } else {
+            BoardView(viewModel: viewModel)
         }
     }
 

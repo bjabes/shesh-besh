@@ -32,7 +32,9 @@ public struct RootView: View {
             if let singleMatchViewModel {
                 matchView(for: singleMatchViewModel)
             } else if let activeMatchViewModel {
-                matchView(for: activeMatchViewModel)
+                matchView(for: activeMatchViewModel) {
+                    self.activeMatchViewModel = nil
+                }
                     .sheet(item: $completedRecord) { record in
                         MatchEndSheet(
                             record: record,
@@ -65,13 +67,16 @@ public struct RootView: View {
     }
 
     @ViewBuilder
-    private func matchView(for viewModel: MatchViewModel) -> some View {
+    private func matchView(
+        for viewModel: MatchViewModel,
+        onBackToRivals: (() -> Void)? = nil
+    ) -> some View {
         if viewModel.doubleOfferForLocalPlayer != nil {
-            DoubleOfferSheet(viewModel: viewModel)
+            DoubleOfferSheet(viewModel: viewModel, onBackToRivals: onBackToRivals)
         } else if viewModel.isOpponentTurn {
-            OpponentTurnView(viewModel: viewModel)
+            OpponentTurnView(viewModel: viewModel, onBackToRivals: onBackToRivals)
         } else {
-            BoardView(viewModel: viewModel)
+            BoardView(viewModel: viewModel, onBackToRivals: onBackToRivals)
         }
     }
 

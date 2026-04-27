@@ -5,17 +5,20 @@ public struct BoardView: View {
     public let viewModel: MatchViewModel
     private let isReadOnly: Bool
     private let showsActionBar: Bool
+    private let onBackToRivals: (() -> Void)?
 
     @State private var selectedSource: MoveSource?
 
     public init(
         viewModel: MatchViewModel,
         isReadOnly: Bool = false,
-        showsActionBar: Bool = true
+        showsActionBar: Bool = true,
+        onBackToRivals: (() -> Void)? = nil
     ) {
         self.viewModel = viewModel
         self.isReadOnly = isReadOnly
         self.showsActionBar = showsActionBar
+        self.onBackToRivals = onBackToRivals
     }
 
     public var body: some View {
@@ -24,7 +27,7 @@ public struct BoardView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 12) {
-                HeaderCard(viewModel: viewModel)
+                HeaderCard(viewModel: viewModel, onBackToRivals: onBackToRivals)
                 PipStrip(viewModel: viewModel)
 
                 BoardSurface(
@@ -115,13 +118,23 @@ public struct BoardView: View {
 
 public struct OpponentTurnView: View {
     public let viewModel: MatchViewModel
+    private let onBackToRivals: (() -> Void)?
 
-    public init(viewModel: MatchViewModel) {
+    public init(
+        viewModel: MatchViewModel,
+        onBackToRivals: (() -> Void)? = nil
+    ) {
         self.viewModel = viewModel
+        self.onBackToRivals = onBackToRivals
     }
 
     public var body: some View {
-        BoardView(viewModel: viewModel, isReadOnly: true, showsActionBar: false)
+        BoardView(
+            viewModel: viewModel,
+            isReadOnly: true,
+            showsActionBar: false,
+            onBackToRivals: onBackToRivals
+        )
             .overlay(alignment: .bottom) {
                 opponentStatus
                     .padding(.horizontal, 18)
@@ -174,17 +187,28 @@ public struct OpponentTurnView: View {
 
 public struct DoubleOfferSheet: View {
     public let viewModel: MatchViewModel
+    private let onBackToRivals: (() -> Void)?
 
-    public init(viewModel: MatchViewModel) {
+    public init(
+        viewModel: MatchViewModel,
+        onBackToRivals: (() -> Void)? = nil
+    ) {
         self.viewModel = viewModel
+        self.onBackToRivals = onBackToRivals
     }
 
     public var body: some View {
         ZStack {
-            BoardView(viewModel: viewModel, isReadOnly: true, showsActionBar: false)
+            BoardView(
+                viewModel: viewModel,
+                isReadOnly: true,
+                showsActionBar: false,
+                onBackToRivals: onBackToRivals
+            )
 
             LinenBrass.ink.opacity(0.42)
                 .ignoresSafeArea()
+                .allowsHitTesting(false)
 
             if let offer = viewModel.doubleOfferForLocalPlayer {
                 offerCard(offer)
@@ -329,10 +353,24 @@ private struct LinenBackground: View {
 
 private struct HeaderCard: View {
     let viewModel: MatchViewModel
+    let onBackToRivals: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            HStack(alignment: .lastTextBaseline) {
+            HStack(alignment: .center, spacing: 10) {
+                if let onBackToRivals {
+                    Button(action: onBackToRivals) {
+                        Label("Rivals", systemImage: "chevron.left")
+                            .font(LinenBrass.uiFont(size: 14, weight: .semibold))
+                            .labelStyle(.titleAndIcon)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(LinenBrass.coffee)
+                    .accessibilityIdentifier("match-back-button")
+                }
+
                 Text("YOU vs \(viewModel.opponentName.uppercased())")
                     .font(LinenBrass.displayFont(size: 28, weight: .bold))
                     .lineLimit(1)

@@ -32,11 +32,17 @@ public struct BoardView: View {
                     isReadOnly: isReadOnly,
                     selectedSource: selectedSource,
                     onPointTap: handlePointTap,
-                    onBarTap: handleBarTap,
-                    onBearOffTap: handleBearOffTap
+                    onBarTap: handleBarTap
                 )
                 .aspectRatio(0.78, contentMode: .fit)
                 .frame(maxHeight: 600)
+
+                BearOffStrip(
+                    viewModel: viewModel,
+                    selectedSource: selectedSource,
+                    isReadOnly: isReadOnly,
+                    onBearOffTap: handleBearOffTap
+                )
 
                 if showsActionBar {
                     ActionBar(viewModel: viewModel) {
@@ -407,7 +413,6 @@ private struct BoardSurface: View {
     let selectedSource: MoveSource?
     let onPointTap: (PointID) -> Void
     let onBarTap: () -> Void
-    let onBearOffTap: () -> Void
 
     var body: some View {
         GeometryReader { geometry in
@@ -439,9 +444,7 @@ private struct BoardSurface: View {
                     viewModel: viewModel,
                     selectedSource: selectedSource,
                     barWidth: barWidth,
-                    legalDestinations: legalDestinations,
-                    onBarTap: onBarTap,
-                    onBearOffTap: onBearOffTap
+                    onBarTap: onBarTap
                 )
                 .frame(height: trayHeight)
 
@@ -848,21 +851,13 @@ private struct TrayRow: View {
     let viewModel: MatchViewModel
     let selectedSource: MoveSource?
     let barWidth: CGFloat
-    let legalDestinations: Set<MoveDestination>
     let onBarTap: () -> Void
-    let onBearOffTap: () -> Void
 
     var body: some View {
         HStack(spacing: 0) {
-            BearOffZone(
-                title: "\(viewModel.displayName(for: viewModel.localPlayer.opponent)) off",
-                count: viewModel.state.game.board.borneOffCount(for: viewModel.localPlayer.opponent),
-                owner: viewModel.localPlayer.opponent,
-                localPlayer: viewModel.localPlayer,
-                isLegalDestination: false,
-                accessibilityIdentifier: "bear-off-opponent",
-                onTap: {}
-            )
+            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(LinenBrass.linenDeep)
 
             BarWell(
                 viewModel: viewModel,
@@ -895,17 +890,6 @@ private struct TrayRow: View {
                     .accessibilityIdentifier("tray-phase-title")
 
                 Spacer(minLength: 0)
-
-                BearOffZone(
-                    title: "You off",
-                    count: viewModel.state.game.board.borneOffCount(for: viewModel.localPlayer),
-                    owner: viewModel.localPlayer,
-                    localPlayer: viewModel.localPlayer,
-                    isLegalDestination: viewModel.isLegalDestination(.off, from: selectedSource),
-                    accessibilityIdentifier: "bear-off-local",
-                    onTap: onBearOffTap
-                )
-                .frame(width: 72)
             }
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -935,6 +919,47 @@ private struct TrayRow: View {
     }
 }
 
+private struct BearOffStrip: View {
+    let viewModel: MatchViewModel
+    let selectedSource: MoveSource?
+    let isReadOnly: Bool
+    let onBearOffTap: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            BearOffZone(
+                title: "\(viewModel.displayName(for: viewModel.localPlayer.opponent)) off",
+                count: viewModel.state.game.board.borneOffCount(for: viewModel.localPlayer.opponent),
+                owner: viewModel.localPlayer.opponent,
+                localPlayer: viewModel.localPlayer,
+                isLegalDestination: false,
+                accessibilityIdentifier: "bear-off-opponent",
+                onTap: {}
+            )
+            .disabled(true)
+
+            BearOffZone(
+                title: "You off",
+                count: viewModel.state.game.board.borneOffCount(for: viewModel.localPlayer),
+                owner: viewModel.localPlayer,
+                localPlayer: viewModel.localPlayer,
+                isLegalDestination: !isReadOnly && viewModel.isLegalDestination(.off, from: selectedSource),
+                accessibilityIdentifier: "bear-off-local",
+                onTap: onBearOffTap
+            )
+            .disabled(isReadOnly)
+        }
+        .padding(8)
+        .background(LinenBrass.coffee, in: RoundedRectangle(cornerRadius: 7))
+        .overlay(
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(LinenBrass.brass.opacity(0.34), lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("bear-off-strip")
+    }
+}
+
 private struct BearOffZone: View {
     let title: String
     let count: Int
@@ -946,26 +971,38 @@ private struct BearOffZone: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 3) {
+            HStack(spacing: 10) {
                 Checker(owner: owner, localPlayer: localPlayer)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 28, height: 28)
                     .opacity(count == 0 ? 0.38 : 1)
                     .overlay {
                         if count > 0 {
                             Text("\(count)")
-                                .font(LinenBrass.uiFont(size: 9, weight: .bold))
+                                .font(LinenBrass.uiFont(size: 10, weight: .bold))
                                 .foregroundStyle(owner == localPlayer ? LinenBrass.cream : LinenBrass.ink)
                         }
                     }
 
-                Text(title)
-                    .font(LinenBrass.uiFont(size: 9, weight: .semibold))
-                    .foregroundStyle(LinenBrass.cream.opacity(0.72))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.68)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(LinenBrass.uiFont(size: 14, weight: .semibold))
+                        .foregroundStyle(LinenBrass.cream)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    Text("\(count) borne off")
+                        .font(LinenBrass.uiFont(size: 11, weight: .medium))
+                        .foregroundStyle(LinenBrass.cream.opacity(0.68))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
+
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(isLegalDestination ? LinenBrass.brass.opacity(0.2) : .clear)
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 46)
+            .background(isLegalDestination ? LinenBrass.brass.opacity(0.24) : LinenBrass.saddle.opacity(0.36))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

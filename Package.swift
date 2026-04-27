@@ -17,10 +17,6 @@ let package = Package(
             name: "SheshBeshApp",
             targets: ["SheshBeshApp"]
         ),
-        .executable(
-            name: "SheshBesh",
-            targets: ["SheshBesh"]
-        ),
     ],
     targets: [
         .target(
@@ -34,14 +30,6 @@ let package = Package(
             name: "SheshBeshApp",
             dependencies: ["SheshBeshGame"],
             path: "SheshBesh/Shared",
-            swiftSettings: [
-                .swiftLanguageMode(.v6),
-            ]
-        ),
-        .executableTarget(
-            name: "SheshBesh",
-            dependencies: ["SheshBeshApp"],
-            path: "SheshBesh/App",
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ]

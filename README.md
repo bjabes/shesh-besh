@@ -30,8 +30,19 @@ shesh-besh/
 
 The game engine remains isolated as a local Swift package so app UI can depend
 on it without mixing presentation code into the rules layer. The root package
-also exposes `SheshBeshApp` for app-level tests and a small `SheshBesh`
-SwiftUI executable for local compiler coverage.
+also exposes `SheshBeshApp` for app-level tests.
+
+## Running The App In Xcode
+
+Open the checked-in project, not `Package.swift`:
+
+```sh
+open SheshBesh.xcodeproj
+```
+
+Then select the `SheshBesh` scheme, choose an iOS Simulator, and press `Cmd+R`.
+The root Swift package is for build and test coverage only; it does not define a
+runnable app bundle.
 
 ## Building and Running Tests
 

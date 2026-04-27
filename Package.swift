@@ -14,12 +14,12 @@ let package = Package(
             targets: ["SheshBeshGame"]
         ),
         .library(
+            name: "SheshBeshLedger",
+            targets: ["SheshBeshLedger"]
+        ),
+        .library(
             name: "SheshBeshApp",
             targets: ["SheshBeshApp"]
-        ),
-        .executable(
-            name: "SheshBesh",
-            targets: ["SheshBesh"]
         ),
     ],
     targets: [
@@ -31,17 +31,17 @@ let package = Package(
             ]
         ),
         .target(
-            name: "SheshBeshApp",
+            name: "SheshBeshLedger",
             dependencies: ["SheshBeshGame"],
-            path: "SheshBesh/Shared",
+            path: "Packages/SheshBeshLedger/Sources/SheshBeshLedger",
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ]
         ),
-        .executableTarget(
-            name: "SheshBesh",
-            dependencies: ["SheshBeshApp"],
-            path: "SheshBesh/App",
+        .target(
+            name: "SheshBeshApp",
+            dependencies: ["SheshBeshGame", "SheshBeshLedger"],
+            path: "SheshBesh/Shared",
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ]
@@ -55,8 +55,16 @@ let package = Package(
             ]
         ),
         .testTarget(
+            name: "SheshBeshLedgerTests",
+            dependencies: ["SheshBeshLedger", "SheshBeshGame"],
+            path: "Packages/SheshBeshLedger/Tests/SheshBeshLedgerTests",
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
+        ),
+        .testTarget(
             name: "SheshBeshAppTests",
-            dependencies: ["SheshBeshApp"],
+            dependencies: ["SheshBeshApp", "SheshBeshGame", "SheshBeshLedger"],
             path: "SheshBeshTests",
             swiftSettings: [
                 .swiftLanguageMode(.v6),

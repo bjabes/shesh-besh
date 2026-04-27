@@ -1,6 +1,10 @@
 import SheshBeshGame
 import SwiftUI
 
+#if canImport(SheshBeshLedger)
+import SheshBeshLedger
+#endif
+
 public enum AppLaunchConfiguration {
     @MainActor
     public static func rootView(arguments: [String] = ProcessInfo.processInfo.arguments) -> RootView {
@@ -10,7 +14,8 @@ public enum AppLaunchConfiguration {
             return RootView(
                 viewModel: MatchViewModel(
                     engine: MatchEngine(diceRoller: ScriptedDiceRoller(dice)),
-                    config: .tournament(targetScore: 7)
+                    config: .tournament(targetScore: 7),
+                    opponentDelay: {}
                 )
             )
         }
@@ -18,7 +23,16 @@ public enum AppLaunchConfiguration {
         _ = arguments
         #endif
 
-        return RootView()
+        return RootView(coordinator: LedgerCoordinator(store: makeLedgerStore()))
+    }
+
+    private static func makeLedgerStore() -> any LedgerStore {
+        do {
+            let fileURL = try JSONLedgerStore.defaultFileURL()
+            return try JSONLedgerStore(fileURL: fileURL)
+        } catch {
+            return InMemoryLedgerStore()
+        }
     }
 
     #if DEBUG

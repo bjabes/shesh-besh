@@ -20,6 +20,10 @@ shesh-besh/
       Package.swift
       Sources/SheshBeshGame/
       Tests/SheshBeshGameTests/
+    SheshBeshLedger/
+      Package.swift
+      Sources/SheshBeshLedger/
+      Tests/SheshBeshLedgerTests/
 
   SheshBesh.xcodeproj      # iOS SwiftUI app project
   SheshBesh/
@@ -28,10 +32,22 @@ shesh-besh/
   SheshBeshTests/          # app-level tests
 ```
 
-The game engine remains isolated as a local Swift package so app UI can depend
-on it without mixing presentation code into the rules layer. The root package
-also exposes `SheshBeshApp` for app-level tests and a small `SheshBesh`
-SwiftUI executable for local compiler coverage.
+The game engine and rivalry ledger remain isolated as local Swift packages so
+app UI can depend on them without mixing presentation code into the rules or
+storage layers. The root package also exposes `SheshBeshApp` for app-level
+tests.
+
+## Running The App In Xcode
+
+Open the checked-in project, not `Package.swift`:
+
+```sh
+open SheshBesh.xcodeproj
+```
+
+Then select the `SheshBesh` scheme, choose an iOS Simulator, and press `Cmd+R`.
+The root Swift package is for build and test coverage only; it does not define a
+runnable app bundle.
 
 ## Building and Running Tests
 
@@ -188,8 +204,11 @@ let data = try JSONEncoder().encode(viewModel.state)
 let restored = try JSONDecoder().decode(MatchState.self, from: data)
 ```
 
-The package does not choose a persistence store. The app can put encoded state
-in a file, SwiftData, CloudKit, or a multiplayer transport.
+`SheshBeshLedger` provides the V1 local persistence surface for rivalries:
+`Rival`, `ActiveMatch`, `MatchRecord`, the derived `RivalLedger`, and a
+`LedgerStore` protocol with in-memory and JSON-file implementations. The JSON
+store writes one `Application Support/SheshBesh/ledger.json` file and keeps
+CloudKit or cross-device sync behind the same protocol for a later pass.
 
 ## Deterministic Dice In Tests
 

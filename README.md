@@ -61,6 +61,15 @@ This builds and tests the Swift package, then builds the checked-in Xcode
 project for iOS Simulator, catching drift between the SwiftPM and Xcode build
 paths. GitHub Actions runs this script for pushes and pull requests to `main`.
 
+Pull requests also run a dedicated screenshot workflow. It drives the
+deterministic UI test flow, exports the kept screenshots, uploads them as the
+`pr-screenshots` artifact, and links the artifact from the PR. To reproduce that
+capture locally:
+
+```sh
+./scripts/capture-pr-screenshots.sh
+```
+
 ```sh
 swift build
 swift test

@@ -299,11 +299,7 @@ public final class MatchViewModel {
         turnDraftSnapshots.removeAll()
         lastError = nil
         refreshDerivedState()
-        if state.completion != nil {
-            notifyCompletionIfNeeded()
-        } else {
-            onStateChange?(state)
-        }
+        notifyStorageCallbacks(hadCompletion: false)
         turnNotice = nil
         scheduleOpponentTurnIfNeeded()
         return true

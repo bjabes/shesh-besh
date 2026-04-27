@@ -60,6 +60,7 @@ public struct RootView: View {
                     session: gameCenterSession,
                     ledgerCoordinator: coordinator,
                     matchCoordinator: GameCenterMatchCoordinator(ledgerCoordinator: coordinator),
+                    onOpenLocalMatch: openMatch,
                     onOpenMatch: openGameCenterMatch
                 )
                 #else

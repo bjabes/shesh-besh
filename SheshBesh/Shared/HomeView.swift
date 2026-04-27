@@ -30,21 +30,25 @@ public struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     header
-
-                    if coordinator.ledgers.isEmpty {
-                        EmptyLedgerView {
+                    RivalryLaunchActions(
+                        primaryTitle: "Practice vs AI",
+                        primarySystemImage: "cpu",
+                        secondaryTitle: "Add Rival",
+                        secondarySystemImage: "person.badge.plus",
+                        onPrimary: startAIRivalry,
+                        onSecondary: {
                             newRivalName = ""
                             isAddingRival = true
                         }
+                    )
+
+                    if coordinator.ledgers.isEmpty {
+                        EmptyLedgerView()
                     } else {
                         RivalryStack(
                             ledgers: coordinator.ledgers,
                             onStart: startMatch,
-                            onResume: onOpenMatch,
-                            onAddRival: {
-                                newRivalName = ""
-                                isAddingRival = true
-                            }
+                            onResume: onOpenMatch
                         )
                     }
                 }
@@ -114,6 +118,19 @@ public struct HomeView: View {
         }
     }
 
+    private func startAIRivalry() {
+        guard !isWorking else { return }
+        isWorking = true
+        Task {
+            do {
+                onOpenMatch(try await coordinator.startAIRivalry())
+            } catch {
+                localError = error.localizedDescription
+            }
+            isWorking = false
+        }
+    }
+
     private func startMatch(for ledger: RivalLedger) {
         guard !isWorking else { return }
         isWorking = true
@@ -133,11 +150,55 @@ public struct HomeView: View {
     }
 }
 
-private struct RivalryStack: View {
+struct RivalryLaunchActions: View {
+    let primaryTitle: String
+    let primarySystemImage: String
+    let secondaryTitle: String
+    let secondarySystemImage: String
+    let onPrimary: () -> Void
+    let onSecondary: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button(action: onPrimary) {
+                Label(primaryTitle, systemImage: primarySystemImage)
+                    .font(LedgerTheme.uiFont(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(LedgerTheme.rust)
+            .accessibilityIdentifier("home-new-ai-rival")
+
+            Button(action: onSecondary) {
+                Label(secondaryTitle, systemImage: secondarySystemImage)
+                    .font(LedgerTheme.uiFont(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            }
+            .buttonStyle(.bordered)
+            .tint(LedgerTheme.coffee)
+            .accessibilityIdentifier("home-new-game-center-rival")
+        }
+    }
+}
+
+struct RivalryStack: View {
     let ledgers: [RivalLedger]
     let onStart: (RivalLedger) -> Void
     let onResume: (ActiveMatch) -> Void
-    let onAddRival: () -> Void
+    var startTitle: (RivalLedger) -> String = { _ in "Start match" }
+    var startSystemImage: (RivalLedger) -> String = { _ in "play.fill" }
+    var resumeTitle: (RivalLedger) -> String = { ledger in
+        ledger.activeMatch?.gameCenterMatchID == nil ? "Resume match" : "Open turn"
+    }
+    var resumeSystemImage: (RivalLedger) -> String = { ledger in
+        ledger.activeMatch?.gameCenterMatchID == nil ? "arrow.uturn.forward" : "arrow.turn.up.right"
+    }
 
     var body: some View {
         VStack(spacing: 14) {
@@ -145,6 +206,10 @@ private struct RivalryStack: View {
                 RivalryCard(
                     ledger: hero,
                     isHero: true,
+                    startTitle: startTitle(hero),
+                    startSystemImage: startSystemImage(hero),
+                    resumeTitle: resumeTitle(hero),
+                    resumeSystemImage: resumeSystemImage(hero),
                     onStart: { onStart(hero) },
                     onResume: {
                         if let match = hero.activeMatch {
@@ -158,6 +223,10 @@ private struct RivalryStack: View {
                 RivalryCard(
                     ledger: ledger,
                     isHero: false,
+                    startTitle: startTitle(ledger),
+                    startSystemImage: startSystemImage(ledger),
+                    resumeTitle: resumeTitle(ledger),
+                    resumeSystemImage: resumeSystemImage(ledger),
                     onStart: { onStart(ledger) },
                     onResume: {
                         if let match = ledger.activeMatch {
@@ -166,16 +235,6 @@ private struct RivalryStack: View {
                     }
                 )
             }
-
-            Button(action: onAddRival) {
-                Label("New rival", systemImage: "plus")
-                    .font(LedgerTheme.uiFont(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(LedgerTheme.rust)
-            .accessibilityIdentifier("home-new-rival")
         }
     }
 }
@@ -183,6 +242,10 @@ private struct RivalryStack: View {
 private struct RivalryCard: View {
     let ledger: RivalLedger
     let isHero: Bool
+    let startTitle: String
+    let startSystemImage: String
+    let resumeTitle: String
+    let resumeSystemImage: String
     let onStart: () -> Void
     let onResume: () -> Void
 
@@ -220,7 +283,7 @@ private struct RivalryCard: View {
 
             if ledger.activeMatch == nil {
                 Button(action: onStart) {
-                    Label("Start match", systemImage: "play.fill")
+                    Label(startTitle, systemImage: startSystemImage)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -228,7 +291,7 @@ private struct RivalryCard: View {
                 .accessibilityIdentifier("start-match-\(ledger.rival.id.uuidString)")
             } else {
                 Button(action: onResume) {
-                    Label("Resume match", systemImage: "arrow.uturn.forward")
+                    Label(resumeTitle, systemImage: resumeSystemImage)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -305,8 +368,6 @@ private struct MetricPill: View {
 }
 
 private struct EmptyLedgerView: View {
-    let onAddRival: () -> Void
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Start a head-to-head ledger")
@@ -319,13 +380,6 @@ private struct EmptyLedgerView: View {
                 .font(LedgerTheme.uiFont(size: 15))
                 .foregroundStyle(LedgerTheme.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
-
-            Button(action: onAddRival) {
-                Label("New rival", systemImage: "plus")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(LedgerTheme.rust)
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)

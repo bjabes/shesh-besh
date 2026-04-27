@@ -118,6 +118,25 @@ struct LedgerCoordinatorTests {
         #expect(records.first?.gameCenterMatchID == "gc-match-1")
         #expect(records.first?.gameIndex == 0)
     }
+
+    @Test("AI rivalry starts or resumes a Random Dan quick match")
+    @MainActor
+    func aiRivalryStartsOrResumesQuickMatch() async throws {
+        let store = InMemoryLedgerStore()
+        let coordinator = LedgerCoordinator(store: store)
+
+        let firstMatch = try await coordinator.startAIRivalry()
+        let rival = try #require(coordinator.rival(for: firstMatch.rivalID))
+        let secondMatch = try await coordinator.startAIRivalry()
+        let rivals = try await store.loadRivals()
+
+        #expect(rivals.count == 1)
+        #expect(rival.displayName == "Random Dan")
+        #expect(rival.gameCenterPlayerID == nil)
+        #expect(firstMatch.id == secondMatch.id)
+        #expect(firstMatch.userPlayed == .white)
+        #expect(firstMatch.state.config.targetScore == 1)
+    }
 }
 
 private final class CompletionDiceRoller: DiceRolling, @unchecked Sendable {

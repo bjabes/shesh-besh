@@ -796,7 +796,10 @@ public struct GameCenterHomeView: View {
             return
         }
 
+        guard !isWorking else { return }
+        isWorking = true
         Task {
+            defer { isWorking = false }
             await refresh()
             if let loaded = matches.first(where: { $0.match.matchID == gameCenterMatchID }) {
                 onOpenMatch(loaded)

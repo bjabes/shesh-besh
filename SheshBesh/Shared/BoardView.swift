@@ -381,12 +381,6 @@ private struct PipStrip: View {
         HStack {
             pipCount(for: viewModel.localPlayer)
             Spacer(minLength: 12)
-            Text("match \(viewModel.localScore)-\(viewModel.opponentScore)")
-                .font(LinenBrass.uiFont(size: 15, weight: .semibold))
-                .foregroundStyle(LinenBrass.cream)
-                .lineLimit(1)
-                .accessibilityIdentifier("match-score")
-            Spacer(minLength: 12)
             pipCount(for: viewModel.localPlayer.opponent)
         }
         .padding(.horizontal, 4)
@@ -1209,12 +1203,20 @@ private struct ActionBar: View {
                 }
             }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, minHeight: 64)
+        .background(LinenBrass.coffee, in: RoundedRectangle(cornerRadius: 7))
+        .overlay(
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(LinenBrass.brass.opacity(0.32), lineWidth: 1)
+        )
     }
 
     @ViewBuilder
     private var resignationMenu: some View {
         if viewModel.containsAction(.offerResignation(viewModel.localPlayer, .single)) {
-            Menu("Resign…") {
+            Menu {
                 Button("Offer single") {
                     viewModel.offerResignationIfAllowed(.single)
                     onAction()
@@ -1230,6 +1232,12 @@ private struct ActionBar: View {
                     onAction()
                 }
                 .accessibilityIdentifier("action-offer-backgammon")
+            } label: {
+                Text("Resign...")
+                    .font(LinenBrass.uiFont(size: 18, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .frame(minWidth: 128, minHeight: 48)
             }
             .buttonStyle(LinenButtonStyle(kind: .secondary))
             .accessibilityIdentifier("action-resign")

@@ -778,7 +778,8 @@ private struct CubeView: View {
     }
 
     private var label: String {
-        cube.owner == nil && cube.value == 1 ? "64" : "\(cube.value)"
+        let displayValue = cube.owner == nil && cube.value == 1 ? cube.value * 2 : cube.value
+        return "\(displayValue)"
     }
 }
 

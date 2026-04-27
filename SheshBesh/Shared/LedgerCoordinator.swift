@@ -9,6 +9,9 @@ import SheshBeshLedger
 @MainActor
 @Observable
 public final class LedgerCoordinator {
+    private static let quickAIRivalDisplayName = "Random Dan"
+    private static let quickAIMatchConfig = MatchConfig.tournament(targetScore: 1)
+
     @ObservationIgnored private let store: any LedgerStore
 
     public private(set) var ledgers: [RivalLedger] = []
@@ -86,6 +89,31 @@ public final class LedgerCoordinator {
         return rival
     }
 
+    public func startAIRivalry() async throws -> ActiveMatch {
+        await refresh()
+
+        let rival: Rival
+        if let existingRival = ledgers
+            .map(\.rival)
+            .first(where: Self.isQuickAIRival) {
+            rival = existingRival
+        } else {
+            rival = Rival(displayName: Self.quickAIRivalDisplayName)
+            try await store.upsertRival(rival)
+            await refresh()
+        }
+
+        if let activeMatch = ledger(for: rival.id)?.activeMatch {
+            return activeMatch
+        }
+
+        return try await startMatch(
+            against: rival,
+            userPlays: .white,
+            config: Self.quickAIMatchConfig
+        )
+    }
+
     public func ledger(for rivalID: Rival.ID) -> RivalLedger? {
         ledgers.first { $0.rival.id == rivalID }
     }
@@ -113,6 +141,10 @@ public final class LedgerCoordinator {
 
     public func clearError() {
         lastErrorMessage = nil
+    }
+
+    private static func isQuickAIRival(_ rival: Rival) -> Bool {
+        rival.gameCenterPlayerID == nil && rival.displayName == quickAIRivalDisplayName
     }
 
     private static func sortLedgers(_ lhs: RivalLedger, _ rhs: RivalLedger) -> Bool {

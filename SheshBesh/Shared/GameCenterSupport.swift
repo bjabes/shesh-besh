@@ -725,25 +725,7 @@ public struct GameCenterHomeView: View {
         isWorking = true
         Task {
             do {
-                let rival: Rival
-                if let existingRival = ledgerCoordinator.ledgers
-                    .map(\.rival)
-                    .first(where: { $0.gameCenterPlayerID == nil && $0.displayName == "Random Dan" }) {
-                    rival = existingRival
-                } else {
-                    rival = try await ledgerCoordinator.addRival(displayName: "Random Dan")
-                }
-                let match: ActiveMatch
-                if let activeMatch = ledgerCoordinator.ledger(for: rival.id)?.activeMatch {
-                    match = activeMatch
-                } else {
-                    match = try await ledgerCoordinator.startMatch(
-                        against: rival,
-                        userPlays: .white,
-                        config: .tournament(targetScore: 1)
-                    )
-                }
-                onOpenLocalMatch(match)
+                onOpenLocalMatch(try await ledgerCoordinator.startAIRivalry())
             } catch {
                 localError = error.localizedDescription
             }
@@ -836,7 +818,7 @@ private struct EmptyGameCenterLedgerView: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.72)
 
-            Text("Practice against Random Dan now, or invite a friend through Game Center.")
+            Text("Practice against AI now, or invite a friend through Game Center.")
                 .font(LedgerTheme.uiFont(size: 15))
                 .foregroundStyle(LedgerTheme.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)

@@ -123,25 +123,7 @@ public struct HomeView: View {
         isWorking = true
         Task {
             do {
-                let rival: Rival
-                if let existingRival = coordinator.ledgers
-                    .map(\.rival)
-                    .first(where: { $0.gameCenterPlayerID == nil && $0.displayName == "Random Dan" }) {
-                    rival = existingRival
-                } else {
-                    rival = try await coordinator.addRival(displayName: "Random Dan")
-                }
-                let match: ActiveMatch
-                if let activeMatch = coordinator.ledger(for: rival.id)?.activeMatch {
-                    match = activeMatch
-                } else {
-                    match = try await coordinator.startMatch(
-                        against: rival,
-                        userPlays: .white,
-                        config: .tournament(targetScore: 1)
-                    )
-                }
-                onOpenMatch(match)
+                onOpenMatch(try await coordinator.startAIRivalry())
             } catch {
                 localError = error.localizedDescription
             }

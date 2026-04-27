@@ -17,4 +17,4 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Run just the swift tests
-      run: swift test
+      run: docker run -v "$PWD:/code" -w /code swift:latest swift test

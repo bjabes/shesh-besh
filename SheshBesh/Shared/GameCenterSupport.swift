@@ -30,15 +30,13 @@ public final class GameCenterSession: NSObject, @preconcurrency GKLocalPlayerLis
     public var authenticationViewController: UIViewController?
     public var lastErrorMessage: String?
     private var authenticationAttemptID = UUID()
-    private var hasStarted = false
 
     @ObservationIgnored public var onTurnEvent: (@MainActor (GKTurnBasedMatch, Bool) -> Void)?
     @ObservationIgnored public var onMatchEnded: (@MainActor (GKTurnBasedMatch) -> Void)?
     @ObservationIgnored public var onWantsToQuitMatch: (@MainActor (GKTurnBasedMatch) -> Void)?
 
     public func start() {
-        guard !hasStarted else { return }
-        hasStarted = true
+        guard authState == .notStarted else { return }
         beginAuthentication()
     }
 

@@ -422,7 +422,8 @@ public struct GameCenterMatchmakerSheet: UIViewControllerRepresentable {
 
     public func updateUIViewController(_ uiViewController: GKTurnBasedMatchmakerViewController, context: Context) {}
 
-    public final class Coordinator: NSObject, @MainActor GKTurnBasedMatchmakerViewControllerDelegate {
+    @MainActor
+    public final class Coordinator: NSObject, @preconcurrency GKTurnBasedMatchmakerViewControllerDelegate {
         private let parent: GameCenterMatchmakerSheet
 
         init(parent: GameCenterMatchmakerSheet) {

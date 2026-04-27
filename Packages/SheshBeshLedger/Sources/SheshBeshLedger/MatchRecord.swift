@@ -4,6 +4,8 @@ import SheshBeshGame
 public struct MatchRecord: Identifiable, Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public let rivalID: Rival.ID
+    public let gameCenterMatchID: String?
+    public let gameIndex: Int
     public let userPlayed: Player
     public let winner: MatchOutcome
     public let userScore: Int
@@ -16,6 +18,8 @@ public struct MatchRecord: Identifiable, Codable, Equatable, Hashable, Sendable 
     public init(
         id: UUID = UUID(),
         rivalID: Rival.ID,
+        gameCenterMatchID: String? = nil,
+        gameIndex: Int = 0,
         userPlayed: Player,
         winner: MatchOutcome,
         userScore: Int,
@@ -27,6 +31,8 @@ public struct MatchRecord: Identifiable, Codable, Equatable, Hashable, Sendable 
     ) {
         self.id = id
         self.rivalID = rivalID
+        self.gameCenterMatchID = gameCenterMatchID
+        self.gameIndex = gameIndex
         self.userPlayed = userPlayed
         self.winner = winner
         self.userScore = userScore

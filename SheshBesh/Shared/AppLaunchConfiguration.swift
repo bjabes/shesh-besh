@@ -14,7 +14,8 @@ public enum AppLaunchConfiguration {
             return RootView(
                 viewModel: MatchViewModel(
                     engine: MatchEngine(diceRoller: ScriptedDiceRoller(dice)),
-                    config: .tournament(targetScore: 7)
+                    config: .tournament(targetScore: 7),
+                    opponentDelay: {}
                 )
             )
         }

@@ -37,7 +37,8 @@ final class SheshBeshUITests: XCTestCase {
 
         element("point-24", in: app).tap()
         element("point-23", in: app).tap()
-        XCTAssertTrue(app.buttons["action-roll-for-dan"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["action-roll-dice"].waitForExistence(timeout: 4))
+        XCTAssertEqual(app.staticTexts["header-phase-title"].label, "Your turn")
     }
 
     @MainActor

@@ -6,15 +6,21 @@ import SheshBeshGame
 @Observable
 public final class MatchViewModel {
     private let engine: MatchEngine
+    private let opponentController: RandomDanOpponent
+    private let opponentDelay: @Sendable () async -> Void
+    @ObservationIgnored private var opponentTask: Task<Void, Never>?
 
     public private(set) var state: MatchState
     public private(set) var lastError: String?
     public private(set) var legalActions: [MatchAction]
     public private(set) var legalMoves: [Move]
     public private(set) var pipCounts: [Player: Int]
+    public private(set) var isOpponentThinking: Bool
+    public private(set) var turnNotice: String?
 
     public let localPlayer: Player
     public let opponentName: String
+    public let isOpponentAutoplayEnabled: Bool
     public let activeMatchID: UUID
 
     @ObservationIgnored public var onStateChange: (@MainActor (MatchState) -> Void)?
@@ -24,11 +30,17 @@ public final class MatchViewModel {
 
     public init(
         engine: MatchEngine = MatchEngine(),
-        config: MatchConfig = .tournament(targetScore: 7),
+        config: MatchConfig = .tournament(targetScore: 1),
         localPlayer: Player = .white,
-        opponentName: String = "Dan",
+        opponentName: String = "Random Dan",
         activeMatchID: UUID = UUID(),
-        initialState: MatchState? = nil
+        initialState: MatchState? = nil,
+        isOpponentAutoplayEnabled: Bool = true,
+        opponentController: RandomDanOpponent = RandomDanOpponent(),
+        opponentDelay: @escaping @Sendable () async -> Void = {
+            let nanoseconds = UInt64(Double.random(in: 0.8...1.2) * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: nanoseconds)
+        }
     ) {
         let initialState = initialState ?? MatchEngine.newMatch(config: config)
         let initialLegalActions = engine.legalActions(in: initialState)
@@ -37,7 +49,12 @@ public final class MatchViewModel {
         self.state = initialState
         self.localPlayer = localPlayer
         self.opponentName = opponentName
+        self.isOpponentAutoplayEnabled = isOpponentAutoplayEnabled
         self.activeMatchID = activeMatchID
+        self.opponentController = opponentController
+        self.opponentDelay = opponentDelay
+        self.isOpponentThinking = false
+        self.turnNotice = nil
         self.legalActions = initialLegalActions
         self.legalMoves = initialLegalActions.compactMap { action in
             if case .move(let move) = action {
@@ -48,6 +65,8 @@ public final class MatchViewModel {
         }
         self.pipCounts = Self.computePipCounts(for: initialState.game.board)
         self.didNotifyCompletion = initialState.completion != nil
+
+        scheduleOpponentTurnIfNeeded()
     }
 
     public var activePlayer: Player? {
@@ -71,6 +90,20 @@ public final class MatchViewModel {
         activePlayer == localPlayer
     }
 
+    public var isOpponentAutomationActive: Bool {
+        guard isOpponentAutoplayEnabled else { return false }
+        return opponentController.canAct(
+            as: localPlayer.opponent,
+            in: state,
+            legalActions: legalActions
+        )
+    }
+
+    public var interactiveLegalMoves: [Move] {
+        guard !isOpponentAutomationActive else { return [] }
+        return legalMoves
+    }
+
     public var localScore: Int {
         state.score.score(for: localPlayer)
     }
@@ -82,6 +115,14 @@ public final class MatchViewModel {
     public var phaseTitle: String {
         if let completion = state.completion {
             return completion.winner == localPlayer ? "You won the match" : "\(opponentName) won the match"
+        }
+
+        if isOpponentAutomationActive {
+            return isOpponentThinking ? "\(opponentName) is thinking" : "\(opponentName)'s turn"
+        }
+
+        if activePlayer == localPlayer, let turnNotice {
+            return turnNotice
         }
 
         switch state.game.phase {
@@ -110,12 +151,20 @@ public final class MatchViewModel {
     }
 
     public func send(_ action: MatchAction) {
+        apply(action, schedulesOpponent: true)
+    }
+
+    private func apply(_ action: MatchAction, schedulesOpponent: Bool) {
         do {
             let hadCompletion = state.completion != nil
             state = try engine.apply(action: action, to: state)
             lastError = nil
             refreshDerivedState()
             notifyStorageCallbacks(hadCompletion: hadCompletion)
+            if schedulesOpponent {
+                turnNotice = nil
+                scheduleOpponentTurnIfNeeded()
+            }
         } catch {
             lastError = friendlyErrorMessage(error)
         }
@@ -126,7 +175,7 @@ public final class MatchViewModel {
     }
 
     public func rollDiceIfAllowed() {
-        guard let player = activePlayer, containsAction(.rollDice(player)) else { return }
+        guard let player = activePlayer, player == localPlayer, containsAction(.rollDice(player)) else { return }
         send(.rollDice(player))
     }
 
@@ -151,10 +200,14 @@ public final class MatchViewModel {
         didNotifyCompletion = false
         refreshDerivedState()
         onStateChange?(state)
+        scheduleOpponentTurnIfNeeded()
     }
 
     @discardableResult
     public func applyMove(from source: MoveSource, to destination: MoveDestination) -> Bool {
+        guard !isOpponentAutomationActive else {
+            return false
+        }
         guard let move = legalMoves.first(where: { $0.source == source && $0.destination == destination }) else {
             return false
         }
@@ -163,16 +216,16 @@ public final class MatchViewModel {
     }
 
     public func legalDestinations(from source: MoveSource) -> [MoveDestination] {
-        legalMoves.filter { $0.source == source }.map(\.destination)
+        interactiveLegalMoves.filter { $0.source == source }.map(\.destination)
     }
 
     public func isLegalSource(_ source: MoveSource) -> Bool {
-        legalMoves.contains { $0.source == source }
+        interactiveLegalMoves.contains { $0.source == source }
     }
 
     public func isLegalDestination(_ destination: MoveDestination, from source: MoveSource?) -> Bool {
         guard let source else { return false }
-        return legalMoves.contains { $0.source == source && $0.destination == destination }
+        return interactiveLegalMoves.contains { $0.source == source && $0.destination == destination }
     }
 
     public func pipCount(for player: Player) -> Int {
@@ -189,6 +242,62 @@ public final class MatchViewModel {
             }
         }
         pipCounts = Self.computePipCounts(for: state.game.board)
+    }
+
+    private func scheduleOpponentTurnIfNeeded() {
+        guard isOpponentAutomationActive else {
+            isOpponentThinking = false
+            return
+        }
+        guard opponentTask == nil else { return }
+
+        isOpponentThinking = true
+        opponentTask = Task { [weak self] in
+            await self?.playOpponentUntilLocalTurn()
+        }
+    }
+
+    private func playOpponentUntilLocalTurn() async {
+        while !Task.isCancelled {
+            guard isOpponentAutomationActive else { break }
+            isOpponentThinking = true
+            await opponentDelay()
+            guard !Task.isCancelled else { break }
+
+            guard let action = opponentController.action(
+                as: localPlayer.opponent,
+                in: state,
+                legalActions: legalActions,
+                pipCounts: pipCounts
+            ) else {
+                break
+            }
+
+            let previousState = state
+            apply(action, schedulesOpponent: false)
+            refreshOpponentTurnNotice(after: action, from: previousState)
+        }
+
+        isOpponentThinking = false
+        opponentTask = nil
+    }
+
+    private func refreshOpponentTurnNotice(after action: MatchAction, from previousState: MatchState) {
+        guard lastError == nil else { return }
+        let opponent = localPlayer.opponent
+
+        switch action {
+        case .passTurn(let player) where player == opponent:
+            turnNotice = "\(opponentName) had no legal moves"
+        case .rollDice(let player) where player == opponent:
+            if case .awaitingRoll(let previousPlayer) = previousState.game.phase,
+               previousPlayer == opponent,
+               activePlayer == localPlayer {
+                turnNotice = "\(opponentName) had no legal moves"
+            }
+        default:
+            break
+        }
     }
 
     private func notifyStorageCallbacks(hadCompletion: Bool) {
@@ -243,5 +352,164 @@ public final class MatchViewModel {
         case .gammon: return "gammon"
         case .backgammon: return "backgammon"
         }
+    }
+}
+
+public struct RandomDanOpponent: Sendable {
+    private let randomIndex: @Sendable (Int) -> Int
+
+    public init(randomIndex: @escaping @Sendable (Int) -> Int = { upperBound in
+        Int.random(in: 0..<upperBound)
+    }) {
+        self.randomIndex = randomIndex
+    }
+
+    public func canAct(
+        as opponent: Player,
+        in state: MatchState,
+        legalActions: [MatchAction]
+    ) -> Bool {
+        actionKind(as: opponent, in: state, legalActions: legalActions) != nil
+    }
+
+    public func action(
+        as opponent: Player,
+        in state: MatchState,
+        legalActions: [MatchAction],
+        pipCounts: [Player: Int]
+    ) -> MatchAction? {
+        switch actionKind(as: opponent, in: state, legalActions: legalActions) {
+        case .roll:
+            return .rollDice(opponent)
+        case .move:
+            return selectPipBiasedMove(
+                for: opponent,
+                in: state,
+                legalActions: legalActions,
+                pipCounts: pipCounts
+            ).map(MatchAction.move)
+        case .pass:
+            return .passTurn(opponent)
+        case .cubeResponse(let offer):
+            return shouldDropDouble(
+                offer,
+                as: opponent,
+                in: state,
+                pipCounts: pipCounts
+            ) ? .dropDouble(opponent) : .takeDouble(opponent)
+        case .resignationResponse:
+            return .acceptResignation(opponent)
+        case nil:
+            return nil
+        }
+    }
+
+    public func selectPipBiasedMove(
+        for player: Player,
+        in state: MatchState,
+        legalActions: [MatchAction],
+        pipCounts: [Player: Int]
+    ) -> Move? {
+        let moves = legalActions.compactMap { action -> Move? in
+            if case .move(let move) = action, move.player == player {
+                return move
+            }
+            return nil
+        }
+        guard !moves.isEmpty else { return nil }
+
+        let currentPips = pipCounts[player, default: 0]
+        let rankedMoves = moves.map { move in
+            (move: move, projectedPips: projectedPipCount(currentPips, after: move))
+        }
+        guard let bestPips = rankedMoves.map(\.projectedPips).min() else { return nil }
+        let bestMoves = rankedMoves.filter { $0.projectedPips == bestPips }.map(\.move)
+        return bestMoves[clampedRandomIndex(upperBound: bestMoves.count)]
+    }
+
+    private enum ActionKind {
+        case roll
+        case move
+        case pass
+        case cubeResponse(CubeOffer)
+        case resignationResponse
+    }
+
+    private func actionKind(
+        as opponent: Player,
+        in state: MatchState,
+        legalActions: [MatchAction]
+    ) -> ActionKind? {
+        guard state.completion == nil else { return nil }
+
+        switch state.game.phase {
+        case .awaitingRoll(let player) where player == opponent:
+            return legalActions.contains(.rollDice(opponent)) ? .roll : nil
+        case .awaitingMove(let turn) where turn.player == opponent:
+            if legalActions.contains(where: { action in
+                if case .move(let move) = action {
+                    return move.player == opponent
+                }
+                return false
+            }) {
+                return .move
+            }
+            return legalActions.contains(.passTurn(opponent)) ? .pass : nil
+        case .awaitingCubeResponse(let offer) where offer.offeredBy.opponent == opponent:
+            return .cubeResponse(offer)
+        case .awaitingResignationResponse(let offer) where offer.offeredBy.opponent == opponent:
+            return .resignationResponse
+        default:
+            return nil
+        }
+    }
+
+    private func shouldDropDouble(
+        _ offer: CubeOffer,
+        as opponent: Player,
+        in state: MatchState,
+        pipCounts: [Player: Int]
+    ) -> Bool {
+        let pointsNeeded = state.config.targetScore - state.score.score(for: offer.offeredBy)
+        guard offer.proposedValue >= pointsNeeded else { return false }
+
+        let opponentPips = pipCounts[opponent, default: 0]
+        let offeringPlayerPips = pipCounts[offer.offeredBy, default: 0]
+        return opponentPips - offeringPlayerPips >= 50
+    }
+
+    private func projectedPipCount(_ currentPips: Int, after move: Move) -> Int {
+        currentPips - sourcePips(for: move) + destinationPips(for: move)
+    }
+
+    private func sourcePips(for move: Move) -> Int {
+        switch move.source {
+        case .bar:
+            return 25
+        case .point(let point):
+            return pips(from: point, for: move.player)
+        }
+    }
+
+    private func destinationPips(for move: Move) -> Int {
+        switch move.destination {
+        case .off:
+            return 0
+        case .point(let point):
+            return pips(from: point, for: move.player)
+        }
+    }
+
+    private func pips(from point: PointID, for player: Player) -> Int {
+        switch player {
+        case .white:
+            return point.rawValue
+        case .black:
+            return 25 - point.rawValue
+        }
+    }
+
+    private func clampedRandomIndex(upperBound: Int) -> Int {
+        min(max(randomIndex(upperBound), 0), upperBound - 1)
     }
 }

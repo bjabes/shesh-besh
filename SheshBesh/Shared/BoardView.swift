@@ -225,9 +225,10 @@ private struct BoardSurface: View {
             let trayHeight = max(68, geometry.size.height * 0.18)
             let halfHeight = (geometry.size.height - trayHeight) / 2
             let barWidth = max(38, geometry.size.width * 0.08)
-            let legalSources = Set(viewModel.legalMoves.map(\.source))
+            let legalMoves = viewModel.interactiveLegalMoves
+            let legalSources = Set(legalMoves.map(\.source))
             let legalDestinations = selectedSource.map { source in
-                Set(viewModel.legalMoves.lazy.filter { $0.source == source }.map(\.destination))
+                Set(legalMoves.lazy.filter { $0.source == source }.map(\.destination))
             } ?? []
 
             VStack(spacing: 0) {
@@ -890,6 +891,17 @@ private struct ActionBar: View {
                     viewModel.rollOpeningDice()
                     onAction()
                 }
+
+            case _ where viewModel.isOpponentAutomationActive:
+                HStack {
+                    Text(viewModel.isOpponentThinking ? "\(viewModel.opponentName) is thinking..." : "\(viewModel.opponentName)'s turn")
+                        .font(LinenBrass.uiFont(size: 15, weight: .semibold))
+                        .foregroundStyle(LinenBrass.cream)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.76)
+                    Spacer()
+                }
+                .frame(minHeight: 48)
 
             case .awaitingRoll(let player) where player == viewModel.localPlayer:
                 if viewModel.containsAction(.offerDouble(viewModel.localPlayer)) {

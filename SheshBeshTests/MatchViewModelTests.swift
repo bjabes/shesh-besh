@@ -97,6 +97,57 @@ struct MatchViewModelTests {
 
         #expect(viewModel.lastError == "That move is not legal for the current dice.")
     }
+
+    @Test("opponent double offer is exposed for the local player")
+    @MainActor
+    func opponentDoubleOfferIsExposedForLocalPlayer() {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1])),
+            config: .tournament(targetScore: 7)
+        )
+
+        advanceToOpponentRoll(viewModel)
+        viewModel.send(.offerDouble(.black))
+
+        let offer = viewModel.doubleOfferForLocalPlayer
+        #expect(offer?.offeredBy == .black)
+        #expect(offer?.proposedValue == 2)
+        #expect(offer?.previousCubeValue == 1)
+        #expect(viewModel.isLocalTurn)
+    }
+
+    @Test("taking an opponent double uses the reducer action")
+    @MainActor
+    func takeOpponentDoubleUsesReducerAction() {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1])),
+            config: .tournament(targetScore: 7)
+        )
+
+        advanceToOpponentRoll(viewModel)
+        viewModel.send(.offerDouble(.black))
+        viewModel.takeDoubleIfAllowed()
+
+        #expect(viewModel.state.game.cube.value == 2)
+        #expect(viewModel.state.game.cube.owner == .white)
+        guard case .awaitingRoll(.black) = viewModel.state.game.phase else {
+            Issue.record("Expected play to resume at the opponent's roll after taking.")
+            return
+        }
+    }
+}
+
+@MainActor
+private func advanceToOpponentRoll(_ viewModel: MatchViewModel) {
+    viewModel.rollOpeningDice()
+    _ = viewModel.applyMove(
+        from: .point(PointID(rawValue: 24)!),
+        to: .point(PointID(rawValue: 18)!)
+    )
+    _ = viewModel.applyMove(
+        from: .point(PointID(rawValue: 24)!),
+        to: .point(PointID(rawValue: 23)!)
+    )
 }
 
 private final class ScriptedDiceRoller: DiceRolling, @unchecked Sendable {

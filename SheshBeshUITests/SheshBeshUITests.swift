@@ -42,7 +42,9 @@ final class SheshBeshUITests: XCTestCase {
 
         element("point-24").tap()
         element("point-23").tap()
-        XCTAssertTrue(app.buttons["action-roll-for-dan"].waitForExistence(timeout: 2))
+        XCTAssertTrue(element("opponent-turn-status").waitForExistence(timeout: 2))
+        XCTAssertTrue(element("opponent-turn-status").label.contains("Waiting for Dan"))
+        XCTAssertFalse(app.buttons["action-roll-for-dan"].exists)
     }
 
     private func element(_ identifier: String) -> XCUIElement {

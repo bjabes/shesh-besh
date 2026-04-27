@@ -3,11 +3,19 @@ import SwiftUI
 
 public struct BoardView: View {
     public let viewModel: MatchViewModel
+    private let isReadOnly: Bool
+    private let showsActionBar: Bool
 
     @State private var selectedSource: MoveSource?
 
-    public init(viewModel: MatchViewModel) {
+    public init(
+        viewModel: MatchViewModel,
+        isReadOnly: Bool = false,
+        showsActionBar: Bool = true
+    ) {
         self.viewModel = viewModel
+        self.isReadOnly = isReadOnly
+        self.showsActionBar = showsActionBar
     }
 
     public var body: some View {
@@ -21,6 +29,7 @@ public struct BoardView: View {
 
                 BoardSurface(
                     viewModel: viewModel,
+                    isReadOnly: isReadOnly,
                     selectedSource: selectedSource,
                     onPointTap: handlePointTap,
                     onBarTap: handleBarTap,
@@ -29,11 +38,13 @@ public struct BoardView: View {
                 .aspectRatio(0.78, contentMode: .fit)
                 .frame(maxHeight: 600)
 
-                ActionBar(viewModel: viewModel) {
-                    selectedSource = nil
+                if showsActionBar {
+                    ActionBar(viewModel: viewModel) {
+                        selectedSource = nil
+                    }
                 }
 
-                if let lastError = viewModel.lastError {
+                if showsActionBar, let lastError = viewModel.lastError {
                     Text(lastError)
                         .font(.footnote)
                         .foregroundStyle(LinenBrass.cream)
@@ -56,6 +67,8 @@ public struct BoardView: View {
     }
 
     private func handlePointTap(_ pointID: PointID) {
+        guard !isReadOnly else { return }
+
         let source: MoveSource = .point(pointID)
         let destination: MoveDestination = .point(pointID)
 
@@ -75,6 +88,8 @@ public struct BoardView: View {
     }
 
     private func handleBarTap() {
+        guard !isReadOnly else { return }
+
         let source: MoveSource = .bar
         if selectedSource == source {
             selectedSource = nil
@@ -84,10 +99,183 @@ public struct BoardView: View {
     }
 
     private func handleBearOffTap() {
+        guard !isReadOnly else { return }
         guard let selectedSource else { return }
         if viewModel.applyMove(from: selectedSource, to: .off) {
             self.selectedSource = nil
         }
+    }
+}
+
+public struct OpponentTurnView: View {
+    public let viewModel: MatchViewModel
+
+    public init(viewModel: MatchViewModel) {
+        self.viewModel = viewModel
+    }
+
+    public var body: some View {
+        BoardView(viewModel: viewModel, isReadOnly: true, showsActionBar: false)
+            .overlay(alignment: .bottom) {
+                opponentStatus
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 14)
+            }
+    }
+
+    private var opponentStatus: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(LinenBrass.brass)
+                .frame(width: 9, height: 9)
+
+            Text(statusText)
+                .font(LinenBrass.uiFont(size: 15, weight: .semibold))
+                .foregroundStyle(LinenBrass.cream.opacity(0.82))
+                .lineLimit(1)
+                .minimumScaleFactor(0.76)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 42)
+        .background(LinenBrass.coffee.opacity(0.94), in: RoundedRectangle(cornerRadius: 7))
+        .overlay(
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(LinenBrass.brass.opacity(0.34), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("opponent-turn-status")
+    }
+
+    private var statusText: String {
+        if let offer = viewModel.currentCubeOffer, offer.offeredBy == viewModel.localPlayer {
+            return "Waiting for \(viewModel.opponentName) to answer the double"
+        }
+
+        switch viewModel.state.game.phase {
+        case .awaitingRoll:
+            return "Waiting for \(viewModel.opponentName) to roll"
+        case .awaitingMove:
+            return "Waiting for \(viewModel.opponentName) to move"
+        case .awaitingResignationResponse:
+            return "Waiting for \(viewModel.opponentName) to answer"
+        default:
+            return "Waiting for \(viewModel.opponentName)"
+        }
+    }
+}
+
+public struct DoubleOfferSheet: View {
+    public let viewModel: MatchViewModel
+
+    public init(viewModel: MatchViewModel) {
+        self.viewModel = viewModel
+    }
+
+    public var body: some View {
+        ZStack {
+            BoardView(viewModel: viewModel, isReadOnly: true, showsActionBar: false)
+
+            LinenBrass.ink.opacity(0.42)
+                .ignoresSafeArea()
+
+            if let offer = viewModel.doubleOfferForLocalPlayer {
+                offerCard(offer)
+                    .padding(.horizontal, 24)
+            }
+        }
+    }
+
+    private func offerCard(_ offer: CubeOffer) -> some View {
+        VStack(spacing: 18) {
+            CubeView(cube: CubeState(value: offer.proposedValue, owner: viewModel.localPlayer.opponent), localPlayer: viewModel.localPlayer)
+                .frame(width: 54, height: 54)
+
+            VStack(spacing: 6) {
+                Text("\(viewModel.opponentName) is offering a double to \(offer.proposedValue)")
+                    .font(LinenBrass.displayFont(size: 24, weight: .bold))
+                    .foregroundStyle(LinenBrass.ink)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.78)
+                    .accessibilityIdentifier("double-offer-title")
+
+                Text("The board is frozen until you take or drop.")
+                    .font(LinenBrass.uiFont(size: 14, weight: .medium))
+                    .foregroundStyle(LinenBrass.mutedInk)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+            }
+
+            VStack(spacing: 8) {
+                consequenceRow(
+                    title: "Take",
+                    detail: "Play on with the cube at \(offer.proposedValue)."
+                )
+                consequenceRow(
+                    title: "Drop",
+                    detail: "\(viewModel.opponentName) scores \(pointsText(offer.previousCubeValue))."
+                )
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    viewModel.dropDoubleIfAllowed()
+                } label: {
+                    Text("Drop")
+                        .font(LinenBrass.uiFont(size: 17, weight: .semibold))
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(LinenButtonStyle(kind: .secondary))
+                .accessibilityIdentifier("action-drop-double")
+
+                Button {
+                    viewModel.takeDoubleIfAllowed()
+                } label: {
+                    Text("Take")
+                        .font(LinenBrass.uiFont(size: 17, weight: .semibold))
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(LinenButtonStyle(kind: .primary))
+                .accessibilityIdentifier("action-take-double")
+            }
+        }
+        .padding(22)
+        .frame(maxWidth: 360)
+        .background(
+            RoundedRectangle(cornerRadius: 7)
+                .fill(LinenBrass.cream)
+                .shadow(color: .black.opacity(0.28), radius: 14, y: 7)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(LinenBrass.brass.opacity(0.72), lineWidth: 1)
+        )
+    }
+
+    private func consequenceRow(title: String, detail: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(title)
+                .font(LinenBrass.uiFont(size: 14, weight: .bold))
+                .foregroundStyle(LinenBrass.ink)
+                .frame(width: 44, alignment: .leading)
+
+            Text(detail)
+                .font(LinenBrass.uiFont(size: 14, weight: .medium))
+                .foregroundStyle(LinenBrass.mutedInk)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(LinenBrass.linen, in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func pointsText(_ value: Int) -> String {
+        value == 1 ? "1 point" : "\(value) points"
     }
 }
 
@@ -215,6 +403,7 @@ private struct PipStrip: View {
 
 private struct BoardSurface: View {
     let viewModel: MatchViewModel
+    let isReadOnly: Bool
     let selectedSource: MoveSource?
     let onPointTap: (PointID) -> Void
     let onBarTap: () -> Void
@@ -225,8 +414,8 @@ private struct BoardSurface: View {
             let trayHeight = max(68, geometry.size.height * 0.18)
             let halfHeight = (geometry.size.height - trayHeight) / 2
             let barWidth = max(38, geometry.size.width * 0.08)
-            let legalSources = Set(viewModel.legalMoves.map(\.source))
-            let legalDestinations = selectedSource.map { source in
+            let legalSources = isReadOnly ? [] : Set(viewModel.legalMoves.map(\.source))
+            let legalDestinations: Set<MoveDestination> = isReadOnly ? [] : selectedSource.map { source in
                 Set(viewModel.legalMoves.lazy.filter { $0.source == source }.map(\.destination))
             } ?? []
 
@@ -275,6 +464,7 @@ private struct BoardSurface: View {
             .shadow(color: .black.opacity(0.24), radius: 6, y: 3)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("board")
+            .allowsHitTesting(!isReadOnly)
         }
     }
 

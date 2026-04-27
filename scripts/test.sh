@@ -31,3 +31,16 @@ run_step "Xcode project build" \
     -destination "generic/platform=iOS Simulator" \
     CODE_SIGNING_ALLOWED=NO \
     build
+
+if [[ "${CI:-}" == "true" && "${RUN_UI_TESTS:-}" != "1" ]]; then
+  run_step "Xcode UI smoke test build" \
+    xcodebuild \
+      -project SheshBesh.xcodeproj \
+      -scheme SheshBesh \
+      -destination "generic/platform=iOS Simulator" \
+      CODE_SIGNING_ALLOWED=NO \
+      build-for-testing
+else
+  run_step "Xcode UI smoke tests" \
+    ./scripts/test-ui.sh
+fi

@@ -21,13 +21,20 @@ public final class MatchViewModel {
     public let localPlayer: Player
     public let opponentName: String
     public let isOpponentAutoplayEnabled: Bool
+    public let activeMatchID: UUID
+
+    @ObservationIgnored public var onStateChange: (@MainActor (MatchState) -> Void)?
+    @ObservationIgnored public var onCompletion: (@MainActor (MatchState) -> Void)?
+
+    private var didNotifyCompletion: Bool
 
     public init(
         engine: MatchEngine = MatchEngine(),
         config: MatchConfig = .tournament(targetScore: 1),
-        initialState: MatchState? = nil,
         localPlayer: Player = .white,
         opponentName: String = "Random Dan",
+        activeMatchID: UUID = UUID(),
+        initialState: MatchState? = nil,
         isOpponentAutoplayEnabled: Bool = true,
         opponentController: RandomDanOpponent = RandomDanOpponent(),
         opponentDelay: @escaping @Sendable () async -> Void = {
@@ -43,6 +50,7 @@ public final class MatchViewModel {
         self.localPlayer = localPlayer
         self.opponentName = opponentName
         self.isOpponentAutoplayEnabled = isOpponentAutoplayEnabled
+        self.activeMatchID = activeMatchID
         self.opponentController = opponentController
         self.opponentDelay = opponentDelay
         self.isOpponentThinking = false
@@ -56,6 +64,7 @@ public final class MatchViewModel {
             }
         }
         self.pipCounts = Self.computePipCounts(for: initialState.game.board)
+        self.didNotifyCompletion = initialState.completion != nil
 
         scheduleOpponentTurnIfNeeded()
     }
@@ -147,9 +156,11 @@ public final class MatchViewModel {
 
     private func apply(_ action: MatchAction, schedulesOpponent: Bool) {
         do {
+            let hadCompletion = state.completion != nil
             state = try engine.apply(action: action, to: state)
             lastError = nil
             refreshDerivedState()
+            notifyStorageCallbacks(hadCompletion: hadCompletion)
             if schedulesOpponent {
                 turnNotice = nil
                 scheduleOpponentTurnIfNeeded()
@@ -186,7 +197,9 @@ public final class MatchViewModel {
     public func restartMatch() {
         state = MatchEngine.newMatch(config: state.config)
         lastError = nil
+        didNotifyCompletion = false
         refreshDerivedState()
+        onStateChange?(state)
         scheduleOpponentTurnIfNeeded()
     }
 
@@ -284,6 +297,15 @@ public final class MatchViewModel {
             }
         default:
             break
+        }
+    }
+
+    private func notifyStorageCallbacks(hadCompletion: Bool) {
+        if !hadCompletion, state.completion != nil, !didNotifyCompletion {
+            didNotifyCompletion = true
+            onCompletion?(state)
+        } else if state.completion == nil {
+            onStateChange?(state)
         }
     }
 

@@ -511,7 +511,6 @@ public struct GameCenterHomeView: View {
     @State private var isLoadingMatches = false
     @State private var isWorking = false
     @State private var isShowingMatchmaker = false
-    @State private var isSelectingTargetScore = false
     @State private var selectedTargetScore = 7
     @State private var localError: String?
 
@@ -585,17 +584,6 @@ public struct GameCenterHomeView: View {
                 onCancel: {},
                 onError: { error in localError = error.localizedDescription }
             )
-        }
-        .confirmationDialog("Match length", isPresented: $isSelectingTargetScore) {
-            Button("7 points") {
-                selectedTargetScore = 7
-                isShowingMatchmaker = true
-            }
-            Button("11 points") {
-                selectedTargetScore = 11
-                isShowingMatchmaker = true
-            }
-            Button("Cancel", role: .cancel) {}
         }
         .alert(
             "Game Center Error",
@@ -738,7 +726,7 @@ public struct GameCenterHomeView: View {
             session.authenticate()
             return
         }
-        isSelectingTargetScore = true
+        isShowingMatchmaker = true
     }
 
     private func startMatch(for ledger: RivalLedger) {

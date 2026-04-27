@@ -43,6 +43,7 @@ public struct BoardView: View {
                         .padding(.vertical, 8)
                         .frame(maxWidth: .infinity)
                         .background(LinenBrass.rust, in: RoundedRectangle(cornerRadius: 6))
+                        .accessibilityIdentifier("last-error")
                 }
             }
             .padding(.horizontal, 18)
@@ -148,6 +149,7 @@ private struct HeaderCard: View {
                 Text("\(viewModel.localScore)-\(viewModel.opponentScore)")
                     .font(LinenBrass.displayFont(size: 28, weight: .bold))
                     .monospacedDigit()
+                    .accessibilityIdentifier("header-score")
             }
 
             HStack(spacing: 8) {
@@ -156,6 +158,7 @@ private struct HeaderCard: View {
                 Text(viewModel.phaseTitle)
                     .foregroundStyle(viewModel.isLocalTurn ? LinenBrass.brass : LinenBrass.mutedInk)
                     .fontWeight(.semibold)
+                    .accessibilityIdentifier("header-phase-title")
             }
             .font(LinenBrass.uiFont(size: 14))
             .lineLimit(1)
@@ -188,6 +191,7 @@ private struct PipStrip: View {
                 .font(LinenBrass.uiFont(size: 15, weight: .semibold))
                 .foregroundStyle(LinenBrass.cream)
                 .lineLimit(1)
+                .accessibilityIdentifier("match-score")
             Spacer(minLength: 12)
             pipCount(for: viewModel.localPlayer.opponent)
         }
@@ -269,6 +273,8 @@ private struct BoardSurface: View {
             .overlay(BoardFrame())
             .clipShape(RoundedRectangle(cornerRadius: 7))
             .shadow(color: .black.opacity(0.24), radius: 6, y: 3)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("board")
         }
     }
 
@@ -397,8 +403,11 @@ private struct PointCell: View {
             .overlay(highlight)
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(accessibilityHint)
+        .accessibilityIdentifier("point-\(pointID.rawValue)")
     }
 
     @ViewBuilder
@@ -587,7 +596,10 @@ private struct BarWell: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 
     private func barCheckers(for player: Player) -> some View {
@@ -628,6 +640,17 @@ private struct BarWell: View {
         }
         return label
     }
+
+    private var accessibilityIdentifier: String {
+        switch segment {
+        case .top:
+            return "bar-top"
+        case .tray:
+            return "bar-tray"
+        case .bottom:
+            return "bar-bottom"
+        }
+    }
 }
 
 private struct TrayRow: View {
@@ -646,6 +669,7 @@ private struct TrayRow: View {
                 owner: viewModel.localPlayer.opponent,
                 localPlayer: viewModel.localPlayer,
                 isLegalDestination: false,
+                accessibilityIdentifier: "bear-off-opponent",
                 onTap: {}
             )
 
@@ -666,8 +690,8 @@ private struct TrayRow: View {
 
             HStack(spacing: 9) {
                 if let dice = diceValues {
-                    ForEach(Array(dice.enumerated()), id: \.offset) { _, value in
-                        DieFace(value: value)
+                    ForEach(Array(dice.enumerated()), id: \.offset) { index, value in
+                        DieFace(value: value, accessibilityIdentifier: "die-\(index + 1)")
                             .frame(width: 34, height: 34)
                     }
                 }
@@ -677,6 +701,7 @@ private struct TrayRow: View {
                     .foregroundStyle(viewModel.isLocalTurn ? LinenBrass.brass : LinenBrass.cream.opacity(0.72))
                     .lineLimit(2)
                     .minimumScaleFactor(0.68)
+                    .accessibilityIdentifier("tray-phase-title")
 
                 Spacer(minLength: 0)
 
@@ -686,6 +711,7 @@ private struct TrayRow: View {
                     owner: viewModel.localPlayer,
                     localPlayer: viewModel.localPlayer,
                     isLegalDestination: viewModel.isLegalDestination(.off, from: selectedSource),
+                    accessibilityIdentifier: "bear-off-local",
                     onTap: onBearOffTap
                 )
                 .frame(width: 72)
@@ -724,6 +750,7 @@ private struct BearOffZone: View {
     let owner: Player
     let localPlayer: Player
     let isLegalDestination: Bool
+    let accessibilityIdentifier: String
     let onTap: () -> Void
 
     var body: some View {
@@ -751,6 +778,9 @@ private struct BearOffZone: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 }
 
@@ -775,6 +805,7 @@ private struct CubeView: View {
                 .minimumScaleFactor(0.62)
         }
         .accessibilityLabel("Doubling cube \(label)")
+        .accessibilityIdentifier("doubling-cube")
     }
 
     private var label: String {
@@ -785,6 +816,7 @@ private struct CubeView: View {
 
 private struct DieFace: View {
     let value: Int
+    let accessibilityIdentifier: String
 
     var body: some View {
         GeometryReader { geometry in
@@ -801,11 +833,13 @@ private struct DieFace: View {
                         .fill(LinenBrass.ink)
                         .frame(width: geometry.size.width * 0.13, height: geometry.size.width * 0.13)
                         .position(x: geometry.size.width * point.x, y: geometry.size.height * point.y)
-                }
+                    }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Die \(value)")
+            .accessibilityIdentifier(accessibilityIdentifier)
         }
         .aspectRatio(1, contentMode: .fit)
-        .accessibilityLabel("Die \(value)")
     }
 
     private var pipPositions: [CGPoint] {
@@ -946,16 +980,20 @@ private struct ActionBar: View {
                     viewModel.offerResignationIfAllowed(.single)
                     onAction()
                 }
+                .accessibilityIdentifier("action-offer-single")
                 Button("Offer gammon") {
                     viewModel.offerResignationIfAllowed(.gammon)
                     onAction()
                 }
+                .accessibilityIdentifier("action-offer-gammon")
                 Button("Offer backgammon") {
                     viewModel.offerResignationIfAllowed(.backgammon)
                     onAction()
                 }
+                .accessibilityIdentifier("action-offer-backgammon")
             }
             .buttonStyle(LinenButtonStyle(kind: .secondary))
+            .accessibilityIdentifier("action-resign")
         }
     }
 }
@@ -973,6 +1011,7 @@ private struct PrimaryActionButton: View {
                 .frame(maxWidth: .infinity, minHeight: 48)
         }
         .buttonStyle(LinenButtonStyle(kind: .primary))
+        .accessibilityIdentifier(actionAccessibilityIdentifier(for: title))
     }
 }
 
@@ -989,7 +1028,15 @@ private struct SecondaryActionButton: View {
                 .frame(maxWidth: .infinity, minHeight: 48)
         }
         .buttonStyle(LinenButtonStyle(kind: .secondary))
+        .accessibilityIdentifier(actionAccessibilityIdentifier(for: title))
     }
+}
+
+private func actionAccessibilityIdentifier(for title: String) -> String {
+    let words = title.lowercased().split { character in
+        !character.isLetter && !character.isNumber
+    }
+    return "action-\(words.joined(separator: "-"))"
 }
 
 private struct LinenButtonStyle: ButtonStyle {

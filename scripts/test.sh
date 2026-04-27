@@ -31,3 +31,6 @@ run_step "Xcode project build" \
     -destination "generic/platform=iOS Simulator" \
     CODE_SIGNING_ALLOWED=NO \
     build
+
+run_step "Xcode UI smoke tests" \
+  ./scripts/test-ui.sh

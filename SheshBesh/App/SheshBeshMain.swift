@@ -8,7 +8,7 @@ import SheshBeshApp
 struct SheshBeshMain: App {
     var body: some Scene {
         WindowGroup {
-            RootView()
+            AppLaunchConfiguration.rootView()
         }
     }
 }

@@ -12,6 +12,7 @@
 		AF1000000000000000000005 /* MatchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000006 /* MatchViewModel.swift */; };
 		AF1000000000000000000007 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000008 /* BoardView.swift */; };
 		AF1000000000000000000009 /* SheshBeshGame.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF100000000000000000000A /* SheshBeshGame.framework */; };
+		AF1000000000000000000036 /* AppLaunchConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000037 /* AppLaunchConfiguration.swift */; };
 		AF100000000000000000000B /* Board.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF100000000000000000000C /* Board.swift */; };
 		AF100000000000000000000D /* Dice.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF100000000000000000000E /* Dice.swift */; };
 		AF100000000000000000000F /* MatchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000010 /* MatchEngine.swift */; };
@@ -19,7 +20,8 @@
 		AF1000000000000000000013 /* MoveValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000014 /* MoveValidator.swift */; };
 		AF1000000000000000000015 /* Player.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000016 /* Player.swift */; };
 		AF1000000000000000000017 /* State.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000018 /* State.swift */; };
-		AF1000000000000000000036 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000037 /* Assets.xcassets */; };
+		AF1000000000000000000038 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000039 /* Assets.xcassets */; };
+		AF2000000000000000000001 /* SheshBeshUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF2000000000000000000002 /* SheshBeshUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -30,6 +32,13 @@
 			remoteGlobalIDString = AF100000000000000000001B;
 			remoteInfo = SheshBeshGame;
 		};
+		AF2000000000000000000004 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AF100000000000000000001A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AF1000000000000000000028;
+			remoteInfo = SheshBesh;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +47,7 @@
 		AF1000000000000000000006 /* MatchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchViewModel.swift; sourceTree = "<group>"; };
 		AF1000000000000000000008 /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
 		AF100000000000000000000A /* SheshBeshGame.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SheshBeshGame.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF1000000000000000000037 /* AppLaunchConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchConfiguration.swift; sourceTree = "<group>"; };
 		AF100000000000000000000C /* Board.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Board.swift; sourceTree = "<group>"; };
 		AF100000000000000000000E /* Dice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dice.swift; sourceTree = "<group>"; };
 		AF1000000000000000000010 /* MatchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchEngine.swift; sourceTree = "<group>"; };
@@ -46,7 +56,9 @@
 		AF1000000000000000000016 /* Player.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Player.swift; sourceTree = "<group>"; };
 		AF1000000000000000000018 /* State.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = State.swift; sourceTree = "<group>"; };
 		AF100000000000000000001C /* SheshBesh.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SheshBesh.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		AF1000000000000000000037 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AF1000000000000000000039 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AF2000000000000000000002 /* SheshBeshUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheshBeshUITests.swift; sourceTree = "<group>"; };
+		AF2000000000000000000003 /* SheshBeshUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SheshBeshUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,6 +77,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AF2000000000000000000006 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -72,6 +91,7 @@
 			isa = PBXGroup;
 			children = (
 				AF1000000000000000000020 /* SheshBesh */,
+				AF200000000000000000000A /* SheshBeshUITests */,
 				AF1000000000000000000021 /* Packages */,
 				AF1000000000000000000022 /* Products */,
 			);
@@ -82,7 +102,7 @@
 			children = (
 				AF1000000000000000000023 /* App */,
 				AF1000000000000000000024 /* Shared */,
-				AF1000000000000000000037 /* Assets.xcassets */,
+				AF1000000000000000000039 /* Assets.xcassets */,
 			);
 			path = SheshBesh;
 			sourceTree = "<group>";
@@ -100,6 +120,7 @@
 			children = (
 				AF100000000000000000001C /* SheshBesh.app */,
 				AF100000000000000000000A /* SheshBeshGame.framework */,
+				AF2000000000000000000003 /* SheshBeshUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -115,6 +136,7 @@
 		AF1000000000000000000024 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				AF1000000000000000000037 /* AppLaunchConfiguration.swift */,
 				AF1000000000000000000008 /* BoardView.swift */,
 				AF1000000000000000000006 /* MatchViewModel.swift */,
 				AF1000000000000000000004 /* RootView.swift */,
@@ -150,6 +172,14 @@
 				AF1000000000000000000018 /* State.swift */,
 			);
 			path = SheshBeshGame;
+			sourceTree = "<group>";
+		};
+		AF200000000000000000000A /* SheshBeshUITests */ = {
+			isa = PBXGroup;
+			children = (
+				AF2000000000000000000002 /* SheshBeshUITests.swift */,
+			);
+			path = SheshBeshUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -189,6 +219,24 @@
 			productReference = AF100000000000000000001C /* SheshBesh.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AF2000000000000000000009 /* SheshBeshUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AF200000000000000000000B /* Build configuration list for PBXNativeTarget "SheshBeshUITests" */;
+			buildPhases = (
+				AF2000000000000000000008 /* Sources */,
+				AF2000000000000000000006 /* Frameworks */,
+				AF2000000000000000000007 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AF2000000000000000000005 /* PBXTargetDependency */,
+			);
+			name = SheshBeshUITests;
+			productName = SheshBeshUITests;
+			productReference = AF2000000000000000000003 /* SheshBeshUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -204,6 +252,10 @@
 					};
 					AF1000000000000000000028 = {
 						CreatedOnToolsVersion = 26.4;
+					};
+					AF2000000000000000000009 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = AF1000000000000000000028;
 					};
 				};
 			};
@@ -222,6 +274,7 @@
 			targets = (
 				AF1000000000000000000028 /* SheshBesh */,
 				AF100000000000000000001B /* SheshBeshGame */,
+				AF2000000000000000000009 /* SheshBeshUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -231,7 +284,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AF1000000000000000000036 /* Assets.xcassets in Resources */,
+				AF1000000000000000000038 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF2000000000000000000007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -243,6 +303,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AF1000000000000000000001 /* SheshBeshMain.swift in Sources */,
+				AF1000000000000000000036 /* AppLaunchConfiguration.swift in Sources */,
 				AF1000000000000000000007 /* BoardView.swift in Sources */,
 				AF1000000000000000000005 /* MatchViewModel.swift in Sources */,
 				AF1000000000000000000003 /* RootView.swift in Sources */,
@@ -263,6 +324,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AF2000000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF2000000000000000000001 /* SheshBeshUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -270,6 +339,11 @@
 			isa = PBXTargetDependency;
 			target = AF100000000000000000001B /* SheshBeshGame */;
 			targetProxy = AF1000000000000000000019 /* PBXContainerItemProxy */;
+		};
+		AF2000000000000000000005 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AF1000000000000000000028 /* SheshBesh */;
+			targetProxy = AF2000000000000000000004 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -453,6 +527,44 @@
 			};
 			name = Release;
 		};
+		AF200000000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8DDY9Z9MX6;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bjabes.SheshBeshUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = SheshBesh;
+			};
+			name = Debug;
+		};
+		AF200000000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8DDY9Z9MX6;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bjabes.SheshBeshUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = SheshBesh;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -479,6 +591,15 @@
 			buildConfigurations = (
 				AF1000000000000000000030 /* Debug */,
 				AF1000000000000000000031 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AF200000000000000000000B /* Build configuration list for PBXNativeTarget "SheshBeshUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AF200000000000000000000C /* Debug */,
+				AF200000000000000000000D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -418,13 +418,14 @@ private struct BoardSurface: View {
             let legalDestinations = selectedSource.map { source in
                 Set(interactiveMoves.lazy.filter { $0.source == source }.map(\.destination))
             } ?? []
+            let pointLayout = BoardPointLayout(localPlayer: viewModel.localPlayer)
 
             VStack(spacing: 0) {
                 BoardHalf(
                     viewModel: viewModel,
                     selectedSource: selectedSource,
-                    leftPoints: pointIDs(13...18),
-                    rightPoints: pointIDs(19...24),
+                    leftPoints: pointLayout.topLeft,
+                    rightPoints: pointLayout.topRight,
                     barWidth: barWidth,
                     pointsDown: true,
                     legalSources: legalSources,
@@ -445,8 +446,8 @@ private struct BoardSurface: View {
                 BoardHalf(
                     viewModel: viewModel,
                     selectedSource: selectedSource,
-                    leftPoints: pointIDs(stride(from: 12, through: 7, by: -1)),
-                    rightPoints: pointIDs(stride(from: 6, through: 1, by: -1)),
+                    leftPoints: pointLayout.bottomLeft,
+                    rightPoints: pointLayout.bottomRight,
                     barWidth: barWidth,
                     pointsDown: false,
                     legalSources: legalSources,
@@ -465,12 +466,34 @@ private struct BoardSurface: View {
             .allowsHitTesting(!isReadOnly)
         }
     }
+}
 
-    private func pointIDs(_ range: ClosedRange<Int>) -> [PointID] {
+private struct BoardPointLayout {
+    let topLeft: [PointID]
+    let topRight: [PointID]
+    let bottomLeft: [PointID]
+    let bottomRight: [PointID]
+
+    init(localPlayer: Player) {
+        switch localPlayer {
+        case .white:
+            topLeft = Self.pointIDs(13...18)
+            topRight = Self.pointIDs(19...24)
+            bottomLeft = Self.pointIDs(stride(from: 12, through: 7, by: -1))
+            bottomRight = Self.pointIDs(stride(from: 6, through: 1, by: -1))
+        case .black:
+            topLeft = Self.pointIDs(stride(from: 12, through: 7, by: -1))
+            topRight = Self.pointIDs(stride(from: 6, through: 1, by: -1))
+            bottomLeft = Self.pointIDs(13...18)
+            bottomRight = Self.pointIDs(19...24)
+        }
+    }
+
+    private static func pointIDs(_ range: ClosedRange<Int>) -> [PointID] {
         range.compactMap(PointID.init(rawValue:))
     }
 
-    private func pointIDs<S: Sequence>(_ values: S) -> [PointID] where S.Element == Int {
+    private static func pointIDs<S: Sequence>(_ values: S) -> [PointID] where S.Element == Int {
         values.compactMap(PointID.init(rawValue:))
     }
 }

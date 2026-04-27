@@ -21,7 +21,7 @@ public final class LedgerCoordinator {
 
     public func refresh() async {
         do {
-            let snapshot = try await store.loadAllLedgerData()
+            let snapshot = try await reconciledSnapshot()
             ledgers = snapshot.rivals
                 .map { rival in
                     makeLedger(
@@ -65,24 +65,9 @@ public final class LedgerCoordinator {
     }
 
     public func recordCompletion(of match: ActiveMatch) async throws {
-        guard let completion = match.state.completion else {
-            throw LedgerStoreError.missingMatchCompletion
-        }
-
-        let rivalPlayer = match.userPlayed.opponent
-        let record = MatchRecord(
-            rivalID: match.rivalID,
-            userPlayed: match.userPlayed,
-            winner: completion.winner == match.userPlayed ? .you : .rival,
-            userScore: completion.finalScore.score(for: match.userPlayed),
-            rivalScore: completion.finalScore.score(for: rivalPlayer),
-            targetScore: match.state.config.targetScore,
-            startedAt: match.startedAt,
-            completedAt: Date(),
-            finalSnapshot: match.state
-        )
-
-        try await store.appendMatchRecord(record)
+        let record = try makeRecord(from: match, completedAt: Date())
+        try await store.saveActiveMatch(match)
+        try await appendRecordIfNeeded(record, for: match)
         try await store.clearActiveMatch(rivalID: match.rivalID)
         latestCompletedRecord = record
         await refresh()
@@ -115,5 +100,60 @@ public final class LedgerCoordinator {
             return lhs.rival.displayName.localizedCaseInsensitiveCompare(rhs.rival.displayName) == .orderedAscending
         }
         return lhsDate > rhsDate
+    }
+
+    private func reconciledSnapshot() async throws -> LedgerSnapshot {
+        let snapshot = try await store.loadAllLedgerData()
+        let completedMatches = snapshot.activeMatchesByRival.values.filter { $0.state.completion != nil }
+        guard !completedMatches.isEmpty else { return snapshot }
+
+        for match in completedMatches {
+            let record = try makeRecord(from: match, completedAt: match.lastUpdatedAt)
+            try await appendRecordIfNeeded(record, for: match, existingRecords: snapshot.recordsByRival[match.rivalID, default: []])
+            try await store.clearActiveMatch(rivalID: match.rivalID)
+        }
+
+        return try await store.loadAllLedgerData()
+    }
+
+    private func makeRecord(from match: ActiveMatch, completedAt: Date) throws -> MatchRecord {
+        guard let completion = match.state.completion else {
+            throw LedgerStoreError.missingMatchCompletion
+        }
+
+        let rivalPlayer = match.userPlayed.opponent
+        return MatchRecord(
+            rivalID: match.rivalID,
+            userPlayed: match.userPlayed,
+            winner: completion.winner == match.userPlayed ? .you : .rival,
+            userScore: completion.finalScore.score(for: match.userPlayed),
+            rivalScore: completion.finalScore.score(for: rivalPlayer),
+            targetScore: match.state.config.targetScore,
+            startedAt: match.startedAt,
+            completedAt: completedAt,
+            finalSnapshot: match.state
+        )
+    }
+
+    private func appendRecordIfNeeded(
+        _ record: MatchRecord,
+        for match: ActiveMatch,
+        existingRecords: [MatchRecord]? = nil
+    ) async throws {
+        let records: [MatchRecord]
+        if let existingRecords {
+            records = existingRecords
+        } else {
+            records = try await store.loadMatchRecords(rivalID: match.rivalID)
+        }
+
+        guard !records.contains(where: { existingRecord in
+            existingRecord.startedAt == match.startedAt &&
+            existingRecord.finalSnapshot == match.state
+        }) else {
+            return
+        }
+
+        try await store.appendMatchRecord(record)
     }
 }

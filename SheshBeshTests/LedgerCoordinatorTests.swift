@@ -1,3 +1,4 @@
+import Foundation
 import SheshBeshApp
 import SheshBeshGame
 import SheshBeshLedger
@@ -48,6 +49,43 @@ struct LedgerCoordinatorTests {
         #expect(record.finalSnapshot == state)
         #expect(try await store.loadActiveMatch(rivalID: rival.id) == nil)
         #expect(coordinator.ledger(for: rival.id)?.rivalWins == 1)
+    }
+
+    @Test("refresh recovers completed active match after relaunch")
+    @MainActor
+    func refreshFinalizesCompletedActiveMatch() async throws {
+        let startedAt = Date(timeIntervalSinceReferenceDate: 1_000)
+        let completedAt = Date(timeIntervalSinceReferenceDate: 1_100)
+        let rival = Rival(displayName: "Dan")
+        let state = MatchState(
+            config: MatchConfig(targetScore: 1, usesDoublingCube: false),
+            score: MatchScore(white: 1, black: 0),
+            game: GameState(phase: .gameOver(GameResult(winner: .white, winKind: .single, cubeValue: 1))),
+            completion: MatchCompletion(winner: .white, finalScore: MatchScore(white: 1, black: 0))
+        )
+        let active = ActiveMatch(
+            rivalID: rival.id,
+            userPlayed: .white,
+            state: state,
+            startedAt: startedAt,
+            lastUpdatedAt: completedAt
+        )
+        let store = InMemoryLedgerStore(rivals: [rival], activeMatches: [active])
+        let coordinator = LedgerCoordinator(store: store)
+
+        await coordinator.refresh()
+
+        let records = try await store.loadMatchRecords(rivalID: rival.id)
+        let record = try #require(records.first)
+
+        #expect(records.count == 1)
+        #expect(record.winner == MatchOutcome.you)
+        #expect(record.userScore == 1)
+        #expect(record.rivalScore == 0)
+        #expect(record.completedAt == completedAt)
+        #expect(record.finalSnapshot == state)
+        #expect(try await store.loadActiveMatch(rivalID: rival.id) == nil)
+        #expect(coordinator.ledger(for: rival.id)?.userWins == 1)
     }
 }
 

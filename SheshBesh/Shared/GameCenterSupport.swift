@@ -85,7 +85,7 @@ public final class GameCenterSession: NSObject, GKLocalPlayerListener {
         case .cancelled:
             return "Game Center sign-in was canceled or disabled. Sign in from Settings > Game Center, then try again."
         case .notAuthenticated:
-            return "Game Center could not authenticate this simulator account. Sign in from Settings > Game Center, then try again."
+            return "Game Center could not authenticate your account. Sign in from Settings > Game Center, then try again."
         default:
             return error.localizedDescription
         }

@@ -12,7 +12,6 @@
 		AF1000000000000000000005 /* MatchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000006 /* MatchViewModel.swift */; };
 		AF1000000000000000000007 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000008 /* BoardView.swift */; };
 		AF1000000000000000000009 /* SheshBeshGame.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF100000000000000000000A /* SheshBeshGame.framework */; };
-		AF1000000000000000000036 /* AppLaunchConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000037 /* AppLaunchConfiguration.swift */; };
 		AF100000000000000000000B /* Board.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF100000000000000000000C /* Board.swift */; };
 		AF100000000000000000000D /* Dice.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF100000000000000000000E /* Dice.swift */; };
 		AF100000000000000000000F /* MatchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000010 /* MatchEngine.swift */; };
@@ -20,6 +19,7 @@
 		AF1000000000000000000013 /* MoveValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000014 /* MoveValidator.swift */; };
 		AF1000000000000000000015 /* Player.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000016 /* Player.swift */; };
 		AF1000000000000000000017 /* State.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000018 /* State.swift */; };
+		AF1000000000000000000036 /* AppLaunchConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000037 /* AppLaunchConfiguration.swift */; };
 		AF1000000000000000000038 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000039 /* Assets.xcassets */; };
 		AF2000000000000000000001 /* SheshBeshUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF2000000000000000000002 /* SheshBeshUITests.swift */; };
 		AF3000000000000000000001 /* LedgerCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000002 /* LedgerCoordinator.swift */; };
@@ -61,7 +61,6 @@
 		AF1000000000000000000006 /* MatchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchViewModel.swift; sourceTree = "<group>"; };
 		AF1000000000000000000008 /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
 		AF100000000000000000000A /* SheshBeshGame.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SheshBeshGame.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		AF1000000000000000000037 /* AppLaunchConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchConfiguration.swift; sourceTree = "<group>"; };
 		AF100000000000000000000C /* Board.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Board.swift; sourceTree = "<group>"; };
 		AF100000000000000000000E /* Dice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dice.swift; sourceTree = "<group>"; };
 		AF1000000000000000000010 /* MatchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchEngine.swift; sourceTree = "<group>"; };
@@ -69,7 +68,8 @@
 		AF1000000000000000000014 /* MoveValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoveValidator.swift; sourceTree = "<group>"; };
 		AF1000000000000000000016 /* Player.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Player.swift; sourceTree = "<group>"; };
 		AF1000000000000000000018 /* State.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = State.swift; sourceTree = "<group>"; };
-		AF100000000000000000001C /* SheshBesh.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SheshBesh.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF100000000000000000001C /* Gammon With Friends.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Gammon With Friends.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF1000000000000000000037 /* AppLaunchConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchConfiguration.swift; sourceTree = "<group>"; };
 		AF1000000000000000000039 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AF2000000000000000000002 /* SheshBeshUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheshBeshUITests.swift; sourceTree = "<group>"; };
 		AF2000000000000000000003 /* SheshBeshUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SheshBeshUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -149,7 +149,7 @@
 		AF1000000000000000000022 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				AF100000000000000000001C /* SheshBesh.app */,
+				AF100000000000000000001C /* Gammon With Friends.app */,
 				AF100000000000000000000A /* SheshBeshGame.framework */,
 				AF2000000000000000000003 /* SheshBeshUITests.xctest */,
 			);
@@ -284,7 +284,7 @@
 			);
 			name = SheshBesh;
 			productName = SheshBesh;
-			productReference = AF100000000000000000001C /* SheshBesh.app */;
+			productReference = AF100000000000000000001C /* Gammon With Friends.app */;
 			productType = "com.apple.product-type.application";
 		};
 		AF2000000000000000000009 /* SheshBeshUITests */ = {
@@ -536,7 +536,7 @@
 				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bjabes.SheshBesh;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Gammon With Friends";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
@@ -567,7 +567,7 @@
 				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bjabes.SheshBesh;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Gammon With Friends";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;

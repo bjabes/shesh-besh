@@ -337,7 +337,7 @@ private struct EmptyLedgerView: View {
     }
 }
 
-private struct LedgerBackground: View {
+struct LedgerBackground: View {
     var body: some View {
         Canvas { context, size in
             context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(LedgerTheme.linen))
@@ -359,7 +359,7 @@ private struct LedgerBackground: View {
     }
 }
 
-private enum LedgerTheme {
+enum LedgerTheme {
     static let linen = Color(red: 0.937, green: 0.902, blue: 0.831)
     static let cream = Color(red: 0.929, green: 0.886, blue: 0.800)
     static let coffee = Color(red: 0.420, green: 0.290, blue: 0.180)

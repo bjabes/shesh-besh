@@ -40,13 +40,18 @@ public final class LedgerCoordinator {
     public func startMatch(
         against rival: Rival,
         userPlays: Player,
-        config: MatchConfig
+        config: MatchConfig,
+        gameCenterMatchID: String? = nil,
+        gameIndex: Int = 0,
+        initialState: MatchState? = nil
     ) async throws -> ActiveMatch {
         let now = Date()
         let match = ActiveMatch(
             rivalID: rival.id,
+            gameCenterMatchID: gameCenterMatchID,
+            gameIndex: gameIndex,
             userPlayed: userPlays,
-            state: MatchEngine.newMatch(config: config),
+            state: initialState ?? MatchEngine.newMatch(config: config),
             startedAt: now,
             lastUpdatedAt: now
         )
@@ -89,6 +94,23 @@ public final class LedgerCoordinator {
         ledger(for: rivalID)?.rival
     }
 
+    public func rival(matchingGameCenterPlayerID playerID: String) -> Rival? {
+        ledgers
+            .map(\.rival)
+            .first { $0.gameCenterPlayerID == playerID }
+    }
+
+    public func activeMatch(gameCenterMatchID: String) -> ActiveMatch? {
+        ledgers
+            .compactMap(\.activeMatch)
+            .first { $0.gameCenterMatchID == gameCenterMatchID }
+    }
+
+    public func saveGameCenterMatch(_ match: ActiveMatch, rival: Rival) async throws {
+        try await store.upsertRival(rival)
+        try await saveActiveMatch(match)
+    }
+
     public func clearError() {
         lastErrorMessage = nil
     }
@@ -124,6 +146,8 @@ public final class LedgerCoordinator {
         let rivalPlayer = match.userPlayed.opponent
         return MatchRecord(
             rivalID: match.rivalID,
+            gameCenterMatchID: match.gameCenterMatchID,
+            gameIndex: match.gameIndex,
             userPlayed: match.userPlayed,
             winner: completion.winner == match.userPlayed ? .you : .rival,
             userScore: completion.finalScore.score(for: match.userPlayed),
@@ -148,8 +172,13 @@ public final class LedgerCoordinator {
         }
 
         guard !records.contains(where: { existingRecord in
-            existingRecord.startedAt == match.startedAt &&
-            existingRecord.finalSnapshot == match.state
+            if let matchID = match.gameCenterMatchID,
+               let existingMatchID = existingRecord.gameCenterMatchID {
+                return existingMatchID == matchID && existingRecord.gameIndex == match.gameIndex
+            }
+
+            return existingRecord.startedAt == match.startedAt &&
+                existingRecord.finalSnapshot == match.state
         }) else {
             return
         }

@@ -87,6 +87,37 @@ struct LedgerCoordinatorTests {
         #expect(try await store.loadActiveMatch(rivalID: rival.id) == nil)
         #expect(coordinator.ledger(for: rival.id)?.userWins == 1)
     }
+
+    @Test("Game Center completion is idempotent by match ID and game index")
+    @MainActor
+    func gameCenterCompletionIsIdempotent() async throws {
+        let store = InMemoryLedgerStore()
+        let coordinator = LedgerCoordinator(store: store)
+        let rival = Rival(displayName: "Dan", gameCenterPlayerID: "dan-gc")
+        let state = MatchState(
+            config: MatchConfig(targetScore: 1, usesDoublingCube: false),
+            score: MatchScore(white: 1, black: 0),
+            game: GameState(phase: .gameOver(GameResult(winner: .white, winKind: .single, cubeValue: 1))),
+            completion: MatchCompletion(winner: .white, finalScore: MatchScore(white: 1, black: 0))
+        )
+        let active = ActiveMatch(
+            rivalID: rival.id,
+            gameCenterMatchID: "gc-match-1",
+            gameIndex: 0,
+            userPlayed: .white,
+            state: state
+        )
+
+        try await coordinator.saveGameCenterMatch(active, rival: rival)
+        try await coordinator.recordCompletion(of: active)
+        try await coordinator.recordCompletion(of: active)
+
+        let records = try await store.loadMatchRecords(rivalID: rival.id)
+
+        #expect(records.count == 1)
+        #expect(records.first?.gameCenterMatchID == "gc-match-1")
+        #expect(records.first?.gameIndex == 0)
+    }
 }
 
 private final class CompletionDiceRoller: DiceRolling, @unchecked Sendable {

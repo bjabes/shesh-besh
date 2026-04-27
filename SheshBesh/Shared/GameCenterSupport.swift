@@ -93,20 +93,18 @@ public final class GameCenterSession: NSObject, GKLocalPlayerListener {
 
     private func scheduleAuthenticationTimeout(for attemptID: UUID) {
         Task { [weak self, attemptID] in
-            try? await Task.sleep(nanoseconds: 12_000_000_000)
+            try? await Task.sleep(for: .seconds(12))
 
-            await MainActor.run {
-                guard let self,
-                      self.authenticationAttemptID == attemptID,
-                      self.authState == .authenticating,
-                      self.authenticationViewController == nil,
-                      !GKLocalPlayer.local.isAuthenticated
-                else { return }
+            guard let self,
+                  self.authenticationAttemptID == attemptID,
+                  self.authState == .authenticating,
+                  self.authenticationViewController == nil,
+                  !GKLocalPlayer.local.isAuthenticated
+            else { return }
 
-                let message = "Game Center did not respond. Try again or sign in from Settings."
-                self.lastErrorMessage = message
-                self.authState = .unauthenticated(message)
-            }
+            let message = "Game Center did not respond. Try again or sign in from Settings."
+            self.lastErrorMessage = message
+            self.authState = .unauthenticated(message)
         }
     }
 

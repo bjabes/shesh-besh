@@ -29,12 +29,17 @@ public final class GameCenterSession: NSObject, GKLocalPlayerListener {
     public private(set) var localDisplayName: String?
     public var authenticationViewController: UIViewController?
     public var lastErrorMessage: String?
+    private var authenticationAttemptID = UUID()
 
     @ObservationIgnored public var onTurnEvent: (@MainActor (GKTurnBasedMatch, Bool) -> Void)?
     @ObservationIgnored public var onMatchEnded: (@MainActor (GKTurnBasedMatch) -> Void)?
 
     public func authenticate() {
+        let attemptID = UUID()
+        authenticationAttemptID = attemptID
         authState = .authenticating
+        lastErrorMessage = nil
+        scheduleAuthenticationTimeout(for: attemptID)
         GKLocalPlayer.local.authenticateHandler = { [weak self] viewController, error in
             Task { @MainActor in
                 guard let self else { return }
@@ -53,7 +58,7 @@ public final class GameCenterSession: NSObject, GKLocalPlayerListener {
                     self.authState = .authenticated(displayName: GKLocalPlayer.local.displayName)
                     GKLocalPlayer.local.register(self)
                 } else {
-                    let message = error?.localizedDescription ?? "Sign in to Game Center to play with friends."
+                    let message = self.authenticationFailureMessage(for: error)
                     self.authenticationViewController = nil
                     self.localPlayerID = nil
                     self.localDisplayName = nil
@@ -61,6 +66,45 @@ public final class GameCenterSession: NSObject, GKLocalPlayerListener {
                     self.authState = .unauthenticated(message)
                 }
             }
+        }
+    }
+
+    private func authenticationFailureMessage(for error: (any Error)?) -> String {
+        guard let error else {
+            return "Sign in to Game Center to play with friends."
+        }
+
+        let nsError = error as NSError
+        guard nsError.domain == GKErrorDomain,
+              let code = GKError.Code(rawValue: nsError.code)
+        else {
+            return error.localizedDescription
+        }
+
+        switch code {
+        case .cancelled:
+            return "Game Center sign-in was canceled or disabled. Sign in from Settings > Game Center, then try again."
+        case .notAuthenticated:
+            return "Game Center could not authenticate your account. Sign in from Settings > Game Center, then try again."
+        default:
+            return error.localizedDescription
+        }
+    }
+
+    private func scheduleAuthenticationTimeout(for attemptID: UUID) {
+        Task { [weak self, attemptID] in
+            try? await Task.sleep(for: .seconds(12))
+
+            guard let self,
+                  self.authenticationAttemptID == attemptID,
+                  self.authState == .authenticating,
+                  self.authenticationViewController == nil,
+                  !GKLocalPlayer.local.isAuthenticated
+            else { return }
+
+            let message = "Game Center did not respond. Try again or sign in from Settings."
+            self.lastErrorMessage = message
+            self.authState = .unauthenticated(message)
         }
     }
 
@@ -503,9 +547,6 @@ public struct GameCenterHomeView: View {
             }
         }
         .task {
-            if session.authState == .notStarted {
-                session.authenticate()
-            }
             await refresh()
         }
         .onChange(of: session.authState) {
@@ -593,11 +634,12 @@ public struct GameCenterHomeView: View {
                 Button {
                     session.authenticate()
                 } label: {
-                    Label("Sign in", systemImage: "person.crop.circle.badge.checkmark")
+                    Label(authButtonTitle, systemImage: "person.crop.circle.badge.checkmark")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(LedgerTheme.rust)
+                .disabled(session.authState == .authenticating)
             }
         }
         .padding(18)
@@ -611,13 +653,19 @@ public struct GameCenterHomeView: View {
 
     private var authTitle: String {
         switch session.authState {
-        case .notStarted, .authenticating:
+        case .notStarted:
+            "Sign in to Game Center"
+        case .authenticating:
             "Connecting to Game Center"
         case .authenticated(let displayName):
             "Signed in as \(displayName)"
         case .unauthenticated:
             "Sign in to Game Center"
         }
+    }
+
+    private var authButtonTitle: String {
+        session.authState == .authenticating ? "Connecting" : "Sign in"
     }
 
     private var matchControls: some View {

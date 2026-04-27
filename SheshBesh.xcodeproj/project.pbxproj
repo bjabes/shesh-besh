@@ -22,6 +22,18 @@
 		AF1000000000000000000017 /* State.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000018 /* State.swift */; };
 		AF1000000000000000000038 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000039 /* Assets.xcassets */; };
 		AF2000000000000000000001 /* SheshBeshUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF2000000000000000000002 /* SheshBeshUITests.swift */; };
+		AF3000000000000000000001 /* LedgerCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000002 /* LedgerCoordinator.swift */; };
+		AF3000000000000000000003 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000004 /* HomeView.swift */; };
+		AF3000000000000000000005 /* MatchEndSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000006 /* MatchEndSheet.swift */; };
+		AF3000000000000000000007 /* Rival.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000008 /* Rival.swift */; };
+		AF3000000000000000000009 /* MatchOutcome.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF300000000000000000000A /* MatchOutcome.swift */; };
+		AF300000000000000000000B /* MatchRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF300000000000000000000C /* MatchRecord.swift */; };
+		AF300000000000000000000D /* ActiveMatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF300000000000000000000E /* ActiveMatch.swift */; };
+		AF300000000000000000000F /* RivalLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000010 /* RivalLedger.swift */; };
+		AF3000000000000000000011 /* LedgerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000012 /* LedgerStore.swift */; };
+		AF3000000000000000000013 /* InMemoryLedgerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000014 /* InMemoryLedgerStore.swift */; };
+		AF3000000000000000000015 /* JSONLedgerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000016 /* JSONLedgerStore.swift */; };
+		AF3000000000000000000017 /* LedgerAggregation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000018 /* LedgerAggregation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +71,18 @@
 		AF1000000000000000000039 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AF2000000000000000000002 /* SheshBeshUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheshBeshUITests.swift; sourceTree = "<group>"; };
 		AF2000000000000000000003 /* SheshBeshUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SheshBeshUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF3000000000000000000002 /* LedgerCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerCoordinator.swift; sourceTree = "<group>"; };
+		AF3000000000000000000004 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		AF3000000000000000000006 /* MatchEndSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchEndSheet.swift; sourceTree = "<group>"; };
+		AF3000000000000000000008 /* Rival.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rival.swift; sourceTree = "<group>"; };
+		AF300000000000000000000A /* MatchOutcome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchOutcome.swift; sourceTree = "<group>"; };
+		AF300000000000000000000C /* MatchRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchRecord.swift; sourceTree = "<group>"; };
+		AF300000000000000000000E /* ActiveMatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveMatch.swift; sourceTree = "<group>"; };
+		AF3000000000000000000010 /* RivalLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RivalLedger.swift; sourceTree = "<group>"; };
+		AF3000000000000000000012 /* LedgerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStore.swift; sourceTree = "<group>"; };
+		AF3000000000000000000014 /* InMemoryLedgerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InMemoryLedgerStore.swift; sourceTree = "<group>"; };
+		AF3000000000000000000016 /* JSONLedgerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONLedgerStore.swift; sourceTree = "<group>"; };
+		AF3000000000000000000018 /* LedgerAggregation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerAggregation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,6 +135,7 @@
 			isa = PBXGroup;
 			children = (
 				AF1000000000000000000025 /* SheshBeshGame */,
+				AF3000000000000000000019 /* SheshBeshLedger */,
 			);
 			path = Packages;
 			sourceTree = "<group>";
@@ -138,7 +163,10 @@
 			children = (
 				AF1000000000000000000037 /* AppLaunchConfiguration.swift */,
 				AF1000000000000000000008 /* BoardView.swift */,
+				AF3000000000000000000004 /* HomeView.swift */,
+				AF3000000000000000000002 /* LedgerCoordinator.swift */,
 				AF1000000000000000000006 /* MatchViewModel.swift */,
+				AF3000000000000000000006 /* MatchEndSheet.swift */,
 				AF1000000000000000000004 /* RootView.swift */,
 			);
 			path = Shared;
@@ -180,6 +208,38 @@
 				AF2000000000000000000002 /* SheshBeshUITests.swift */,
 			);
 			path = SheshBeshUITests;
+			sourceTree = "<group>";
+		};
+		AF3000000000000000000019 /* SheshBeshLedger */ = {
+			isa = PBXGroup;
+			children = (
+				AF300000000000000000001A /* Sources */,
+			);
+			path = SheshBeshLedger;
+			sourceTree = "<group>";
+		};
+		AF300000000000000000001A /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				AF300000000000000000001B /* SheshBeshLedger */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		AF300000000000000000001B /* SheshBeshLedger */ = {
+			isa = PBXGroup;
+			children = (
+				AF300000000000000000000E /* ActiveMatch.swift */,
+				AF3000000000000000000014 /* InMemoryLedgerStore.swift */,
+				AF3000000000000000000016 /* JSONLedgerStore.swift */,
+				AF3000000000000000000018 /* LedgerAggregation.swift */,
+				AF3000000000000000000012 /* LedgerStore.swift */,
+				AF300000000000000000000A /* MatchOutcome.swift */,
+				AF300000000000000000000C /* MatchRecord.swift */,
+				AF3000000000000000000008 /* Rival.swift */,
+				AF3000000000000000000010 /* RivalLedger.swift */,
+			);
+			path = SheshBeshLedger;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -305,8 +365,20 @@
 				AF1000000000000000000001 /* SheshBeshMain.swift in Sources */,
 				AF1000000000000000000036 /* AppLaunchConfiguration.swift in Sources */,
 				AF1000000000000000000007 /* BoardView.swift in Sources */,
+				AF3000000000000000000003 /* HomeView.swift in Sources */,
+				AF3000000000000000000001 /* LedgerCoordinator.swift in Sources */,
 				AF1000000000000000000005 /* MatchViewModel.swift in Sources */,
+				AF3000000000000000000005 /* MatchEndSheet.swift in Sources */,
 				AF1000000000000000000003 /* RootView.swift in Sources */,
+				AF300000000000000000000D /* ActiveMatch.swift in Sources */,
+				AF3000000000000000000013 /* InMemoryLedgerStore.swift in Sources */,
+				AF3000000000000000000015 /* JSONLedgerStore.swift in Sources */,
+				AF3000000000000000000017 /* LedgerAggregation.swift in Sources */,
+				AF3000000000000000000011 /* LedgerStore.swift in Sources */,
+				AF3000000000000000000009 /* MatchOutcome.swift in Sources */,
+				AF300000000000000000000B /* MatchRecord.swift in Sources */,
+				AF3000000000000000000007 /* Rival.swift in Sources */,
+				AF300000000000000000000F /* RivalLedger.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

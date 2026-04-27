@@ -149,12 +149,7 @@ public final class MatchViewModel {
             return true
         }
 
-        switch state.game.phase {
-        case .awaitingMove(let turn) where turn.player == localPlayer:
-            return MoveValidator.legalFirstMoves(for: localPlayer, in: state.game).isEmpty
-        default:
-            return activePlayer != localPlayer
-        }
+        return activePlayer != localPlayer
     }
 
     public var phaseTitle: String {

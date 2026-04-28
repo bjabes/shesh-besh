@@ -402,6 +402,7 @@ private struct RivalryCard: View {
         }
         .buttonStyle(RivalryRowButtonStyle(isHero: isHero))
         .accessibilityIdentifier("\(ledger.activeMatch == nil ? "start" : "resume")-match-\(ledger.rival.id.uuidString)")
+        .accessibilityLabel("\(ledger.activeMatch == nil ? "Start" : "Resume") match against \(ledger.rival.displayName). Score: \(ledger.userWins) to \(ledger.rivalWins). \(statusLine)")
     }
 
     private func primaryAction() {

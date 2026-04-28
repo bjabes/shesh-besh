@@ -1469,21 +1469,21 @@ private struct ActionBar: View {
                 .frame(minHeight: 48)
 
             case .awaitingRoll(let player) where player == viewModel.localPlayer:
+                resignationMenu
                 if viewModel.containsAction(.offerDouble(viewModel.localPlayer)) {
                     SecondaryActionButton(title: "Offer double") {
                         viewModel.offerDoubleIfAllowed()
                         onAction()
                     }
                 }
-                resignationMenu
-                localAutoplayButton
                 PrimaryActionButton(title: "Roll dice") {
                     viewModel.rollDiceIfAllowed()
                     onAction()
                 }
+                localAutoplayButton
 
             case .awaitingMove(let turn) where turn.player == viewModel.localPlayer:
-                localAutoplayButton
+                resignationMenu
                 if viewModel.containsAction(.passTurn(viewModel.localPlayer)) {
                     PrimaryActionButton(title: "Pass") {
                         viewModel.passIfAllowed()
@@ -1495,7 +1495,7 @@ private struct ActionBar: View {
                         .foregroundStyle(LinenBrass.cream)
                         .frame(maxWidth: .infinity, minHeight: 48)
                 }
-                resignationMenu
+                localAutoplayButton
 
             case .awaitingCubeResponse(let offer) where offer.offeredBy.opponent == viewModel.localPlayer:
                 PrimaryActionButton(title: "Take \(offer.proposedValue)") {

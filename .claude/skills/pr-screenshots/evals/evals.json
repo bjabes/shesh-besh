@@ -1,0 +1,26 @@
+{
+  "skill_name": "pr-screenshots",
+  "evals": [
+    {
+      "id": 1,
+      "name": "board-tweak",
+      "prompt": "I just finished tightening up the spacing at the top of the in-game board view (BoardView.swift, the VStack right under the linen background). I'm about to open a PR for this on shesh-besh — handle screenshots first please.",
+      "expected_output": "Skill identifies BoardView.swift as a covered surface, runs scripts/capture-pr-screenshots.sh, and reports the captured PNG paths. Should NOT skip and should NOT flag a coverage gap.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "engine-only",
+      "prompt": "Just landed a small helper on Player in the SheshBeshGame package (isOpponentHomePoint). Ready to push a PR — sort out screenshots before I do.",
+      "expected_output": "Skill recognizes the change is purely engine logic under Packages/SheshBeshGame/, skips the screenshot script, and explicitly says no UI was affected. Should NOT boot a simulator or run the script.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "match-end-sheet",
+      "prompt": "I tweaked the handle on the match-end sheet — different spacing and a slightly bolder brass tint on the capsule. Going to open a PR now, but get screenshots together first.",
+      "expected_output": "Skill identifies MatchEndSheet.swift as a visual change but NOT covered by the existing testPRScreenshots flow. Should NOT just blindly run the script (those screenshots wouldn't show the change). Should explicitly call out the gap and either offer to extend the UI test or recommend skipping with a note in the PR.",
+      "files": []
+    }
+  ]
+}

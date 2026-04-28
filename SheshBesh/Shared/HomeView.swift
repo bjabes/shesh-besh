@@ -215,12 +215,12 @@ public struct HomeView: View {
         guard !isWorking else { return }
         isWorking = true
         Task {
+            defer { isWorking = false }
             do {
                 try await coordinator.deleteRival(ledger.rival, deletingRecords: deletingRecords)
             } catch {
                 localError = error.localizedDescription
             }
-            isWorking = false
         }
     }
 

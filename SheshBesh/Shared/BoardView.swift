@@ -370,12 +370,12 @@ private struct HeaderCard: View {
     let onBackToRivals: (() -> Void)?
 
     var body: some View {
-        HStack(alignment: .center, spacing: 4) {
+        HStack(alignment: .center, spacing: -12) {
             if let onBackToRivals {
                 Button(action: onBackToRivals) {
                     Image(systemName: "chevron.left")
                         .font(LinenBrass.uiFont(size: 17, weight: .semibold))
-                        .frame(width: 28, height: 44, alignment: .leading)
+                        .frame(width: 44, height: 44, alignment: .leading)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -1412,14 +1412,14 @@ private struct ActionBar: View {
                     onAction()
                 }
 
-                if !viewModel.canSubmitTurn {
-                    Text(draftStatusText)
-                        .font(LinenBrass.uiFont(size: 15, weight: .semibold))
-                        .foregroundStyle(LinenBrass.cream)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                }
+                Text(draftStatusText)
+                    .font(LinenBrass.uiFont(size: 15, weight: .semibold))
+                    .foregroundStyle(LinenBrass.cream)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .opacity(viewModel.canSubmitTurn ? 0 : 1)
+                    .accessibilityHidden(viewModel.canSubmitTurn)
 
                 PrimaryActionButton(title: "Submit turn", isEnabled: viewModel.canSubmitTurn) {
                     if viewModel.submitTurnIfAllowed() {

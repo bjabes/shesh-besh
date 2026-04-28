@@ -140,6 +140,15 @@ public final class LedgerCoordinator {
         ledgers.first { $0.rival.id == rivalID }
     }
 
+    #if DEBUG
+    /// Synchronously seeds the cached ledgers. Used by UI test scenes to
+    /// surface views (like the match-end sheet) that read ledger data before
+    /// any async `refresh()` would normally complete.
+    public func seedLedgersForUITests(_ ledgers: [RivalLedger]) {
+        self.ledgers = ledgers
+    }
+    #endif
+
     public func rival(for rivalID: Rival.ID) -> Rival? {
         ledger(for: rivalID)?.rival
     }

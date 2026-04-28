@@ -45,28 +45,6 @@ final class SheshBeshUITests: XCTestCase {
     }
 
     @MainActor
-    func testPRScreenshots() throws {
-        let app = configuredApp()
-        app.launch()
-
-        XCTAssertTrue(app.buttons["action-opening-roll"].waitForExistence(timeout: 5))
-        attachScreenshot(named: "01-opening-roll")
-
-        app.buttons["action-opening-roll"].tap()
-        XCTAssertTrue(element("die-1", in: app).waitForExistence(timeout: 2))
-        attachScreenshot(named: "02-rolled-6-1")
-
-        element("point-24", in: app).tap()
-        element("point-18", in: app).tap()
-        element("point-24", in: app).tap()
-        element("point-23", in: app).tap()
-        app.buttons["action-submit-turn"].tap()
-
-        XCTAssertTrue(app.buttons["action-roll-dice"].waitForExistence(timeout: 4))
-        attachScreenshot(named: "03-your-turn")
-    }
-
-    @MainActor
     func testRootRivalryButtonsDoNotRenderSystemBlueIcons() throws {
         let app = rootLedgerApp()
         app.launch()
@@ -123,14 +101,6 @@ final class SheshBeshUITests: XCTestCase {
     @MainActor
     private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)[identifier]
-    }
-
-    @MainActor
-    private func attachScreenshot(named name: String) {
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 
     @MainActor

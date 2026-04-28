@@ -23,6 +23,7 @@
 		AF1000000000000000000036 /* AppLaunchConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000037 /* AppLaunchConfiguration.swift */; };
 		AF1000000000000000000038 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000039 /* Assets.xcassets */; };
 		AF2000000000000000000001 /* SheshBeshUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF2000000000000000000002 /* SheshBeshUITests.swift */; };
+		AF2000000000000000000010 /* PRScreenshotsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF2000000000000000000011 /* PRScreenshotsTests.swift */; };
 		AF3000000000000000000001 /* LedgerCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000002 /* LedgerCoordinator.swift */; };
 		AF3000000000000000000003 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000004 /* HomeView.swift */; };
 		AF3000000000000000000005 /* MatchEndSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000006 /* MatchEndSheet.swift */; };
@@ -75,6 +76,7 @@
 		AF1000000000000000000037 /* AppLaunchConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchConfiguration.swift; sourceTree = "<group>"; };
 		AF1000000000000000000039 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AF2000000000000000000002 /* SheshBeshUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheshBeshUITests.swift; sourceTree = "<group>"; };
+		AF2000000000000000000011 /* PRScreenshotsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRScreenshotsTests.swift; sourceTree = "<group>"; };
 		AF2000000000000000000003 /* SheshBeshUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SheshBeshUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF3000000000000000000002 /* LedgerCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerCoordinator.swift; sourceTree = "<group>"; };
 		AF3000000000000000000004 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -220,6 +222,7 @@
 			isa = PBXGroup;
 			children = (
 				AF2000000000000000000002 /* SheshBeshUITests.swift */,
+				AF2000000000000000000011 /* PRScreenshotsTests.swift */,
 			);
 			path = SheshBeshUITests;
 			sourceTree = "<group>";
@@ -419,6 +422,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AF2000000000000000000001 /* SheshBeshUITests.swift in Sources */,
+				AF2000000000000000000010 /* PRScreenshotsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -3,15 +3,15 @@ title: Privacy Policy
 permalink: /privacy/
 ---
 
-# Gammonade Privacy Policy
+# {{ site.title }} Privacy Policy
 
 _Last updated: 2026-04-28_
 
-Gammonade is built to respect your privacy. The summary: we don't collect anything ourselves. The only data that leaves your device is what Game Center handles when you choose to play multiplayer.
+{{ site.title }} is built to respect your privacy. The summary: we don't collect anything ourselves. The only data that leaves your device is what Game Center handles when you choose to play multiplayer.
 
 ## What we collect
 
-**Nothing.** Gammonade does not run analytics, crash reporting, advertising, or third-party tracking SDKs. The app does not contact any server we operate.
+**Nothing.** {{ site.title }} does not run analytics, crash reporting, advertising, or third-party tracking SDKs. The app does not contact any server we operate.
 
 ## What Game Center handles
 
@@ -35,7 +35,7 @@ This file never leaves your device. It is removed when you uninstall the app.
 
 ## Children
 
-Gammonade is not directed at children under 13 and does not knowingly collect data from anyone.
+{{ site.title }} is not directed at children under 13 and does not knowingly collect data from anyone.
 
 ## Tracking
 

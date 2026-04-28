@@ -3,11 +3,11 @@ title: Support
 permalink: /support/
 ---
 
-# Gammonade Support
+# {{ site.title }} Support
 
 ## What it is
 
-Gammonade is a backgammon game for iPhone. Three ways to play:
+{{ site.title }} is a backgammon game for iPhone. Three ways to play:
 
 - **Practice vs AI** — three difficulty levels (Easy, Medium, Hard).
 - **Pass-and-play** — local match against a friend on the same device.

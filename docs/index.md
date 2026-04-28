@@ -1,9 +1,8 @@
 ---
-title: Gammonade
 permalink: /
 ---
 
-# Gammonade
+# {{ site.title }}
 
 A pure-Swift backgammon game for iPhone. Play offline against three AI difficulty levels, or invite a friend through Game Center for asynchronous turn-based matches. The app tracks rivalries with full match history.
 

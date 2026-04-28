@@ -3,6 +3,8 @@ import SwiftUI
 public struct SplashView: View {
     private let onFinished: () -> Void
 
+    @State private var firstDieValue = Int.random(in: 1...6)
+    @State private var secondDieValue = Int.random(in: 1...6)
     @State private var diceLanded = false
     @State private var pulse = false
     @State private var titleVisible = false
@@ -26,12 +28,12 @@ public struct SplashView: View {
 
             VStack(spacing: 36) {
                 HStack(spacing: 22) {
-                    DieView(value: 6, face: LinenBrass.cream, pip: LinenBrass.rust)
+                    DieView(value: firstDieValue, face: LinenBrass.cream, pip: LinenBrass.rust)
                         .rotationEffect(.degrees(diceLanded ? -7 : -120))
                         .offset(x: diceLanded ? 0 : -260, y: diceLanded ? 0 : -140)
                         .scaleEffect(diceLanded ? (pulse ? 1.07 : 1.0) : 0.4)
                         .opacity(diceLanded ? 1 : 0)
-                    DieView(value: 5, face: LinenBrass.rust, pip: LinenBrass.cream)
+                    DieView(value: secondDieValue, face: LinenBrass.rust, pip: LinenBrass.cream)
                         .rotationEffect(.degrees(diceLanded ? 8 : 120))
                         .offset(x: diceLanded ? 0 : 260, y: diceLanded ? 0 : -140)
                         .scaleEffect(diceLanded ? (pulse ? 1.07 : 1.0) : 0.4)

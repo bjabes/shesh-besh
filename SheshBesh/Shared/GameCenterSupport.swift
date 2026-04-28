@@ -1,6 +1,7 @@
 #if canImport(GameKit) && canImport(UIKit)
 @preconcurrency import GameKit
 import Observation
+import os
 import SheshBeshGame
 import SwiftUI
 @preconcurrency import UIKit
@@ -8,6 +9,8 @@ import SwiftUI
 #if canImport(SheshBeshLedger)
 import SheshBeshLedger
 #endif
+
+private let gcLog = Logger(subsystem: "com.sheshbesh.gamecenter", category: "auth")
 
 public enum GameCenterAuthState: Equatable, Sendable {
     case notStarted
@@ -30,38 +33,77 @@ public final class GameCenterSession: NSObject, @preconcurrency GKLocalPlayerLis
     public var authenticationViewController: UIViewController?
     public var lastErrorMessage: String?
     private var authenticationAttemptID = UUID()
+    private var attemptStart = Date()
+    private var handlerCallCount = 0
 
     @ObservationIgnored public var onTurnEvent: (@MainActor (GKTurnBasedMatch, Bool) -> Void)?
     @ObservationIgnored public var onMatchEnded: (@MainActor (GKTurnBasedMatch) -> Void)?
     @ObservationIgnored public var onWantsToQuitMatch: (@MainActor (GKTurnBasedMatch) -> Void)?
 
     public func start() {
-        guard authState == .notStarted else { return }
+        trace("start() called — authState=\(self.authState), GK.isAuthenticated=\(GKLocalPlayer.local.isAuthenticated)")
+        guard authState == .notStarted else {
+            trace("start() skipped — not in .notStarted")
+            return
+        }
         beginAuthentication()
     }
 
     public func retry() {
-        guard !authState.isAuthenticated, authState != .authenticating else { return }
+        trace("retry() called — authState=\(self.authState), GK.isAuthenticated=\(GKLocalPlayer.local.isAuthenticated)")
+        guard !authState.isAuthenticated, authState != .authenticating else {
+            trace("retry() skipped — already authenticated or authenticating")
+            return
+        }
         beginAuthentication()
+    }
+
+    public var canOpenSystemSettings: Bool {
+        if case .unauthenticated = authState { return true }
+        return false
+    }
+
+    public func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 
     private func beginAuthentication() {
         let attemptID = UUID()
         authenticationAttemptID = attemptID
+        attemptStart = Date()
+        handlerCallCount = 0
         authState = .authenticating
         lastErrorMessage = nil
+
+        #if targetEnvironment(simulator)
+        let env = "simulator"
+        #else
+        let env = "device"
+        #endif
+        trace("beginAuthentication attempt=\(attemptID.uuidString.prefix(8)) env=\(env) bundle=\(Bundle.main.bundleIdentifier ?? "?")")
+
         scheduleAuthenticationTimeout(for: attemptID)
         GKLocalPlayer.local.authenticateHandler = { [weak self] viewController, error in
             Task { @MainActor in
                 guard let self else { return }
+                self.handlerCallCount += 1
+                let elapsed = Date().timeIntervalSince(self.attemptStart)
+                let nsErr = error as NSError?
+                let elapsedStr = String(format: "%.2f", elapsed)
+                let vcStr = viewController != nil ? "yes" : "nil"
+                let errStr = nsErr.map { "\($0.domain):\($0.code)" } ?? "nil"
+                self.trace("handler#\(self.handlerCallCount) t=\(elapsedStr)s vc=\(vcStr) err=\(errStr) isAuth=\(GKLocalPlayer.local.isAuthenticated)")
 
                 if let viewController {
+                    self.trace("→ presenting auth VC")
                     self.authenticationViewController = viewController
                     self.authState = .authenticating
                     return
                 }
 
                 if GKLocalPlayer.local.isAuthenticated {
+                    self.trace("→ authenticated as \(GKLocalPlayer.local.displayName) id=\(GKLocalPlayer.local.gamePlayerID)")
                     self.authenticationViewController = nil
                     self.localPlayerID = GKLocalPlayer.local.gamePlayerID
                     self.localDisplayName = GKLocalPlayer.local.displayName
@@ -70,6 +112,7 @@ public final class GameCenterSession: NSObject, @preconcurrency GKLocalPlayerLis
                     GKLocalPlayer.local.register(self)
                 } else {
                     let message = self.authenticationFailureMessage(for: error)
+                    self.trace("→ unauthenticated: \(message)")
                     self.authenticationViewController = nil
                     self.localPlayerID = nil
                     self.localDisplayName = nil
@@ -86,6 +129,9 @@ public final class GameCenterSession: NSObject, @preconcurrency GKLocalPlayerLis
         }
 
         let nsError = error as NSError
+        let userInfoString = String(describing: nsError.userInfo)
+        gcLog.error("auth failure raw error: domain=\(nsError.domain, privacy: .public) code=\(nsError.code) userInfo=\(userInfoString, privacy: .private)")
+
         guard nsError.domain == GKErrorDomain,
               let code = GKError.Code(rawValue: nsError.code)
         else {
@@ -104,7 +150,23 @@ public final class GameCenterSession: NSObject, @preconcurrency GKLocalPlayerLis
 
     private func scheduleAuthenticationTimeout(for attemptID: UUID) {
         Task { [weak self, attemptID] in
-            try? await Task.sleep(for: .seconds(12))
+            let pollCount = 8
+            let pollInterval: Duration = .milliseconds(1500)
+            for tick in 1...pollCount {
+                try await Task.sleep(for: pollInterval)
+                guard let self else { return }
+                guard self.authenticationAttemptID == attemptID else {
+                    self.trace("timeout poll bailed — attempt id changed (superseded)")
+                    return
+                }
+                let isAuth = GKLocalPlayer.local.isAuthenticated
+                let vcStr = self.authenticationViewController != nil ? "yes" : "nil"
+                self.trace("poll \(tick)/\(pollCount) state=\(self.authState) vc=\(vcStr) isAuth=\(isAuth) handlers=\(self.handlerCallCount)")
+                if self.authState != .authenticating || self.authenticationViewController != nil || isAuth {
+                    self.trace("poll ended — state advanced")
+                    return
+                }
+            }
 
             guard let self,
                   self.authenticationAttemptID == attemptID,
@@ -113,10 +175,15 @@ public final class GameCenterSession: NSObject, @preconcurrency GKLocalPlayerLis
                   !GKLocalPlayer.local.isAuthenticated
             else { return }
 
-            let message = "Game Center did not respond. Try again or sign in from Settings."
+            self.trace("timeout fired after \(pollCount) polls, handlers=\(self.handlerCallCount) — GameKit never responded")
+            let message = "Game Center didn't respond. Make sure you're signed in to Game Center in Settings, then try again."
             self.lastErrorMessage = message
             self.authState = .unauthenticated(message)
         }
+    }
+
+    private func trace(_ message: String) {
+        gcLog.debug("\(message, privacy: .public)")
     }
 
     public func loadMatches() async throws -> [GKTurnBasedMatch] {
@@ -659,6 +726,11 @@ public struct GameCenterHomeView: View {
                 }
             )
         ) {
+            if session.canOpenSystemSettings && session.lastErrorMessage != nil {
+                Button("Open Settings") {
+                    session.openSystemSettings()
+                }
+            }
             Button("OK", role: .cancel) {}
         } message: {
             Text(localError ?? session.lastErrorMessage ?? ledgerCoordinator.lastErrorMessage ?? "")
@@ -758,6 +830,21 @@ public struct GameCenterHomeView: View {
                 .tint(LedgerTheme.rust)
                 .disabled(session.authState == .authenticating)
                 .accessibilityIdentifier("game-center-sign-in")
+
+                if session.canOpenSystemSettings {
+                    Button {
+                        session.openSystemSettings()
+                    } label: {
+                        ThemedButtonLabel(
+                            title: "Open Settings",
+                            systemImage: "gearshape",
+                            foregroundStyle: LedgerTheme.coffee
+                        )
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("game-center-open-settings")
+                }
             }
         }
         .padding(18)

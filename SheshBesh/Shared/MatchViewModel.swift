@@ -3,6 +3,32 @@ import Observation
 import SheshBeshGame
 import SwiftUI
 
+public enum AIDifficulty: String, CaseIterable, Codable, Sendable {
+    case easy
+    case medium
+    case hard
+
+    public var rivalDisplayName: String {
+        switch self {
+        case .easy: "Easy AI"
+        case .medium: "Medium AI"
+        case .hard: "Hard AI"
+        }
+    }
+
+    public var menuLabel: String {
+        switch self {
+        case .easy: "Easy"
+        case .medium: "Medium"
+        case .hard: "Hard"
+        }
+    }
+
+    public static func fromRivalDisplayName(_ name: String) -> AIDifficulty? {
+        AIDifficulty.allCases.first { $0.rivalDisplayName == name }
+    }
+}
+
 @MainActor
 @Observable
 public final class MatchViewModel {
@@ -37,11 +63,12 @@ public final class MatchViewModel {
         engine: MatchEngine = MatchEngine(),
         config: MatchConfig = .tournament(targetScore: 1),
         localPlayer: Player = .white,
-        opponentName: String = "Local AI",
+        opponentName: String = "Medium AI",
         activeMatchID: UUID = UUID(),
         initialState: MatchState? = nil,
         isOpponentAutoplayEnabled: Bool = true,
-        opponentController: LocalAIOpponent = LocalAIOpponent(),
+        aiDifficulty: AIDifficulty = .medium,
+        opponentController: LocalAIOpponent? = nil,
         opponentDelay: @escaping @Sendable () async -> Void = {
             let nanoseconds = UInt64(Double.random(in: 0.8...1.2) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: nanoseconds)
@@ -57,7 +84,7 @@ public final class MatchViewModel {
         self.opponentName = opponentName
         self.isOpponentAutoplayEnabled = isOpponentAutoplayEnabled
         self.activeMatchID = activeMatchID
-        self.opponentController = opponentController
+        self.opponentController = opponentController ?? LocalAIOpponent(difficulty: aiDifficulty)
         self.opponentDelay = opponentDelay
         self.isOpponentThinking = false
         self.turnNotice = nil
@@ -507,11 +534,22 @@ public final class MatchViewModel {
 }
 
 public struct LocalAIOpponent: Sendable {
+    private static let hitBonus = 50
+    private static let pointBonus = 15
+    private static let innerPointBonus = 25
+    private static let blotPenalty = 20
+    private static let homeBlotPenalty = 10
+
+    public let difficulty: AIDifficulty
     private let randomIndex: @Sendable (Int) -> Int
 
-    public init(randomIndex: @escaping @Sendable (Int) -> Int = { upperBound in
-        Int.random(in: 0..<upperBound)
-    }) {
+    public init(
+        difficulty: AIDifficulty = .medium,
+        randomIndex: @escaping @Sendable (Int) -> Int = { upperBound in
+            Int.random(in: 0..<upperBound)
+        }
+    ) {
+        self.difficulty = difficulty
         self.randomIndex = randomIndex
     }
 
@@ -533,7 +571,7 @@ public struct LocalAIOpponent: Sendable {
         case .roll:
             return .rollDice(opponent)
         case .move:
-            return selectPipBiasedMove(
+            return selectMove(
                 for: opponent,
                 in: state,
                 legalActions: legalActions,
@@ -555,20 +593,50 @@ public struct LocalAIOpponent: Sendable {
         }
     }
 
+    public func selectMove(
+        for player: Player,
+        in state: MatchState,
+        legalActions: [MatchAction],
+        pipCounts: [Player: Int]
+    ) -> Move? {
+        let moves = legalMoves(for: player, in: legalActions)
+        guard !moves.isEmpty else { return nil }
+
+        switch difficulty {
+        case .easy:
+            return moves[clampedRandomIndex(upperBound: moves.count)]
+        case .medium:
+            return selectPipBiasedMove(
+                for: player,
+                moves: moves,
+                pipCounts: pipCounts
+            )
+        case .hard:
+            return selectHeuristicMove(
+                for: player,
+                in: state,
+                moves: moves,
+                pipCounts: pipCounts
+            )
+        }
+    }
+
     public func selectPipBiasedMove(
         for player: Player,
         in state: MatchState,
         legalActions: [MatchAction],
         pipCounts: [Player: Int]
     ) -> Move? {
-        let moves = legalActions.compactMap { action -> Move? in
-            if case .move(let move) = action, move.player == player {
-                return move
-            }
-            return nil
-        }
+        let moves = legalMoves(for: player, in: legalActions)
         guard !moves.isEmpty else { return nil }
+        return selectPipBiasedMove(for: player, moves: moves, pipCounts: pipCounts)
+    }
 
+    private func selectPipBiasedMove(
+        for player: Player,
+        moves: [Move],
+        pipCounts: [Player: Int]
+    ) -> Move? {
         let currentPips = pipCounts[player, default: 0]
         let rankedMoves = moves.map { move in
             (move: move, projectedPips: projectedPipCount(currentPips, after: move))
@@ -576,6 +644,72 @@ public struct LocalAIOpponent: Sendable {
         guard let bestPips = rankedMoves.map(\.projectedPips).min() else { return nil }
         let bestMoves = rankedMoves.filter { $0.projectedPips == bestPips }.map(\.move)
         return bestMoves[clampedRandomIndex(upperBound: bestMoves.count)]
+    }
+
+    private func selectHeuristicMove(
+        for player: Player,
+        in state: MatchState,
+        moves: [Move],
+        pipCounts: [Player: Int]
+    ) -> Move? {
+        let currentPips = pipCounts[player, default: 0]
+        let board = state.game.board
+        let scored = moves.map { move -> (move: Move, score: Int) in
+            let projected = projectedPipCount(currentPips, after: move)
+            var score = currentPips - projected
+            score += hitScore(for: move, on: board, player: player)
+            score += pointMakingScore(for: move, on: board, player: player)
+            score -= sourceBlotPenalty(for: move, on: board, player: player)
+            score -= destinationBlotPenalty(for: move, on: board, player: player)
+            return (move, score)
+        }
+        guard let bestScore = scored.map(\.score).max() else { return nil }
+        let bestMoves = scored.filter { $0.score == bestScore }.map(\.move)
+        return bestMoves[clampedRandomIndex(upperBound: bestMoves.count)]
+    }
+
+    private func legalMoves(for player: Player, in legalActions: [MatchAction]) -> [Move] {
+        legalActions.compactMap { action -> Move? in
+            if case .move(let move) = action, move.player == player {
+                return move
+            }
+            return nil
+        }
+    }
+
+    private func hitScore(for move: Move, on board: Board, player: Player) -> Int {
+        guard case .point(let dest) = move.destination else { return 0 }
+        let state = board.point(dest)
+        return state.owner == player.opponent && state.count == 1 ? Self.hitBonus : 0
+    }
+
+    private func pointMakingScore(for move: Move, on board: Board, player: Player) -> Int {
+        guard case .point(let dest) = move.destination else { return 0 }
+        let state = board.point(dest)
+        guard state.owner == player, state.count == 1 else { return 0 }
+        return player.homeBoard.contains(dest.rawValue) ? Self.innerPointBonus : Self.pointBonus
+    }
+
+    private func sourceBlotPenalty(for move: Move, on board: Board, player: Player) -> Int {
+        guard case .point(let src) = move.source else { return 0 }
+        let state = board.point(src)
+        guard state.owner == player, state.count == 2 else { return 0 }
+        return player.homeBoard.contains(src.rawValue) ? Self.homeBlotPenalty : Self.blotPenalty
+    }
+
+    private func destinationBlotPenalty(for move: Move, on board: Board, player: Player) -> Int {
+        guard case .point(let dest) = move.destination else { return 0 }
+        let state = board.point(dest)
+        let landingAlone: Bool
+        if state.owner == nil {
+            landingAlone = true
+        } else if state.owner == player.opponent && state.count == 1 {
+            landingAlone = true
+        } else {
+            landingAlone = false
+        }
+        guard landingAlone else { return 0 }
+        return player.homeBoard.contains(dest.rawValue) ? Self.homeBlotPenalty : Self.blotPenalty
     }
 
     private enum ActionKind {
@@ -621,12 +755,14 @@ public struct LocalAIOpponent: Sendable {
         in state: MatchState,
         pipCounts: [Player: Int]
     ) -> Bool {
+        if difficulty == .easy { return false }
         let pointsNeeded = state.config.targetScore - state.score.score(for: offer.offeredBy)
         guard offer.proposedValue >= pointsNeeded else { return false }
 
         let opponentPips = pipCounts[opponent, default: 0]
         let offeringPlayerPips = pipCounts[offer.offeredBy, default: 0]
-        return opponentPips - offeringPlayerPips >= 50
+        let dropThreshold = difficulty == .hard ? 40 : 50
+        return opponentPips - offeringPlayerPips >= dropThreshold
     }
 
     private func projectedPipCount(_ currentPips: Int, after move: Move) -> Int {

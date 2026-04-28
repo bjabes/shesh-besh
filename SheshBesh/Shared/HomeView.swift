@@ -173,12 +173,12 @@ public struct HomeView: View {
         }
     }
 
-    private func startAIRivalry() {
+    private func startAIRivalry(difficulty: AIDifficulty) {
         guard !isWorking else { return }
         isWorking = true
         Task {
             do {
-                onOpenMatch(try await coordinator.startAIRivalry())
+                onOpenMatch(try await coordinator.startAIRivalry(difficulty: difficulty))
             } catch {
                 localError = error.localizedDescription
             }
@@ -278,12 +278,19 @@ struct RivalryLaunchActions: View {
     let primarySystemImage: String
     let secondaryTitle: String
     let secondarySystemImage: String
-    let onPrimary: () -> Void
+    let onPrimary: (AIDifficulty) -> Void
     let onSecondary: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
-            Button(action: onPrimary) {
+            Menu {
+                ForEach(AIDifficulty.allCases, id: \.self) { difficulty in
+                    Button(difficulty.menuLabel) {
+                        onPrimary(difficulty)
+                    }
+                    .accessibilityIdentifier("home-new-ai-rival-\(difficulty.rawValue)")
+                }
+            } label: {
                 ThemedButtonLabel(
                     title: primaryTitle,
                     systemImage: primarySystemImage,

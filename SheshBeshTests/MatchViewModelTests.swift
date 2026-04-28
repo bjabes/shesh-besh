@@ -4,14 +4,14 @@ import Testing
 
 @Suite("Match view model")
 struct MatchViewModelTests {
-    @Test("default match is a one point Local AI quick match")
+    @Test("default match is a one point Medium AI quick match")
     @MainActor
-    func defaultMatchIsLocalAIQuickMatch() {
+    func defaultMatchIsMediumAIQuickMatch() {
         let viewModel = MatchViewModel(isOpponentAutoplayEnabled: false)
 
         #expect(viewModel.state.config.targetScore == 1)
         #expect(viewModel.localPlayer == .white)
-        #expect(viewModel.opponentName == "Local AI")
+        #expect(viewModel.opponentName == "Medium AI")
     }
 
     @Test("opening roll is applied through the engine")
@@ -410,7 +410,7 @@ struct MatchViewModelTests {
 
         #expect(passed)
         #expect(viewModel.lastError == nil)
-        #expect(viewModel.phaseTitle == "Local AI had no legal moves")
+        #expect(viewModel.phaseTitle == "Medium AI had no legal moves")
     }
 
     @Test("Local AI passes after rolling blocked bar entries")
@@ -445,7 +445,7 @@ struct MatchViewModelTests {
 
         #expect(passed)
         #expect(viewModel.lastError == nil)
-        #expect(viewModel.phaseTitle == "Local AI had no legal moves")
+        #expect(viewModel.phaseTitle == "Medium AI had no legal moves")
     }
 
     @Test("Local AI prefers the biggest pip reduction and breaks ties deterministically")
@@ -500,6 +500,65 @@ struct MatchViewModelTests {
             legalActions: legalActions,
             pipCounts: [.white: 100, .black: 150]
         ) == .dropDouble(.black))
+    }
+
+    @Test("Easy AI picks a random legal move and ignores pip bias")
+    @MainActor
+    func easyAIPicksRandomLegalMove() throws {
+        let roll = try DiceRoll(die1: 6, die2: 1)
+        let state = MatchState(
+            config: .tournament(targetScore: 1),
+            game: GameState(
+                board: .initial(),
+                phase: .awaitingMove(TurnState(player: .black, roll: roll, remainingDice: roll.playableDice))
+            )
+        )
+        let legalActions = MatchEngine.legalActions(in: state)
+        let easy = LocalAIOpponent(difficulty: .easy, randomIndex: { _ in 0 })
+
+        let action = try #require(easy.action(
+            as: .black,
+            in: state,
+            legalActions: legalActions,
+            pipCounts: [.white: 167, .black: 167]
+        ))
+
+        guard case .move(let move) = action else {
+            Issue.record("Expected easy AI to return a move action.")
+            return
+        }
+        #expect(move.player == .black)
+        #expect(legalActions.contains(.move(move)))
+    }
+
+    @Test("Hard AI prefers hitting an exposed opponent blot")
+    @MainActor
+    func hardAIHitsExposedBlot() throws {
+        var board = Board.initial()
+        try board.setPoint(PointID(rawValue: 24)!, owner: nil, count: 0)
+        try board.setPoint(PointID(rawValue: 13)!, owner: .white, count: 6)
+        try board.setPoint(PointID(rawValue: 22)!, owner: .white, count: 1)
+        let roll = try DiceRoll(die1: 5, die2: 2)
+        let state = MatchState(
+            config: .tournament(targetScore: 1),
+            game: GameState(
+                board: board,
+                phase: .awaitingMove(TurnState(player: .black, roll: roll, remainingDice: roll.playableDice))
+            )
+        )
+        let legalActions = MatchEngine.legalActions(in: state)
+        let hard = LocalAIOpponent(difficulty: .hard, randomIndex: { _ in 0 })
+
+        let move = try #require(hard.selectMove(
+            for: .black,
+            in: state,
+            legalActions: legalActions,
+            pipCounts: [.white: 167, .black: 167]
+        ))
+
+        #expect(move.source == .point(PointID(rawValue: 17)!))
+        #expect(move.destination == .point(PointID(rawValue: 22)!))
+        #expect(move.die == 5)
     }
 
     @Test("Local AI quick match can complete from automated legal play")

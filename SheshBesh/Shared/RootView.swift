@@ -131,13 +131,15 @@ public struct RootView: View {
 
     private func openMatch(_ match: ActiveMatch) {
         let rival = coordinator.rival(for: match.rivalID)
+        let aiDifficulty = AIDifficulty.fromRivalDisplayName(rival?.displayName ?? "") ?? .medium
         let viewModel = MatchViewModel(
             config: match.state.config,
             localPlayer: match.userPlayed,
             opponentName: rival?.displayName ?? "Rival",
             activeMatchID: match.id,
             initialState: match.state,
-            isOpponentAutoplayEnabled: true
+            isOpponentAutoplayEnabled: true,
+            aiDifficulty: aiDifficulty
         )
 
         viewModel.onStateChange = { [coordinator] state in

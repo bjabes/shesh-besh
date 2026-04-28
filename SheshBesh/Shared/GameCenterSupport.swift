@@ -747,12 +747,17 @@ public struct GameCenterHomeView: View {
                 Button {
                     session.retry()
                 } label: {
-                    Label(authButtonTitle, systemImage: "person.crop.circle.badge.checkmark")
+                    ThemedButtonLabel(
+                        title: authButtonTitle,
+                        systemImage: "person.crop.circle.badge.checkmark",
+                        foregroundStyle: .white
+                    )
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(LedgerTheme.rust)
                 .disabled(session.authState == .authenticating)
+                .accessibilityIdentifier("game-center-sign-in")
             }
         }
         .padding(18)

@@ -496,7 +496,7 @@ private struct MetricPill: View {
     }
 }
 
-private struct ThemedButtonLabel: View {
+struct ThemedButtonLabel: View {
     let title: String
     let systemImage: String
     let foregroundStyle: Color

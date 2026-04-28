@@ -1,6 +1,8 @@
 name: Gemini Review Gate
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened]
   pull_request_review:
     types: [submitted, edited, dismissed]
   pull_request_review_comment:
@@ -32,22 +34,41 @@ jobs:
             const isGemini = (login) =>
               login === 'gemini-code-assist' || login === 'gemini-code-assist[bot]';
 
-            // 1. Has Gemini reviewed the CURRENT head commit?
+            // 1. Wait for Gemini to review the CURRENT head commit.
+            // Polling keeps the check in "in progress" (yellow) state
+            // instead of failing immediately on a fresh push.
             const { data: pr } = await github.rest.pulls.get({
               owner, repo, pull_number: prNumber,
             });
             const headSha = pr.head.sha;
 
-            const reviews = await github.paginate(github.rest.pulls.listReviews, {
-              owner, repo, pull_number: prNumber,
-            });
-            const reviewedHead = reviews.some(r =>
-              r.user && isGemini(r.user.login) && r.commit_id === headSha
-            );
+            const POLL_SECONDS = 15;
+            const MAX_WAIT_SECONDS = 300; // 5 minutes
+            const startTime = Date.now();
+            let reviewedHead = false;
+
+            while (true) {
+              const reviews = await github.paginate(github.rest.pulls.listReviews, {
+                owner, repo, pull_number: prNumber,
+              });
+              reviewedHead = reviews.some(r =>
+                r.user && isGemini(r.user.login) && r.commit_id === headSha
+              );
+              if (reviewedHead) break;
+
+              const elapsed = Math.round((Date.now() - startTime) / 1000);
+              if (elapsed >= MAX_WAIT_SECONDS) break;
+
+              core.info(
+                `Waiting for Gemini to review ${headSha.slice(0, 7)} ` +
+                `(${elapsed}s elapsed, polling every ${POLL_SECONDS}s)...`
+              );
+              await new Promise(r => setTimeout(r, POLL_SECONDS * 1000));
+            }
+
             if (!reviewedHead) {
               core.setFailed(
-                `Gemini has not reviewed the latest commit (${headSha.slice(0, 7)}). ` +
-                `Wait for Gemini to re-review after the most recent push.`
+                `Gemini did not review ${headSha.slice(0, 7)} within ${MAX_WAIT_SECONDS}s.`
               );
               return;
             }

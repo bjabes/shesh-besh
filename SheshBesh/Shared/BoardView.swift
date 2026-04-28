@@ -370,12 +370,12 @@ private struct HeaderCard: View {
     let onBackToRivals: (() -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(alignment: .center, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 8) {
                 if let onBackToRivals {
                     Button(action: onBackToRivals) {
                         Image(systemName: "chevron.left")
-                            .font(LinenBrass.uiFont(size: 16, weight: .semibold))
+                            .font(LinenBrass.uiFont(size: 17, weight: .semibold))
                             .frame(width: 44, height: 44, alignment: .leading)
                             .contentShape(Rectangle())
                     }
@@ -385,44 +385,74 @@ private struct HeaderCard: View {
                     .accessibilityIdentifier("match-back-button")
                 }
 
-                Text("YOU vs \(viewModel.opponentName.uppercased())")
-                    .font(LinenBrass.displayFont(size: 28, weight: .bold))
+                Text("vs \(viewModel.opponentName.uppercased())")
+                    .font(LinenBrass.uiFont(size: 13, weight: .semibold))
+                    .tracking(0.6)
+                    .foregroundStyle(LinenBrass.mutedInk)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.72)
+                    .minimumScaleFactor(0.78)
 
                 Spacer(minLength: 10)
 
-                Text("\(viewModel.localScore)-\(viewModel.opponentScore)")
-                    .font(LinenBrass.displayFont(size: 28, weight: .bold))
-                    .monospacedDigit()
-                    .accessibilityIdentifier("header-score")
+                MatchProgressColumn(viewModel: viewModel)
             }
 
-            HStack(spacing: 8) {
-                Text("game \(viewModel.state.gameNumber)")
-                Text("match to \(viewModel.state.config.targetScore)")
-                Text(viewModel.phaseTitle)
-                    .foregroundStyle(viewModel.isLocalTurn ? LinenBrass.brass : LinenBrass.mutedInk)
-                    .fontWeight(.semibold)
-                    .accessibilityIdentifier("header-phase-title")
-            }
-            .font(LinenBrass.uiFont(size: 14))
-            .lineLimit(1)
-            .minimumScaleFactor(0.78)
+            Text(viewModel.phaseTitle)
+                .font(LinenBrass.displayFont(size: 26, weight: .bold))
+                .foregroundStyle(viewModel.isLocalTurn ? LinenBrass.brass : LinenBrass.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .padding(.leading, onBackToRivals != nil ? 4 : 0)
+                .accessibilityIdentifier("header-phase-title")
         }
         .foregroundStyle(LinenBrass.ink)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 7)
-                .fill(LinenBrass.cream)
-                .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 7)
-                .stroke(LinenBrass.brass.opacity(0.72), lineWidth: 1)
-        )
+    }
+}
+
+private struct MatchProgressColumn: View {
+    let viewModel: MatchViewModel
+
+    private var target: Int { viewModel.state.config.targetScore }
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            Text("\(viewModel.localScore)-\(viewModel.opponentScore)")
+                .font(LinenBrass.displayFont(size: 18, weight: .bold))
+                .foregroundStyle(LinenBrass.ink)
+                .monospacedDigit()
+                .accessibilityIdentifier("header-score")
+
+            dotRow(
+                label: "You",
+                score: viewModel.localScore,
+                filled: LinenBrass.brass
+            )
+            dotRow(
+                label: viewModel.opponentName,
+                score: viewModel.opponentScore,
+                filled: LinenBrass.coffee
+            )
+        }
+    }
+
+    private func dotRow(label: String, score: Int, filled: Color) -> some View {
+        HStack(spacing: 7) {
+            Text(label.uppercased())
+                .font(LinenBrass.uiFont(size: 10, weight: .semibold))
+                .tracking(0.5)
+                .foregroundStyle(LinenBrass.mutedInk)
+                .lineLimit(1)
+            HStack(spacing: 4) {
+                ForEach(0..<max(target, 1), id: \.self) { index in
+                    Circle()
+                        .fill(index < score ? filled : LinenBrass.linenDeep)
+                        .frame(width: 7, height: 7)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label): \(score) of \(target)")
     }
 }
 

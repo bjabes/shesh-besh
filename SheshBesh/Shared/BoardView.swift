@@ -3,23 +3,21 @@ import SwiftUI
 
 public struct BoardView: View {
     public let viewModel: MatchViewModel
-    private let isReadOnly: Bool
-    private let showsActionBar: Bool
     private let onBackToRivals: (() -> Void)?
+    private let onSendReminder: (@MainActor () async -> Void)?
 
+    @State private var isSendingReminder = false
     @State private var selectedSource: MoveSource?
     @Namespace private var checkerNamespace
 
     public init(
         viewModel: MatchViewModel,
-        isReadOnly: Bool = false,
-        showsActionBar: Bool = true,
-        onBackToRivals: (() -> Void)? = nil
+        onBackToRivals: (() -> Void)? = nil,
+        onSendReminder: (@MainActor () async -> Void)? = nil
     ) {
         self.viewModel = viewModel
-        self.isReadOnly = isReadOnly
-        self.showsActionBar = showsActionBar
         self.onBackToRivals = onBackToRivals
+        self.onSendReminder = onSendReminder
     }
 
     public var body: some View {
@@ -50,11 +48,7 @@ public struct BoardView: View {
                     onBearOffTap: handleBearOffTap
                 )
 
-                if showsActionBar {
-                    ActionBar(viewModel: viewModel) {
-                        selectedSource = nil
-                    }
-                }
+                bottomSlot
 
                 if showsActionBar, let lastError = viewModel.lastError {
                     Text(lastError)
@@ -78,76 +72,19 @@ public struct BoardView: View {
         }
     }
 
-    private func handlePointTap(_ pointID: PointID) {
-        guard !isReadOnly else { return }
-
-        let source: MoveSource = .point(pointID)
-        let destination: MoveDestination = .point(pointID)
-
-        if selectedSource == source {
-            selectedSource = nil
-            return
-        }
-
-        if viewModel.applyMove(from: selectedSource ?? source, to: destination) {
-            selectedSource = nil
-            return
-        }
-
-        if viewModel.isLegalSource(source) {
-            selectedSource = source
-        }
-    }
-
-    private func handleBarTap() {
-        guard !isReadOnly else { return }
-
-        let source: MoveSource = .bar
-        if selectedSource == source {
-            selectedSource = nil
-        } else if viewModel.isLegalSource(source) {
-            selectedSource = source
-        }
-    }
-
-    private func handleBearOffTap() {
-        guard !isReadOnly else { return }
-        guard let selectedSource else { return }
-        if viewModel.applyMove(from: selectedSource, to: .off) {
-            self.selectedSource = nil
-        }
-    }
-}
-
-public struct OpponentTurnView: View {
-    public let viewModel: MatchViewModel
-    private let onBackToRivals: (() -> Void)?
-    private let onSendReminder: (@MainActor () async -> Void)?
-
-    @State private var isSendingReminder = false
-
-    public init(
-        viewModel: MatchViewModel,
-        onBackToRivals: (() -> Void)? = nil,
-        onSendReminder: (@MainActor () async -> Void)? = nil
-    ) {
-        self.viewModel = viewModel
-        self.onBackToRivals = onBackToRivals
-        self.onSendReminder = onSendReminder
-    }
-
-    public var body: some View {
-        BoardView(
-            viewModel: viewModel,
-            isReadOnly: true,
-            showsActionBar: false,
-            onBackToRivals: onBackToRivals
-        )
-            .overlay(alignment: .bottom) {
-                opponentStatus
-                    .padding(.horizontal, 18)
-                    .padding(.bottom, 14)
+    @ViewBuilder
+    private var bottomSlot: some View {
+        if viewModel.isOpponentTurn {
+            opponentStatus
+                .frame(maxWidth: .infinity, minHeight: 64)
+        } else if showsActionBar {
+            ActionBar(viewModel: viewModel) {
+                selectedSource = nil
             }
+        } else {
+            Color.clear
+                .frame(maxWidth: .infinity, minHeight: 64)
+        }
     }
 
     private var opponentStatus: some View {
@@ -169,7 +106,7 @@ public struct OpponentTurnView: View {
             }
         }
         .padding(.horizontal, 14)
-        .frame(minHeight: 42)
+        .frame(maxWidth: .infinity, minHeight: 64)
         .background(LinenBrass.coffee.opacity(0.94), in: RoundedRectangle(cornerRadius: 7))
         .overlay(
             RoundedRectangle(cornerRadius: 7)
@@ -214,6 +151,54 @@ public struct OpponentTurnView: View {
             return "Waiting for \(viewModel.opponentName)"
         }
     }
+
+    private var isReadOnly: Bool {
+        viewModel.isOpponentTurn || viewModel.doubleOfferForLocalPlayer != nil
+    }
+
+    private var showsActionBar: Bool {
+        !viewModel.isOpponentTurn && viewModel.doubleOfferForLocalPlayer == nil
+    }
+
+    private func handlePointTap(_ pointID: PointID) {
+        guard !isReadOnly else { return }
+
+        let source: MoveSource = .point(pointID)
+        let destination: MoveDestination = .point(pointID)
+
+        if selectedSource == source {
+            selectedSource = nil
+            return
+        }
+
+        if viewModel.applyMove(from: selectedSource ?? source, to: destination) {
+            selectedSource = nil
+            return
+        }
+
+        if viewModel.isLegalSource(source) {
+            selectedSource = source
+        }
+    }
+
+    private func handleBarTap() {
+        guard !isReadOnly else { return }
+
+        let source: MoveSource = .bar
+        if selectedSource == source {
+            selectedSource = nil
+        } else if viewModel.isLegalSource(source) {
+            selectedSource = source
+        }
+    }
+
+    private func handleBearOffTap() {
+        guard !isReadOnly else { return }
+        guard let selectedSource else { return }
+        if viewModel.applyMove(from: selectedSource, to: .off) {
+            self.selectedSource = nil
+        }
+    }
 }
 
 public struct DoubleOfferSheet: View {
@@ -232,8 +217,6 @@ public struct DoubleOfferSheet: View {
         ZStack {
             BoardView(
                 viewModel: viewModel,
-                isReadOnly: true,
-                showsActionBar: false,
                 onBackToRivals: onBackToRivals
             )
 

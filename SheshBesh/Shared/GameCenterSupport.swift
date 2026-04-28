@@ -383,8 +383,11 @@ public final class GameCenterMatchCoordinator {
                 gameCenterPlayerID: opponentID,
                 gameCenterDisplayName: opponentName
             )
+        let activeMatchID = existingActive?.id ?? (
+            isOpponentResolved ? UUID() : Self.transientActiveMatchID(for: match.matchID)
+        )
         let activeMatch = ActiveMatch(
-            id: existingActive?.id ?? UUID(),
+            id: activeMatchID,
             rivalID: rival.id,
             gameCenterMatchID: match.matchID,
             gameIndex: envelope.gameIndex,
@@ -488,6 +491,21 @@ public final class GameCenterMatchCoordinator {
             config: config,
             state: MatchEngine.newMatch(config: config)
         )
+    }
+
+    static func transientActiveMatchID(for gameCenterMatchID: String) -> UUID {
+        let high = GameCenterDiceRoller.stableHash("transient-active-match:\(gameCenterMatchID):high")
+        let low = GameCenterDiceRoller.stableHash("transient-active-match:\(gameCenterMatchID):low")
+        var bytes = high.bigEndianBytes + low.bigEndianBytes
+        bytes[6] = (bytes[6] & 0x0F) | 0x50
+        bytes[8] = (bytes[8] & 0x3F) | 0x80
+
+        return UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
     }
 
     private static func resolvingParticipants(
@@ -1108,5 +1126,11 @@ private struct EmptyGameCenterLedgerView: View {
 private struct AuthenticationController: Identifiable {
     let viewController: UIViewController
     var id: ObjectIdentifier { ObjectIdentifier(viewController) }
+}
+
+private extension UInt64 {
+    var bigEndianBytes: [UInt8] {
+        withUnsafeBytes(of: bigEndian) { Array($0) }
+    }
 }
 #endif

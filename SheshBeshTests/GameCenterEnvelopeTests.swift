@@ -80,4 +80,16 @@ struct GameCenterEnvelopeTests {
         #expect(GameCenterPlayerMapping.isPendingGameCenterID("pending-match-123"))
         #expect(!GameCenterPlayerMapping.isPendingGameCenterID("real-player"))
     }
+
+    #if canImport(GameKit) && canImport(UIKit)
+    @Test("transient Game Center active match IDs are stable")
+    func transientGameCenterActiveMatchIDsAreStable() {
+        let firstID = GameCenterMatchCoordinator.transientActiveMatchID(for: "gc-match-1")
+        let secondID = GameCenterMatchCoordinator.transientActiveMatchID(for: "gc-match-1")
+        let otherID = GameCenterMatchCoordinator.transientActiveMatchID(for: "gc-match-2")
+
+        #expect(firstID == secondID)
+        #expect(firstID != otherID)
+    }
+    #endif
 }

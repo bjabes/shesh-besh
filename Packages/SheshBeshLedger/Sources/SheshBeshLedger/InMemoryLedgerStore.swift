@@ -45,6 +45,10 @@ public actor InMemoryLedgerStore: LedgerStore {
         recordsByRival[record.rivalID, default: []].append(record)
     }
 
+    public func deleteMatchRecords(rivalID: Rival.ID) async throws {
+        recordsByRival[rivalID] = nil
+    }
+
     public func loadActiveMatch(rivalID: Rival.ID) async throws -> ActiveMatch? {
         activeMatchesByRival[rivalID]
     }

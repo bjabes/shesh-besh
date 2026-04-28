@@ -205,6 +205,89 @@ struct LedgerCoordinatorTests {
         #expect(try await store.loadActiveMatch(rivalID: thirdRival.id) == thirdActive)
         #expect(coordinator.ledger(for: thirdRival.id)?.activeMatch == thirdActive)
     }
+
+    @Test("deleting clean rival removes the rival")
+    @MainActor
+    func deleteCleanRival() async throws {
+        let store = InMemoryLedgerStore()
+        let coordinator = LedgerCoordinator(store: store)
+        let rival = try await coordinator.addRival(displayName: "Dan")
+
+        try await coordinator.deleteRival(rival)
+
+        #expect(try await store.loadRivals().isEmpty)
+        #expect(coordinator.ledger(for: rival.id) == nil)
+    }
+
+    @Test("deleting rival with active local match clears match and rival")
+    @MainActor
+    func deleteRivalWithActiveLocalMatch() async throws {
+        let rival = Rival(displayName: "Dan")
+        let active = ActiveMatch(
+            rivalID: rival.id,
+            userPlayed: .white,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 7))
+        )
+        let store = InMemoryLedgerStore(rivals: [rival], activeMatches: [active])
+        let coordinator = LedgerCoordinator(store: store)
+
+        await coordinator.refresh()
+        try await coordinator.deleteRival(rival)
+
+        #expect(try await store.loadRivals().isEmpty)
+        #expect(try await store.loadActiveMatch(rivalID: rival.id) == nil)
+        #expect(coordinator.ledger(for: rival.id) == nil)
+    }
+
+    @Test("deleting rival with active Game Center match clears local match and rival")
+    @MainActor
+    func deleteRivalWithActiveGameCenterMatch() async throws {
+        let rival = Rival(displayName: "Dan", gameCenterPlayerID: "dan-gc")
+        let active = ActiveMatch(
+            rivalID: rival.id,
+            gameCenterMatchID: "gc-match-1",
+            userPlayed: .black,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 7))
+        )
+        let store = InMemoryLedgerStore(rivals: [rival], activeMatches: [active])
+        let coordinator = LedgerCoordinator(store: store)
+
+        await coordinator.refresh()
+        try await coordinator.deleteRival(rival)
+
+        #expect(try await store.loadRivals().isEmpty)
+        #expect(try await store.loadActiveMatch(rivalID: rival.id) == nil)
+        #expect(coordinator.ledger(for: rival.id) == nil)
+    }
+
+    @Test("deleting rival with records requires explicit history deletion")
+    @MainActor
+    func deleteRivalWithRecordsRequiresConfirmation() async throws {
+        let rival = Rival(displayName: "Dan")
+        let record = completedRecord(rivalID: rival.id)
+        let active = ActiveMatch(
+            rivalID: rival.id,
+            userPlayed: .white,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 3))
+        )
+        let store = InMemoryLedgerStore(rivals: [rival], records: [record], activeMatches: [active])
+        let coordinator = LedgerCoordinator(store: store)
+
+        await coordinator.refresh()
+        await #expect(throws: LedgerStoreError.rivalHasHistory) {
+            try await coordinator.deleteRival(rival)
+        }
+        #expect(try await store.loadRivals() == [rival])
+        #expect(try await store.loadMatchRecords(rivalID: rival.id) == [record])
+        #expect(try await store.loadActiveMatch(rivalID: rival.id) == active)
+
+        try await coordinator.deleteRival(rival, deletingRecords: true)
+
+        #expect(try await store.loadRivals().isEmpty)
+        #expect(try await store.loadMatchRecords(rivalID: rival.id).isEmpty)
+        #expect(try await store.loadActiveMatch(rivalID: rival.id) == nil)
+        #expect(coordinator.ledger(for: rival.id) == nil)
+    }
 }
 
 private final class CompletionDiceRoller: DiceRolling, @unchecked Sendable {
@@ -220,4 +303,17 @@ private final class CompletionDiceRoller: DiceRolling, @unchecked Sendable {
         index += 1
         return value
     }
+}
+
+private func completedRecord(rivalID: Rival.ID) -> MatchRecord {
+    MatchRecord(
+        rivalID: rivalID,
+        userPlayed: .white,
+        winner: .you,
+        userScore: 7,
+        rivalScore: 3,
+        targetScore: 7,
+        startedAt: Date(timeIntervalSince1970: 100),
+        completedAt: Date(timeIntervalSince1970: 200)
+    )
 }

@@ -60,6 +60,11 @@ public actor JSONLedgerStore: LedgerStore {
         try persist()
     }
 
+    public func deleteMatchRecords(rivalID: Rival.ID) async throws {
+        snapshot.records.removeAll { $0.rivalID == rivalID }
+        try persist()
+    }
+
     public func loadActiveMatch(rivalID: Rival.ID) async throws -> ActiveMatch? {
         snapshot.activeMatches.first { $0.rivalID == rivalID }
     }

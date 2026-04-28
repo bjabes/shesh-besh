@@ -55,6 +55,22 @@ struct InMemoryLedgerStoreTests {
         let records = try await store.loadMatchRecords(rivalID: rival.id)
         #expect(Set(records.map(\.id)) == Set([first.id, second.id]))
     }
+
+    @Test("match records can be deleted for one rival")
+    func deleteMatchRecords() async throws {
+        let store = InMemoryLedgerStore()
+        let firstRival = Rival(displayName: "Dan")
+        let secondRival = Rival(displayName: "Lee")
+        let firstRecord = record(rivalID: firstRival.id, id: UUID(), winner: .you)
+        let secondRecord = record(rivalID: secondRival.id, id: UUID(), winner: .rival)
+
+        try await store.appendMatchRecord(firstRecord)
+        try await store.appendMatchRecord(secondRecord)
+        try await store.deleteMatchRecords(rivalID: firstRival.id)
+
+        #expect(try await store.loadMatchRecords(rivalID: firstRival.id).isEmpty)
+        #expect(try await store.loadMatchRecords(rivalID: secondRival.id) == [secondRecord])
+    }
 }
 
 private func record(rivalID: Rival.ID, id: UUID, winner: MatchOutcome) -> MatchRecord {

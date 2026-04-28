@@ -7,6 +7,7 @@ public protocol LedgerStore: Sendable {
 
     func loadMatchRecords(rivalID: Rival.ID) async throws -> [MatchRecord]
     func appendMatchRecord(_ record: MatchRecord) async throws
+    func deleteMatchRecords(rivalID: Rival.ID) async throws
 
     func loadActiveMatch(rivalID: Rival.ID) async throws -> ActiveMatch?
     func saveActiveMatch(_ match: ActiveMatch) async throws

@@ -194,9 +194,7 @@ public final class LedgerCoordinator {
 
     private func reconciledSnapshot() async throws -> LedgerSnapshot {
         var snapshot = try await store.loadAllLedgerData()
-        if try await purgePendingGameCenterRivals(in: snapshot) {
-            snapshot = try await store.loadAllLedgerData()
-        }
+        snapshot = try await purgingPendingGameCenterRivals(in: snapshot)
 
         let completedMatches = snapshot.activeMatchesByRival.values.filter { $0.state.completion != nil }
         guard !completedMatches.isEmpty else { return snapshot }
@@ -210,21 +208,29 @@ public final class LedgerCoordinator {
         return try await store.loadAllLedgerData()
     }
 
-    private func purgePendingGameCenterRivals(in snapshot: LedgerSnapshot) async throws -> Bool {
-        var didChange = false
+    private func purgingPendingGameCenterRivals(in snapshot: LedgerSnapshot) async throws -> LedgerSnapshot {
+        var rivals = snapshot.rivals
+        var recordsByRival = snapshot.recordsByRival
+        var activeMatchesByRival = snapshot.activeMatchesByRival
 
         for rival in snapshot.rivals where Self.isPendingGameCenterRival(rival) {
             let records = snapshot.recordsByRival[rival.id, default: []]
             guard records.isEmpty else { continue }
 
-            if snapshot.activeMatchesByRival[rival.id] != nil {
+            if activeMatchesByRival[rival.id] != nil {
                 try await store.clearActiveMatch(rivalID: rival.id)
+                activeMatchesByRival[rival.id] = nil
             }
             try await store.deleteRival(id: rival.id)
-            didChange = true
+            rivals.removeAll { $0.id == rival.id }
+            recordsByRival[rival.id] = nil
         }
 
-        return didChange
+        return LedgerSnapshot(
+            rivals: rivals,
+            recordsByRival: recordsByRival,
+            activeMatchesByRival: activeMatchesByRival
+        )
     }
 
     private func makeRecord(from match: ActiveMatch, completedAt: Date) throws -> MatchRecord {

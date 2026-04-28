@@ -124,6 +124,11 @@ public final class MatchViewModel {
         scheduleAutomationIfNeeded()
     }
 
+    deinit {
+        opponentTask?.cancel()
+        raceAutoplayTask?.cancel()
+    }
+
     public var activePlayer: Player? {
         switch state.game.phase {
         case .awaitingOpeningRoll:
@@ -524,15 +529,7 @@ public final class MatchViewModel {
             guard !legalActions.contains(.offerDouble(localPlayer)) else { return false }
             return legalActions.contains(.rollDice(localPlayer))
         case .awaitingMove(let turn) where turn.player == localPlayer:
-            if legalActions.contains(where: { action in
-                if case .move(let move) = action {
-                    return move.player == localPlayer
-                }
-                return false
-            }) {
-                return true
-            }
-            return legalActions.contains(.passTurn(localPlayer))
+            return !legalMoves.isEmpty || legalActions.contains(.passTurn(localPlayer))
         default:
             return false
         }
@@ -555,15 +552,7 @@ public final class MatchViewModel {
             return legalActions.contains(.rollDice(player))
         case .awaitingMove(let turn):
             guard turn.player == localPlayer || isOpponentAutoplayEnabled else { return false }
-            if legalActions.contains(where: { action in
-                if case .move(let move) = action {
-                    return move.player == turn.player
-                }
-                return false
-            }) {
-                return true
-            }
-            return legalActions.contains(.passTurn(turn.player))
+            return !legalMoves.isEmpty || legalActions.contains(.passTurn(turn.player))
         default:
             return false
         }
@@ -666,10 +655,6 @@ public final class MatchViewModel {
 
     private func playOpponentUntilLocalTurn() async {
         while !Task.isCancelled {
-            if isRaceAutoplayEligible(ignoresUserStopped: false) {
-                scheduleRaceAutoplayIfNeeded()
-                break
-            }
             guard isOpponentAutomationActive else { break }
             isOpponentThinking = true
             await opponentDelay()
@@ -691,6 +676,10 @@ public final class MatchViewModel {
 
         isOpponentThinking = false
         opponentTask = nil
+
+        if !Task.isCancelled {
+            scheduleAutomationIfNeeded()
+        }
     }
 
     private func refreshOpponentTurnNotice(after action: MatchAction, from previousState: MatchState) {

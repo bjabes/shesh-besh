@@ -68,8 +68,8 @@ public struct MatchEndSheet: View {
         .padding(.horizontal, 20)
         .padding(.bottom, 22)
         .frame(maxWidth: .infinity)
-        .background(SheetTheme.cream)
         .presentationDetents([.medium])
+        .presentationBackground(SheetTheme.cream)
     }
 
     private var rivalName: String {

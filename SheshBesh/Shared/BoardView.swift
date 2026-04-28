@@ -1579,16 +1579,20 @@ private struct ActionBar: View {
                     onAction()
                 }
                 .accessibilityIdentifier("action-offer-single")
-                Button("Offer gammon") {
-                    viewModel.offerResignationIfAllowed(.gammon)
-                    onAction()
+                if viewModel.containsAction(.offerResignation(viewModel.localPlayer, .gammon)) {
+                    Button("Offer gammon") {
+                        viewModel.offerResignationIfAllowed(.gammon)
+                        onAction()
+                    }
+                    .accessibilityIdentifier("action-offer-gammon")
                 }
-                .accessibilityIdentifier("action-offer-gammon")
-                Button("Offer backgammon") {
-                    viewModel.offerResignationIfAllowed(.backgammon)
-                    onAction()
+                if viewModel.containsAction(.offerResignation(viewModel.localPlayer, .backgammon)) {
+                    Button("Offer backgammon") {
+                        viewModel.offerResignationIfAllowed(.backgammon)
+                        onAction()
+                    }
+                    .accessibilityIdentifier("action-offer-backgammon")
                 }
-                .accessibilityIdentifier("action-offer-backgammon")
             } label: {
                 Text("Resign...")
                     .font(LinenBrass.uiFont(size: 18, weight: .semibold))

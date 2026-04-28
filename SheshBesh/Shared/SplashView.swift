@@ -50,22 +50,26 @@ public struct SplashView: View {
     }
 
     private func runIntro() async {
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.72)) {
-            diceLanded = true
+        do {
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.72)) {
+                diceLanded = true
+            }
+            try await Task.sleep(for: .milliseconds(540))
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.5)) {
+                pulse = true
+            }
+            try await Task.sleep(for: .milliseconds(140))
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                pulse = false
+            }
+            withAnimation(.easeOut(duration: 0.45)) {
+                titleVisible = true
+            }
+            try await Task.sleep(for: .milliseconds(720))
+            onFinished()
+        } catch {
+            return
         }
-        try? await Task.sleep(for: .milliseconds(540))
-        withAnimation(.spring(response: 0.22, dampingFraction: 0.5)) {
-            pulse = true
-        }
-        try? await Task.sleep(for: .milliseconds(140))
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
-            pulse = false
-        }
-        withAnimation(.easeOut(duration: 0.45)) {
-            titleVisible = true
-        }
-        try? await Task.sleep(for: .milliseconds(720))
-        onFinished()
     }
 }
 

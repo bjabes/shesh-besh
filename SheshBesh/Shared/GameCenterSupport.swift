@@ -120,7 +120,7 @@ public final class GameCenterSession: NSObject, @preconcurrency GKLocalPlayerLis
     }
 
     public func loadMatches() async throws -> [GKTurnBasedMatch] {
-        try await GKTurnBasedMatch.loadMatches() ?? []
+        try await GKTurnBasedMatch.loadMatches()
     }
 
     public func player(

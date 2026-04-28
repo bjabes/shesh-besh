@@ -1,4 +1,4 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.2
 
 import PackageDescription
 
@@ -19,6 +19,7 @@ var targets: [Target] = [
         path: "Packages/SheshBeshGame/Sources/SheshBeshGame",
         swiftSettings: [
             .swiftLanguageMode(.v6),
+            .treatAllWarnings(as: .error),
         ]
     ),
     .target(
@@ -27,6 +28,7 @@ var targets: [Target] = [
         path: "Packages/SheshBeshLedger/Sources/SheshBeshLedger",
         swiftSettings: [
             .swiftLanguageMode(.v6),
+            .treatAllWarnings(as: .error),
         ]
     ),
     .testTarget(
@@ -35,6 +37,7 @@ var targets: [Target] = [
         path: "Packages/SheshBeshGame/Tests/SheshBeshGameTests",
         swiftSettings: [
             .swiftLanguageMode(.v6),
+            .treatAllWarnings(as: .error),
         ]
     ),
     .testTarget(
@@ -43,6 +46,7 @@ var targets: [Target] = [
         path: "Packages/SheshBeshLedger/Tests/SheshBeshLedgerTests",
         swiftSettings: [
             .swiftLanguageMode(.v6),
+            .treatAllWarnings(as: .error),
         ]
     ),
 ]
@@ -62,6 +66,7 @@ targets.append(
         path: "SheshBesh/Shared",
         swiftSettings: [
             .swiftLanguageMode(.v6),
+            .treatAllWarnings(as: .error),
         ]
     )
 )
@@ -73,6 +78,7 @@ targets.append(
         path: "SheshBeshTests",
         swiftSettings: [
             .swiftLanguageMode(.v6),
+            .treatAllWarnings(as: .error),
         ]
     )
 )

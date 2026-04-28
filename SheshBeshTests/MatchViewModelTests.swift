@@ -561,6 +561,228 @@ struct MatchViewModelTests {
         #expect(move.die == 5)
     }
 
+    @Test("Race autoplay advances both players in local AI matches")
+    @MainActor
+    func raceAutoplayAdvancesBothPlayersInLocalAIMatches() async throws {
+        let initialPips = 90
+        var board = Board.empty()
+        try board.setPoint(PointID(rawValue: 6)!, owner: .white, count: 15)
+        try board.setPoint(PointID(rawValue: 19)!, owner: .black, count: 15)
+
+        let state = MatchState(
+            config: MatchConfig(targetScore: 5, usesDoublingCube: false),
+            game: GameState(board: board, phase: .awaitingRoll(.white))
+        )
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([1, 1])),
+            initialState: state,
+            opponentController: LocalAIOpponent(randomIndex: { _ in 0 }),
+            opponentDelay: {},
+            raceAutoplayDelay: {}
+        )
+
+        let bothAdvanced = await waitUntil {
+            viewModel.pipCount(for: .white) < initialPips
+                && viewModel.pipCount(for: .black) < initialPips
+        }
+
+        #expect(bothAdvanced)
+        #expect(viewModel.lastError == nil)
+    }
+
+    @Test("Race autoplay in Game Center style matches only advances the local turn")
+    @MainActor
+    func raceAutoplayOnlyAdvancesLocalTurnForGameCenterStyleMatches() async throws {
+        var board = Board.empty()
+        try board.setPoint(PointID(rawValue: 6)!, owner: .white, count: 15)
+        try board.setPoint(PointID(rawValue: 19)!, owner: .black, count: 15)
+
+        let state = MatchState(
+            config: MatchConfig(targetScore: 5, usesDoublingCube: false),
+            game: GameState(board: board, phase: .awaitingRoll(.white))
+        )
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([1, 1])),
+            initialState: state,
+            isOpponentAutoplayEnabled: false,
+            raceAutoplayController: LocalAIOpponent(randomIndex: { _ in 0 }),
+            raceAutoplayDelay: {}
+        )
+        var stateChangeCount = 0
+        viewModel.onStateChange = { _ in
+            stateChangeCount += 1
+        }
+
+        let handedOff = await waitUntil {
+            if case .awaitingRoll(.black) = viewModel.state.game.phase {
+                return true
+            }
+            return false
+        }
+
+        #expect(handedOff)
+        #expect(viewModel.pipCount(for: .white) < 90)
+        #expect(viewModel.pipCount(for: .black) == 90)
+        #expect(stateChangeCount == 1)
+        #expect(!viewModel.isRaceAutoplayActive)
+        #expect(viewModel.lastError == nil)
+    }
+
+    @Test("Race autoplay pauses before a local double offer")
+    @MainActor
+    func raceAutoplayPausesBeforeLocalDoubleOffer() async throws {
+        var board = Board.empty()
+        try board.setPoint(PointID(rawValue: 6)!, owner: .white, count: 15)
+        try board.setPoint(PointID(rawValue: 19)!, owner: .black, count: 15)
+
+        let state = MatchState(
+            config: .tournament(targetScore: 7),
+            game: GameState(board: board, phase: .awaitingRoll(.white))
+        )
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([1, 1])),
+            initialState: state,
+            isOpponentAutoplayEnabled: false,
+            raceAutoplayDelay: {}
+        )
+
+        for _ in 0..<5 {
+            await Task.yield()
+        }
+
+        #expect(!viewModel.isRaceAutoplayActive)
+        #expect(!viewModel.canStartRaceAutoplay)
+        #expect(viewModel.containsAction(.offerDouble(.white)))
+        guard case .awaitingRoll(.white) = viewModel.state.game.phase else {
+            Issue.record("Expected autoplay to leave the local player at the roll.")
+            return
+        }
+    }
+
+    @Test("Stopping race autoplay cancels automatic restart for the current game")
+    @MainActor
+    func stoppingRaceAutoplayCancelsAutomaticRestart() async throws {
+        var board = Board.empty()
+        try board.setPoint(PointID(rawValue: 6)!, owner: .white, count: 15)
+        try board.setPoint(PointID(rawValue: 19)!, owner: .black, count: 15)
+
+        let state = MatchState(
+            config: MatchConfig(targetScore: 5, usesDoublingCube: false),
+            game: GameState(board: board, phase: .awaitingRoll(.white))
+        )
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([1, 1])),
+            initialState: state
+        )
+
+        #expect(viewModel.isRaceAutoplayActive)
+        viewModel.stopRaceAutoplay()
+        for _ in 0..<5 {
+            await Task.yield()
+        }
+
+        #expect(viewModel.isRaceAutoplayUserStopped)
+        #expect(!viewModel.isRaceAutoplayActive)
+        #expect(viewModel.canStartRaceAutoplay)
+        guard case .awaitingRoll(.white) = viewModel.state.game.phase else {
+            Issue.record("Expected stopped autoplay to leave the original turn alone.")
+            return
+        }
+    }
+
+    @Test("Race autoplay completion callback fires once")
+    @MainActor
+    func raceAutoplayCompletionCallbackFiresOnce() async throws {
+        var board = Board.empty()
+        try board.setPoint(PointID(rawValue: 1)!, owner: .white, count: 1)
+        try board.setPoint(PointID(rawValue: 24)!, owner: .black, count: 15)
+        try board.setBorneOff(for: .white, count: 14)
+
+        let roll = try DiceRoll(die1: 1, die2: 1)
+        let state = MatchState(
+            config: MatchConfig(targetScore: 1, usesDoublingCube: false),
+            game: GameState(
+                board: board,
+                phase: .awaitingMove(TurnState(player: .white, roll: roll, remainingDice: [1]))
+            )
+        )
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([1, 1])),
+            initialState: state,
+            isOpponentAutoplayEnabled: false,
+            raceAutoplayDelay: {}
+        )
+        var completionCount = 0
+        viewModel.onCompletion = { _ in
+            completionCount += 1
+        }
+
+        let completed = await waitUntil {
+            viewModel.state.completion != nil
+        }
+
+        #expect(completed)
+        #expect(completionCount == 1)
+        #expect(viewModel.lastError == nil)
+    }
+
+    @Test("Local autoplay can play a turn before the race is no-contact")
+    @MainActor
+    func localAutoplayCanPlayContactTurn() async {
+        let state = MatchState(
+            config: MatchConfig(targetScore: 5, usesDoublingCube: false),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1])),
+            initialState: state,
+            isOpponentAutoplayEnabled: false,
+            raceAutoplayController: LocalAIOpponent(randomIndex: { _ in 0 }),
+            raceAutoplayDelay: {}
+        )
+        var stateChangeCount = 0
+        viewModel.onStateChange = { _ in
+            stateChangeCount += 1
+        }
+
+        #expect(!viewModel.state.game.board.isNoContactRace)
+        #expect(viewModel.canStartLocalAutoplay)
+        #expect(!viewModel.canStartRaceAutoplay)
+        viewModel.startLocalAutoplay()
+
+        let handedOff = await waitUntil {
+            if case .awaitingRoll(.black) = viewModel.state.game.phase {
+                return true
+            }
+            return false
+        }
+
+        #expect(handedOff)
+        #expect(viewModel.pipCount(for: .white) < 167)
+        #expect(viewModel.pipCount(for: .black) == 167)
+        #expect(stateChangeCount == 1)
+        #expect(!viewModel.isRaceAutoplayActive)
+        #expect(viewModel.lastError == nil)
+    }
+
+    @Test("Local autoplay is unavailable before a local double offer")
+    @MainActor
+    func localAutoplayUnavailableBeforeLocalDoubleOffer() {
+        let state = MatchState(
+            config: .tournament(targetScore: 7),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([6, 1])),
+            initialState: state,
+            isOpponentAutoplayEnabled: false,
+            raceAutoplayDelay: {}
+        )
+
+        #expect(viewModel.containsAction(.offerDouble(.white)))
+        #expect(!viewModel.canStartLocalAutoplay)
+    }
+
     @Test("Local AI quick match can complete from automated legal play")
     @MainActor
     func localAIQuickMatchCompletesFromLegalPlay() async {
@@ -568,13 +790,16 @@ struct MatchViewModelTests {
             engine: MatchEngine(diceRoller: CyclingDiceRoller()),
             config: .tournament(targetScore: 1),
             opponentController: LocalAIOpponent(randomIndex: { _ in 0 }),
-            opponentDelay: {}
+            opponentDelay: {},
+            raceAutoplayDelay: {}
         )
 
         var actionCount = 0
         while viewModel.state.completion == nil, actionCount < 1_000 {
             actionCount += 1
-            if viewModel.isTurnDraftPending, viewModel.canSubmitTurn {
+            if viewModel.isRaceAutoplayActive {
+                await Task.yield()
+            } else if viewModel.isTurnDraftPending, viewModel.canSubmitTurn {
                 viewModel.submitTurnIfAllowed()
             } else {
                 switch viewModel.state.game.phase {

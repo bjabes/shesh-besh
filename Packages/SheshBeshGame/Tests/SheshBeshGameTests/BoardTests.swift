@@ -48,6 +48,48 @@ struct BoardTests {
         #expect(board.totalCheckers(for: .white) == 15)
     }
 
+    @Test("No-contact race is true when all white checkers are below all black checkers")
+    func noContactRaceIsTrueForSeparatedCheckers() throws {
+        var board = Board.empty()
+        try board.setPoint(point(3), owner: .white, count: 5)
+        try board.setPoint(point(6), owner: .white, count: 5)
+        try board.setBorneOff(for: .white, count: 5)
+        try board.setPoint(point(19), owner: .black, count: 6)
+        try board.setPoint(point(22), owner: .black, count: 4)
+        try board.setBorneOff(for: .black, count: 5)
+
+        #expect(board.isNoContactRace)
+    }
+
+    @Test("No-contact race remains true when one side has borne off all checkers")
+    func noContactRaceAllowsBorneOffSide() throws {
+        var board = Board.empty()
+        try board.setBorneOff(for: .white, count: 15)
+        try board.setPoint(point(21), owner: .black, count: 10)
+        try board.setBorneOff(for: .black, count: 5)
+
+        #expect(board.isNoContactRace)
+    }
+
+    @Test("No-contact race is false with checkers on the bar")
+    func noContactRaceRejectsBarCheckers() throws {
+        var board = Board.empty()
+        try board.setPoint(point(4), owner: .white, count: 14)
+        try board.setBar(for: .white, count: 1)
+        try board.setPoint(point(20), owner: .black, count: 15)
+
+        #expect(!board.isNoContactRace)
+    }
+
+    @Test("No-contact race is false when checker ranges overlap")
+    func noContactRaceRejectsContactPositions() throws {
+        var board = Board.empty()
+        try board.setPoint(point(8), owner: .white, count: 15)
+        try board.setPoint(point(7), owner: .black, count: 15)
+
+        #expect(!board.isNoContactRace)
+    }
+
     @Test("Hitting from the bar preserves both players' total checker counts")
     func totalsRemainFifteenAfterBarHit() throws {
         var board = Board.empty()

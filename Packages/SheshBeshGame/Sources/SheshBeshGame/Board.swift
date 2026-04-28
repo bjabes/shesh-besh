@@ -105,6 +105,20 @@ public struct Board: Codable, Equatable, Hashable, Sendable {
         return true
     }
 
+    public var isNoContactRace: Bool {
+        guard whiteBar == 0, blackBar == 0 else { return false }
+
+        let whitePoints = occupiedPoints(for: .white).map(\.rawValue)
+        let blackPoints = occupiedPoints(for: .black).map(\.rawValue)
+        guard let highestWhitePoint = whitePoints.max(),
+              let lowestBlackPoint = blackPoints.min()
+        else {
+            return true
+        }
+
+        return highestWhitePoint < lowestBlackPoint
+    }
+
     public func canLand(on point: PointID, player: Player) -> Bool {
         let state = self.point(point)
         return state.owner == nil || state.owner == player || state.count == 1

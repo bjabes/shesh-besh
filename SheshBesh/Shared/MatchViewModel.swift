@@ -37,7 +37,10 @@ public final class MatchViewModel {
     private let engine: MatchEngine
     private let opponentController: LocalAIOpponent
     private let opponentDelay: @Sendable () async -> Void
+    private let raceAutoplayController: LocalAIOpponent
+    private let raceAutoplayDelay: @Sendable () async -> Void
     @ObservationIgnored private var opponentTask: Task<Void, Never>?
+    @ObservationIgnored private var raceAutoplayTask: Task<Void, Never>?
 
     public private(set) var state: MatchState
     public private(set) var checkerLayout: CheckerLayout
@@ -46,8 +49,14 @@ public final class MatchViewModel {
     public private(set) var legalMoves: [Move]
     public private(set) var pipCounts: [Player: Int]
     public private(set) var isOpponentThinking: Bool
+    public private(set) var isRaceAutoplayActive: Bool
+    public private(set) var isRaceAutoplayUserStopped: Bool
     public private(set) var turnNotice: String?
     private var turnDraftSnapshots: [(state: MatchState, layout: CheckerLayout)]
+    private var isLocalAutoplayRequested: Bool
+    private var isBatchingRaceAutoplayCallbacks: Bool
+    private var raceAutoplayNeedsStateChange: Bool
+    private var raceAutoplayNeedsCompletion: Bool
 
     public let localPlayer: Player
     public let opponentName: String
@@ -69,9 +78,13 @@ public final class MatchViewModel {
         isOpponentAutoplayEnabled: Bool = true,
         aiDifficulty: AIDifficulty = .medium,
         opponentController: LocalAIOpponent? = nil,
+        raceAutoplayController: LocalAIOpponent = LocalAIOpponent(difficulty: .medium),
         opponentDelay: @escaping @Sendable () async -> Void = {
             let nanoseconds = UInt64(Double.random(in: 0.8...1.2) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: nanoseconds)
+        },
+        raceAutoplayDelay: @escaping @Sendable () async -> Void = {
+            try? await Task.sleep(nanoseconds: 180_000_000)
         }
     ) {
         let initialState = initialState ?? MatchEngine.newMatch(config: config)
@@ -86,9 +99,17 @@ public final class MatchViewModel {
         self.activeMatchID = activeMatchID
         self.opponentController = opponentController ?? LocalAIOpponent(difficulty: aiDifficulty)
         self.opponentDelay = opponentDelay
+        self.raceAutoplayController = raceAutoplayController
+        self.raceAutoplayDelay = raceAutoplayDelay
         self.isOpponentThinking = false
+        self.isRaceAutoplayActive = false
+        self.isRaceAutoplayUserStopped = false
         self.turnNotice = nil
         self.turnDraftSnapshots = []
+        self.isLocalAutoplayRequested = false
+        self.isBatchingRaceAutoplayCallbacks = false
+        self.raceAutoplayNeedsStateChange = false
+        self.raceAutoplayNeedsCompletion = false
         self.legalActions = initialLegalActions
         self.legalMoves = initialLegalActions.compactMap { action in
             if case .move(let move) = action {
@@ -100,7 +121,7 @@ public final class MatchViewModel {
         self.pipCounts = Self.computePipCounts(for: initialState.game.board)
         self.didNotifyCompletion = initialState.completion != nil
 
-        scheduleOpponentTurnIfNeeded()
+        scheduleAutomationIfNeeded()
     }
 
     public var activePlayer: Player? {
@@ -144,6 +165,7 @@ public final class MatchViewModel {
 
     public var isOpponentAutomationActive: Bool {
         guard isOpponentAutoplayEnabled else { return false }
+        guard !isRaceAutoplayActive else { return false }
         guard !isTurnDraftPending else { return false }
         return opponentController.canAct(
             as: localPlayer.opponent,
@@ -153,9 +175,22 @@ public final class MatchViewModel {
     }
 
     public var interactiveLegalMoves: [Move] {
+        guard !isRaceAutoplayActive else { return [] }
         guard !isOpponentAutomationActive else { return [] }
         guard activePlayer == localPlayer else { return [] }
         return legalMoves
+    }
+
+    public var canStartRaceAutoplay: Bool {
+        raceAutoplayTask == nil && isRaceAutoplayEligible(ignoresUserStopped: true)
+    }
+
+    public var canStartLocalAutoplay: Bool {
+        raceAutoplayTask == nil && isLocalAutoplayEligible()
+    }
+
+    public var autoplayStatusText: String {
+        isLocalAutoplayRequested ? "Autoplaying turn..." : "Autoplaying race..."
     }
 
     public var localScore: Int {
@@ -195,6 +230,10 @@ public final class MatchViewModel {
 
         if isOpponentAutomationActive {
             return isOpponentThinking ? "\(opponentName) is thinking" : "\(opponentName)'s turn"
+        }
+
+        if isRaceAutoplayActive {
+            return isLocalAutoplayRequested ? "Autoplaying turn" : "Autoplaying race"
         }
 
         if activePlayer == localPlayer, let turnNotice {
@@ -245,6 +284,7 @@ public final class MatchViewModel {
                     self.checkerLayout.apply(move)
                 } else if action == .startNextGame {
                     self.checkerLayout = CheckerLayout.reconstructed(from: nextState.game.board)
+                    self.isRaceAutoplayUserStopped = false
                 }
                 self.lastError = nil
                 self.turnDraftSnapshots.removeAll()
@@ -257,10 +297,10 @@ public final class MatchViewModel {
                 applyStateChanges()
             }
 
-            notifyStorageCallbacks(hadCompletion: hadCompletion)
+            queueOrNotifyStorageCallbacks(hadCompletion: hadCompletion)
             if schedulesOpponent {
                 turnNotice = nil
-                scheduleOpponentTurnIfNeeded()
+                scheduleAutomationIfNeeded()
             }
         } catch {
             lastError = friendlyErrorMessage(error)
@@ -307,10 +347,12 @@ public final class MatchViewModel {
         checkerLayout = CheckerLayout.reconstructed(from: nextState.game.board)
         lastError = nil
         turnDraftSnapshots.removeAll()
+        isLocalAutoplayRequested = false
+        isRaceAutoplayUserStopped = false
         didNotifyCompletion = false
         refreshDerivedState()
         onStateChange?(state)
-        scheduleOpponentTurnIfNeeded()
+        scheduleAutomationIfNeeded()
     }
 
     @discardableResult
@@ -353,8 +395,34 @@ public final class MatchViewModel {
         refreshDerivedState()
         notifyStorageCallbacks(hadCompletion: false)
         turnNotice = nil
-        scheduleOpponentTurnIfNeeded()
+        scheduleAutomationIfNeeded()
         return true
+    }
+
+    public func startRaceAutoplay() {
+        isLocalAutoplayRequested = false
+        isRaceAutoplayUserStopped = false
+        scheduleRaceAutoplayIfNeeded()
+    }
+
+    public func startLocalAutoplay() {
+        guard isLocalAutoplayEligible() else {
+            isLocalAutoplayRequested = false
+            return
+        }
+        isLocalAutoplayRequested = true
+        isRaceAutoplayUserStopped = false
+        scheduleAutoplayTaskIfNeeded()
+    }
+
+    public func stopRaceAutoplay() {
+        isRaceAutoplayUserStopped = true
+        isLocalAutoplayRequested = false
+        raceAutoplayTask?.cancel()
+        raceAutoplayTask = nil
+        isRaceAutoplayActive = false
+        flushRaceAutoplayCallbacks()
+        scheduleOpponentTurnIfNeeded()
     }
 
     public func legalDestinations(from source: MoveSource) -> [MoveDestination] {
@@ -417,7 +485,173 @@ public final class MatchViewModel {
         }
     }
 
+    private func scheduleAutomationIfNeeded() {
+        scheduleRaceAutoplayIfNeeded()
+        scheduleOpponentTurnIfNeeded()
+    }
+
+    private func scheduleRaceAutoplayIfNeeded() {
+        guard raceAutoplayTask == nil else { return }
+        guard isRaceAutoplayEligible(ignoresUserStopped: false) else { return }
+
+        isLocalAutoplayRequested = false
+        scheduleAutoplayTaskIfNeeded()
+    }
+
+    private func scheduleAutoplayTaskIfNeeded() {
+        guard raceAutoplayTask == nil else { return }
+        guard isAutoplayEligible() else { return }
+
+        isOpponentThinking = false
+        isRaceAutoplayActive = true
+        raceAutoplayTask = Task { [weak self] in
+            await self?.playRaceAutoplayUntilBlocked()
+        }
+    }
+
+    private func isAutoplayEligible() -> Bool {
+        isLocalAutoplayRequested
+            ? isLocalAutoplayEligible()
+            : isRaceAutoplayEligible(ignoresUserStopped: false)
+    }
+
+    private func isLocalAutoplayEligible() -> Bool {
+        guard state.completion == nil else { return false }
+        guard !isTurnDraftPending else { return false }
+
+        switch state.game.phase {
+        case .awaitingRoll(let player) where player == localPlayer:
+            guard !legalActions.contains(.offerDouble(localPlayer)) else { return false }
+            return legalActions.contains(.rollDice(localPlayer))
+        case .awaitingMove(let turn) where turn.player == localPlayer:
+            if legalActions.contains(where: { action in
+                if case .move(let move) = action {
+                    return move.player == localPlayer
+                }
+                return false
+            }) {
+                return true
+            }
+            return legalActions.contains(.passTurn(localPlayer))
+        default:
+            return false
+        }
+    }
+
+    private func isRaceAutoplayEligible(ignoresUserStopped: Bool) -> Bool {
+        if !ignoresUserStopped, isRaceAutoplayUserStopped {
+            return false
+        }
+        guard state.completion == nil else { return false }
+        guard state.game.board.isNoContactRace else { return false }
+        guard !isTurnDraftPending else { return false }
+
+        switch state.game.phase {
+        case .awaitingRoll(let player):
+            guard player == localPlayer || isOpponentAutoplayEnabled else { return false }
+            if player == localPlayer, legalActions.contains(.offerDouble(localPlayer)) {
+                return false
+            }
+            return legalActions.contains(.rollDice(player))
+        case .awaitingMove(let turn):
+            guard turn.player == localPlayer || isOpponentAutoplayEnabled else { return false }
+            if legalActions.contains(where: { action in
+                if case .move(let move) = action {
+                    return move.player == turn.player
+                }
+                return false
+            }) {
+                return true
+            }
+            return legalActions.contains(.passTurn(turn.player))
+        default:
+            return false
+        }
+    }
+
+    private func playRaceAutoplayUntilBlocked() async {
+        isBatchingRaceAutoplayCallbacks = true
+
+        while !Task.isCancelled {
+            guard isAutoplayEligible() else { break }
+            guard let action = autoplayAction() else { break }
+
+            await raceAutoplayDelay()
+            guard !Task.isCancelled else { break }
+            guard isAutoplayEligible() else { break }
+
+            apply(action, schedulesOpponent: false)
+            if lastError != nil { break }
+        }
+
+        isBatchingRaceAutoplayCallbacks = false
+        isRaceAutoplayActive = false
+        isLocalAutoplayRequested = false
+        raceAutoplayTask = nil
+        flushRaceAutoplayCallbacks()
+
+        if !Task.isCancelled {
+            scheduleAutomationIfNeeded()
+        }
+    }
+
+    private func autoplayAction() -> MatchAction? {
+        isLocalAutoplayRequested ? localAutoplayAction() : raceAutoplayAction()
+    }
+
+    private func localAutoplayAction() -> MatchAction? {
+        switch state.game.phase {
+        case .awaitingRoll(let player) where player == localPlayer:
+            guard !legalActions.contains(.offerDouble(localPlayer)) else { return nil }
+            return legalActions.contains(.rollDice(localPlayer)) ? .rollDice(localPlayer) : nil
+        case .awaitingMove(let turn) where turn.player == localPlayer:
+            if let move = raceAutoplayMove(for: localPlayer) {
+                return .move(move)
+            }
+            return legalActions.contains(.passTurn(localPlayer)) ? .passTurn(localPlayer) : nil
+        default:
+            return nil
+        }
+    }
+
+    private func raceAutoplayAction() -> MatchAction? {
+        switch state.game.phase {
+        case .awaitingRoll(let player):
+            guard player == localPlayer || isOpponentAutoplayEnabled else { return nil }
+            guard !(player == localPlayer && legalActions.contains(.offerDouble(localPlayer))) else {
+                return nil
+            }
+            return legalActions.contains(.rollDice(player)) ? .rollDice(player) : nil
+        case .awaitingMove(let turn):
+            guard turn.player == localPlayer || isOpponentAutoplayEnabled else { return nil }
+            if let move = raceAutoplayMove(for: turn.player) {
+                return .move(move)
+            }
+            return legalActions.contains(.passTurn(turn.player)) ? .passTurn(turn.player) : nil
+        default:
+            return nil
+        }
+    }
+
+    private func raceAutoplayMove(for player: Player) -> Move? {
+        let controller = isOpponentAutoplayEnabled ? opponentController : raceAutoplayController
+        return controller.selectMove(
+            for: player,
+            in: state,
+            legalActions: legalActions,
+            pipCounts: pipCounts
+        )
+    }
+
     private func scheduleOpponentTurnIfNeeded() {
+        guard raceAutoplayTask == nil else {
+            isOpponentThinking = false
+            return
+        }
+        guard !isRaceAutoplayEligible(ignoresUserStopped: false) else {
+            isOpponentThinking = false
+            return
+        }
         guard isOpponentAutomationActive else {
             isOpponentThinking = false
             return
@@ -432,6 +666,10 @@ public final class MatchViewModel {
 
     private func playOpponentUntilLocalTurn() async {
         while !Task.isCancelled {
+            if isRaceAutoplayEligible(ignoresUserStopped: false) {
+                scheduleRaceAutoplayIfNeeded()
+                break
+            }
             guard isOpponentAutomationActive else { break }
             isOpponentThinking = true
             await opponentDelay()
@@ -470,6 +708,32 @@ public final class MatchViewModel {
             }
         default:
             break
+        }
+    }
+
+    private func queueOrNotifyStorageCallbacks(hadCompletion: Bool) {
+        guard isBatchingRaceAutoplayCallbacks else {
+            notifyStorageCallbacks(hadCompletion: hadCompletion)
+            return
+        }
+
+        if !hadCompletion, state.completion != nil {
+            raceAutoplayNeedsCompletion = true
+        } else if state.completion == nil {
+            raceAutoplayNeedsStateChange = true
+        }
+    }
+
+    private func flushRaceAutoplayCallbacks() {
+        let shouldNotifyCompletion = raceAutoplayNeedsCompletion && state.completion != nil
+        let shouldNotifyStateChange = raceAutoplayNeedsStateChange && state.completion == nil
+        raceAutoplayNeedsCompletion = false
+        raceAutoplayNeedsStateChange = false
+
+        if shouldNotifyCompletion {
+            notifyCompletionIfNeeded()
+        } else if shouldNotifyStateChange {
+            onStateChange?(state)
         }
     }
 

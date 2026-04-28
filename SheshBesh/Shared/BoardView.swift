@@ -1406,7 +1406,27 @@ private struct ActionBar: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            if viewModel.isTurnDraftPending {
+            if viewModel.isRaceAutoplayActive {
+                HStack {
+                    Text(viewModel.autoplayStatusText)
+                        .font(LinenBrass.uiFont(size: 15, weight: .semibold))
+                        .foregroundStyle(LinenBrass.cream)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.76)
+                    Spacer()
+                }
+                .frame(minHeight: 48)
+
+                SecondaryActionButton(title: "Stop") {
+                    viewModel.stopRaceAutoplay()
+                    onAction()
+                }
+            } else if viewModel.canStartRaceAutoplay && !viewModel.canStartLocalAutoplay {
+                PrimaryActionButton(title: "Autoplay race") {
+                    viewModel.startRaceAutoplay()
+                    onAction()
+                }
+            } else if viewModel.isTurnDraftPending {
                 SecondaryActionButton(title: "Undo move") {
                     viewModel.undoLastMove()
                     onAction()
@@ -1449,19 +1469,21 @@ private struct ActionBar: View {
                 .frame(minHeight: 48)
 
             case .awaitingRoll(let player) where player == viewModel.localPlayer:
+                resignationMenu
                 if viewModel.containsAction(.offerDouble(viewModel.localPlayer)) {
                     SecondaryActionButton(title: "Offer double") {
                         viewModel.offerDoubleIfAllowed()
                         onAction()
                     }
                 }
-                resignationMenu
                 PrimaryActionButton(title: "Roll dice") {
                     viewModel.rollDiceIfAllowed()
                     onAction()
                 }
+                localAutoplayButton
 
             case .awaitingMove(let turn) where turn.player == viewModel.localPlayer:
+                resignationMenu
                 if viewModel.containsAction(.passTurn(viewModel.localPlayer)) {
                     PrimaryActionButton(title: "Pass") {
                         viewModel.passIfAllowed()
@@ -1473,7 +1495,7 @@ private struct ActionBar: View {
                         .foregroundStyle(LinenBrass.cream)
                         .frame(maxWidth: .infinity, minHeight: 48)
                 }
-                resignationMenu
+                localAutoplayButton
 
             case .awaitingCubeResponse(let offer) where offer.offeredBy.opponent == viewModel.localPlayer:
                 PrimaryActionButton(title: "Take \(offer.proposedValue)") {
@@ -1536,6 +1558,16 @@ private struct ActionBar: View {
             RoundedRectangle(cornerRadius: 7)
                 .stroke(LinenBrass.brass.opacity(0.32), lineWidth: 1)
         )
+    }
+
+    @ViewBuilder
+    private var localAutoplayButton: some View {
+        if viewModel.canStartLocalAutoplay {
+            SecondaryActionButton(title: "Autoplay") {
+                viewModel.startLocalAutoplay()
+                onAction()
+            }
+        }
     }
 
     @ViewBuilder

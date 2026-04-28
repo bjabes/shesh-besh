@@ -306,8 +306,8 @@ public final class GameCenterMatchCoordinator {
             let turnData = try validatedData(for: envelope, maximumSize: match.matchDataMaximumSize)
             let nextParticipant = try participant(for: activePlayer, in: match, envelope: envelope)
             match.setLocalizableMessageWithKey(
-                "%@ played a turn in \(AppBrand.name).",
-                arguments: [GKLocalPlayer.local.displayName]
+                "%@ played a turn in %@.",
+                arguments: [GKLocalPlayer.local.displayName, AppBrand.name]
             )
             try await match.endTurn(
                 withNextParticipants: [nextParticipant],
@@ -336,8 +336,8 @@ public final class GameCenterMatchCoordinator {
         let nextParticipant = try participant(for: loaded.opponentPlayer, in: match, envelope: loaded.envelope)
         try await match.sendReminder(
             to: [nextParticipant],
-            localizableMessageKey: "Your move in \(AppBrand.name).",
-            arguments: []
+            localizableMessageKey: "Your move in %@.",
+            arguments: [AppBrand.name]
         )
     }
 

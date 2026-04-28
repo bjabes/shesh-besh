@@ -37,6 +37,7 @@
 		AF3000000000000000000017 /* LedgerAggregation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3000000000000000000018 /* LedgerAggregation.swift */; };
 		AF4000000000000000000001 /* GameCenterEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF4000000000000000000002 /* GameCenterEnvelope.swift */; };
 		AF4000000000000000000003 /* GameCenterSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF4000000000000000000004 /* GameCenterSupport.swift */; };
+		AF6000000000000000000001 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF6000000000000000000002 /* SplashView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -90,6 +91,7 @@
 		AF4000000000000000000002 /* GameCenterEnvelope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterEnvelope.swift; sourceTree = "<group>"; };
 		AF4000000000000000000004 /* GameCenterSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterSupport.swift; sourceTree = "<group>"; };
 		AF4000000000000000000005 /* SheshBesh.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SheshBesh.entitlements; sourceTree = "<group>"; };
+		AF6000000000000000000002 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -179,6 +181,7 @@
 				AF1000000000000000000006 /* MatchViewModel.swift */,
 				AF3000000000000000000006 /* MatchEndSheet.swift */,
 				AF1000000000000000000004 /* RootView.swift */,
+				AF6000000000000000000002 /* SplashView.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -384,6 +387,7 @@
 				AF1000000000000000000005 /* MatchViewModel.swift in Sources */,
 				AF3000000000000000000005 /* MatchEndSheet.swift in Sources */,
 				AF1000000000000000000003 /* RootView.swift in Sources */,
+				AF6000000000000000000001 /* SplashView.swift in Sources */,
 				AF300000000000000000000D /* ActiveMatch.swift in Sources */,
 				AF3000000000000000000013 /* InMemoryLedgerStore.swift in Sources */,
 				AF3000000000000000000015 /* JSONLedgerStore.swift in Sources */,
@@ -529,11 +533,11 @@
 				DEVELOPMENT_TEAM = 8DDY9Z9MX6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SheshBesh/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Shesh Besh";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -560,11 +564,11 @@
 				DEVELOPMENT_TEAM = 8DDY9Z9MX6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SheshBesh/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Shesh Besh";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

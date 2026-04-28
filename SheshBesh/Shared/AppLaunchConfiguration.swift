@@ -1,3 +1,4 @@
+import Foundation
 import SheshBeshGame
 import SwiftUI
 
@@ -9,6 +10,10 @@ public enum AppLaunchConfiguration {
     @MainActor
     public static func rootView(arguments: [String] = ProcessInfo.processInfo.arguments) -> RootView {
         #if DEBUG
+        if arguments.contains("-uiTestingRootLedger") {
+            return RootView(coordinator: seededRootLedgerCoordinator())
+        }
+
         if arguments.contains("-uiTesting") {
             let dice = scriptedDice(from: arguments)
             return RootView(
@@ -36,6 +41,24 @@ public enum AppLaunchConfiguration {
     }
 
     #if DEBUG
+    @MainActor
+    private static func seededRootLedgerCoordinator() -> LedgerCoordinator {
+        let rival = Rival(
+            id: UUID(uuidString: "7C48FB94-F61B-4D71-BF7F-A181713381B4")!,
+            displayName: "Local AI",
+            createdAt: Date(timeIntervalSinceReferenceDate: 800_000_000)
+        )
+        let activeMatch = ActiveMatch(
+            id: UUID(uuidString: "C74A6D96-5DB9-4774-8EA7-9192F341955E")!,
+            rivalID: rival.id,
+            userPlayed: .white,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 1)),
+            startedAt: Date(timeIntervalSinceReferenceDate: 800_000_100),
+            lastUpdatedAt: Date(timeIntervalSinceReferenceDate: 800_000_200)
+        )
+        return LedgerCoordinator(store: InMemoryLedgerStore(rivals: [rival], activeMatches: [activeMatch]))
+    }
+
     private static func scriptedDice(from arguments: [String]) -> [Int] {
         guard
             let diceFlagIndex = arguments.firstIndex(of: "-uiTestDice"),

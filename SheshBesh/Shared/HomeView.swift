@@ -255,7 +255,11 @@ struct RemoveAllMatchesButton: View {
 
     var body: some View {
         Button(role: .destructive, action: action) {
-            Label("Remove All Matches", systemImage: "trash")
+            ThemedButtonLabel(
+                title: "Remove All Matches",
+                systemImage: "trash",
+                foregroundStyle: LedgerTheme.rust
+            )
                 .font(LedgerTheme.uiFont(size: 15, weight: .semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
@@ -280,7 +284,11 @@ struct RivalryLaunchActions: View {
     var body: some View {
         HStack(spacing: 10) {
             Button(action: onPrimary) {
-                Label(primaryTitle, systemImage: primarySystemImage)
+                ThemedButtonLabel(
+                    title: primaryTitle,
+                    systemImage: primarySystemImage,
+                    foregroundStyle: .white
+                )
                     .font(LedgerTheme.uiFont(size: 15, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
@@ -292,7 +300,11 @@ struct RivalryLaunchActions: View {
             .accessibilityIdentifier("home-new-ai-rival")
 
             Button(action: onSecondary) {
-                Label(secondaryTitle, systemImage: secondarySystemImage)
+                ThemedButtonLabel(
+                    title: secondaryTitle,
+                    systemImage: secondarySystemImage,
+                    foregroundStyle: LedgerTheme.coffee
+                )
                     .font(LedgerTheme.uiFont(size: 15, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
@@ -392,7 +404,11 @@ private struct RivalryCard: View {
 
             if ledger.activeMatch == nil {
                 Button(action: onStart) {
-                    Label(startTitle, systemImage: startSystemImage)
+                    ThemedButtonLabel(
+                        title: startTitle,
+                        systemImage: startSystemImage,
+                        foregroundStyle: .white
+                    )
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -400,7 +416,11 @@ private struct RivalryCard: View {
                 .accessibilityIdentifier("start-match-\(ledger.rival.id.uuidString)")
             } else {
                 Button(action: onResume) {
-                    Label(resumeTitle, systemImage: resumeSystemImage)
+                    ThemedButtonLabel(
+                        title: resumeTitle,
+                        systemImage: resumeSystemImage,
+                        foregroundStyle: .white
+                    )
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -473,6 +493,21 @@ private struct MetricPill: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(LedgerTheme.linen, in: RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+private struct ThemedButtonLabel: View {
+    let title: String
+    let systemImage: String
+    let foregroundStyle: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .foregroundStyle(foregroundStyle)
+            Text(title)
+                .foregroundStyle(foregroundStyle)
+        }
     }
 }
 

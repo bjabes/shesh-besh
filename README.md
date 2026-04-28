@@ -77,6 +77,18 @@ capture locally:
 ./scripts/capture-pr-screenshots.sh
 ```
 
+Before opening a local PR, run the PR prep script. It checks the diff against
+`origin/main`, captures deterministic screenshots when app UI files changed, and
+writes a PR body draft with the required Screenshots section:
+
+```sh
+./scripts/prepare-pr.sh
+gh pr create --body-file .context/pr-body.md
+```
+
+If the changed screen is outside the deterministic board flow, add any targeted
+manual screenshots to `.context/pr-screenshots` before submitting the PR.
+
 ```sh
 swift build
 swift test

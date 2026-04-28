@@ -561,6 +561,84 @@ struct MatchViewModelTests {
         #expect(move.die == 5)
     }
 
+    @Test("Hard AI difficulty drives local autoplay move selection")
+    @MainActor
+    func hardAIDifficultyDrivesLocalAutoplayMoveSelection() async throws {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([1, 1])),
+            localPlayer: .black,
+            initialState: try autoplayDifficultyProbeState(),
+            aiDifficulty: .hard,
+            opponentDelay: {
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+            },
+            raceAutoplayDelay: {}
+        )
+
+        #expect(viewModel.canStartLocalAutoplay)
+        viewModel.startLocalAutoplay()
+
+        let hitBlot = await waitUntil {
+            viewModel.state.game.board.barCount(for: .white) == 1
+        }
+
+        #expect(hitBlot)
+        #expect(viewModel.state.game.board.point(PointID(rawValue: 22)!).owner == .black)
+        #expect(viewModel.lastError == nil)
+    }
+
+    @Test("Local autoplay respects AI difficulty without opponent automation")
+    @MainActor
+    func localAutoplayRespectsAIDifficultyWithoutOpponentAutomation() async throws {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([1, 1])),
+            localPlayer: .black,
+            initialState: try autoplayDifficultyProbeState(),
+            isOpponentAutoplayEnabled: false,
+            aiDifficulty: .hard,
+            raceAutoplayDelay: {}
+        )
+
+        #expect(viewModel.canStartLocalAutoplay)
+        viewModel.startLocalAutoplay()
+
+        let hitBlot = await waitUntil {
+            viewModel.state.game.board.barCount(for: .white) == 1
+        }
+
+        #expect(hitBlot)
+        #expect(viewModel.state.game.board.point(PointID(rawValue: 22)!).owner == .black)
+        #expect(viewModel.lastError == nil)
+    }
+
+    @Test("Easy AI local autoplay keeps deterministic random selection")
+    @MainActor
+    func easyAILocalAutoplayKeepsDeterministicRandomSelection() async throws {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([1, 1])),
+            localPlayer: .black,
+            initialState: try autoplayDifficultyProbeState(),
+            aiDifficulty: .easy,
+            opponentController: LocalAIOpponent(difficulty: .easy, randomIndex: { _ in 0 }),
+            opponentDelay: {
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+            },
+            raceAutoplayDelay: {}
+        )
+
+        #expect(viewModel.canStartLocalAutoplay)
+        viewModel.startLocalAutoplay()
+
+        let movedQuietly = await waitUntil {
+            viewModel.state.game.board.point(PointID(rawValue: 6)!).owner == .black
+        }
+
+        #expect(movedQuietly)
+        #expect(viewModel.state.game.board.barCount(for: .white) == 0)
+        #expect(viewModel.state.game.board.point(PointID(rawValue: 22)!).owner == .white)
+        #expect(viewModel.lastError == nil)
+    }
+
     @Test("Race autoplay advances both players in local AI matches")
     @MainActor
     func raceAutoplayAdvancesBothPlayersInLocalAIMatches() async throws {
@@ -863,6 +941,22 @@ private func advanceToOpponentRoll(_ viewModel: MatchViewModel) {
         to: .point(PointID(rawValue: 23)!)
     )
     _ = viewModel.submitTurnIfAllowed()
+}
+
+private func autoplayDifficultyProbeState() throws -> MatchState {
+    var board = Board.empty()
+    try board.setPoint(PointID(rawValue: 1)!, owner: .black, count: 1)
+    try board.setPoint(PointID(rawValue: 17)!, owner: .black, count: 1)
+    try board.setPoint(PointID(rawValue: 22)!, owner: .white, count: 1)
+
+    let roll = try DiceRoll(die1: 5, die2: 2)
+    return MatchState(
+        config: MatchConfig(targetScore: 1, usesDoublingCube: false),
+        game: GameState(
+            board: board,
+            phase: .awaitingMove(TurnState(player: .black, roll: roll, remainingDice: [5]))
+        )
+    )
 }
 
 private final class ScriptedDiceRoller: DiceRolling, @unchecked Sendable {

@@ -78,7 +78,7 @@ public final class MatchViewModel {
         isOpponentAutoplayEnabled: Bool = true,
         aiDifficulty: AIDifficulty = .medium,
         opponentController: LocalAIOpponent? = nil,
-        raceAutoplayController: LocalAIOpponent = LocalAIOpponent(difficulty: .medium),
+        raceAutoplayController: LocalAIOpponent? = nil,
         opponentDelay: @escaping @Sendable () async -> Void = {
             let nanoseconds = UInt64(Double.random(in: 0.8...1.2) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: nanoseconds)
@@ -97,9 +97,11 @@ public final class MatchViewModel {
         self.opponentName = opponentName
         self.isOpponentAutoplayEnabled = isOpponentAutoplayEnabled
         self.activeMatchID = activeMatchID
-        self.opponentController = opponentController ?? LocalAIOpponent(difficulty: aiDifficulty)
+        let resolvedOpponentController = opponentController ?? LocalAIOpponent(difficulty: aiDifficulty)
+        self.opponentController = resolvedOpponentController
         self.opponentDelay = opponentDelay
         self.raceAutoplayController = raceAutoplayController
+            ?? (isOpponentAutoplayEnabled ? resolvedOpponentController : LocalAIOpponent(difficulty: aiDifficulty))
         self.raceAutoplayDelay = raceAutoplayDelay
         self.isOpponentThinking = false
         self.isRaceAutoplayActive = false
@@ -634,8 +636,7 @@ public final class MatchViewModel {
     }
 
     private func raceAutoplayMove(for player: Player) -> Move? {
-        let controller = isOpponentAutoplayEnabled ? opponentController : raceAutoplayController
-        return controller.selectMove(
+        raceAutoplayController.selectMove(
             for: player,
             in: state,
             legalActions: legalActions,

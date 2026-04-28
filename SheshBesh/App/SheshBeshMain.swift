@@ -14,25 +14,35 @@ struct SheshBeshMain: App {
 }
 
 private struct RootContainer: View {
-    @State private var showSplash: Bool
+    private static let splashFadeDuration: Double = 0.35
+    private static let splashRemovalBuffer: Double = 0.05
+
+    @State private var splashOpacity: Double
+    @State private var splashRemoved: Bool
     private let root: RootView
 
     init(arguments: [String] = ProcessInfo.processInfo.arguments) {
         self.root = AppLaunchConfiguration.rootView(arguments: arguments)
         let isUITesting = arguments.contains("-uiTesting") || arguments.contains("-uiTestingRootLedger")
-        _showSplash = State(initialValue: !isUITesting)
+        _splashOpacity = State(initialValue: isUITesting ? 0 : 1)
+        _splashRemoved = State(initialValue: isUITesting)
     }
 
     var body: some View {
         ZStack {
             root
-            if showSplash {
+            if !splashRemoved {
                 SplashView(onFinished: {
-                    withAnimation(.easeInOut(duration: 0.35)) {
-                        showSplash = false
+                    withAnimation(.easeInOut(duration: Self.splashFadeDuration)) {
+                        splashOpacity = 0
+                    }
+                    Task {
+                        try? await Task.sleep(for: .seconds(Self.splashFadeDuration + Self.splashRemovalBuffer))
+                        splashRemoved = true
                     }
                 })
-                .transition(.opacity)
+                .opacity(splashOpacity)
+                .allowsHitTesting(splashOpacity > 0)
             }
         }
     }

@@ -117,7 +117,6 @@ public enum AppLaunchConfiguration {
             let started = Date(timeIntervalSinceReferenceDate: Double(800_000_000 + index * 86_400))
             records.append(
                 MatchRecord(
-                    id: deterministicUUID(seed: "history-\(index)"),
                     rivalID: rival.id,
                     gameIndex: index,
                     userPlayed: .white,
@@ -136,7 +135,6 @@ public enum AppLaunchConfiguration {
             timeIntervalSinceReferenceDate: Double(800_000_000 + priorOutcomes.count * 86_400)
         )
         let finalRecord = MatchRecord(
-            id: UUID(uuidString: "9D4FBC2C-AB8B-4F6F-9F70-3A0F4F61C4A6")!,
             rivalID: rival.id,
             gameIndex: priorOutcomes.count,
             userPlayed: .white,
@@ -169,28 +167,6 @@ public enum AppLaunchConfiguration {
             backgroundMatchViewModel: backgroundViewModel,
             completedRecordPreview: finalRecord
         )
-    }
-
-    private static func deterministicUUID(seed: String) -> UUID {
-        var hash = UInt64(14_695_981_039_346_656_037)
-        for byte in seed.utf8 {
-            hash ^= UInt64(byte)
-            hash &*= 1_099_511_628_211
-        }
-        let high = hash
-        var low = hash
-        for byte in seed.utf8 {
-            low &*= 1_099_511_628_211
-            low ^= UInt64(byte)
-        }
-        let bytes: [UInt8] = (0..<8).map { UInt8(truncatingIfNeeded: high >> (8 * $0)) } +
-            (0..<8).map { UInt8(truncatingIfNeeded: low >> (8 * $0)) }
-        return UUID(uuid: (
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5], bytes[6], bytes[7],
-            bytes[8], bytes[9], bytes[10], bytes[11],
-            bytes[12], bytes[13], bytes[14], bytes[15]
-        ))
     }
 
     private static func scriptedDice(from arguments: [String]) -> [Int] {

@@ -692,6 +692,49 @@ struct MatchEngineTests {
         #expect(actions.contains(.offerResignation(.white, .backgammon)))
     }
 
+    @Test("Resignation offers cannot understate a gammon board")
+    func resignationOffersCannotUnderstateGammonBoard() throws {
+        let engine = MatchEngine()
+        var board = Board.empty()
+        try board.setPoint(point(18), owner: .white, count: 15)
+        try board.setPoint(point(19), owner: .black, count: 14)
+        try board.setBorneOff(for: .black, count: 1)
+        let state = MatchState(
+            config: .tournament(targetScore: 7),
+            game: GameState(board: board, phase: .awaitingRoll(.white))
+        )
+        let actions = MatchEngine.legalActions(in: state)
+
+        #expect(!actions.contains(.offerResignation(.white, .single)))
+        #expect(actions.contains(.offerResignation(.white, .gammon)))
+        #expect(actions.contains(.offerResignation(.white, .backgammon)))
+        expectInvalidAction {
+            _ = try engine.apply(action: .offerResignation(.white, .single), to: state)
+        }
+    }
+
+    @Test("Resignation offers cannot understate a backgammon board")
+    func resignationOffersCannotUnderstateBackgammonBoard() throws {
+        let engine = MatchEngine()
+        var board = Board.empty()
+        try board.setBar(for: .white, count: 1)
+        try board.setPoint(point(18), owner: .white, count: 14)
+        try board.setPoint(point(19), owner: .black, count: 14)
+        try board.setBorneOff(for: .black, count: 1)
+        let state = MatchState(
+            config: .tournament(targetScore: 7),
+            game: GameState(board: board, phase: .awaitingRoll(.white))
+        )
+        let actions = MatchEngine.legalActions(in: state)
+
+        #expect(!actions.contains(.offerResignation(.white, .single)))
+        #expect(!actions.contains(.offerResignation(.white, .gammon)))
+        #expect(actions.contains(.offerResignation(.white, .backgammon)))
+        expectInvalidAction {
+            _ = try engine.apply(action: .offerResignation(.white, .gammon), to: state)
+        }
+    }
+
     @Test("A player who is one point away triggers Crawford for the next game")
     func crawfordIsQueuedAtOneAway() throws {
         let engine = MatchEngine()

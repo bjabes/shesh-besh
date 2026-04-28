@@ -324,8 +324,19 @@ public struct MatchEngine: Sendable {
     private static func legalResignationWinKinds(for player: Player, in state: MatchState) -> [WinKind] {
         let winner = player.opponent
         let pointsNeeded = max(0, state.config.targetScore - state.score.score(for: winner))
-        let fittingKinds = WinKind.allCases.filter { state.game.cube.value * $0.multiplier <= pointsNeeded }
+        let minimumWinKind = minimumResignationWinKind(for: player, in: state.game.board)
+        let fittingKinds = WinKind.allCases.filter {
+            $0.multiplier >= minimumWinKind.multiplier && state.game.cube.value * $0.multiplier <= pointsNeeded
+        }
         return fittingKinds.isEmpty ? [.single] : fittingKinds
+    }
+
+    private static func minimumResignationWinKind(for player: Player, in board: Board) -> WinKind {
+        let winner = player.opponent
+        if board.borneOffCount(for: player) > 0 || board.borneOffCount(for: winner) == 0 {
+            return .single
+        }
+        return board.hasCheckerOnBarOrInHomeBoard(of: winner, loser: player) ? .backgammon : .gammon
     }
 
     private static func isCubeDead(for player: Player, in state: MatchState) -> Bool {

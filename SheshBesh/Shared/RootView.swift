@@ -197,6 +197,7 @@ public struct RootView: View {
         gameCenterSession.onWantsToQuitMatch = { match in
             Task { await handleWantsToQuit(match) }
         }
+        gameCenterSession.start()
     }
 
     private func loadAndOpenGameCenterMatch(_ match: GKTurnBasedMatch) async {

@@ -119,9 +119,9 @@ struct LedgerCoordinatorTests {
         #expect(records.first?.gameIndex == 0)
     }
 
-    @Test("AI rivalry starts or resumes a Medium AI quick match")
+    @Test("AI rivalry starts or resumes a Medium AI match")
     @MainActor
-    func aiRivalryStartsOrResumesQuickMatch() async throws {
+    func aiRivalryStartsOrResumesMatch() async throws {
         let store = InMemoryLedgerStore()
         let coordinator = LedgerCoordinator(store: store)
 
@@ -135,7 +135,7 @@ struct LedgerCoordinatorTests {
         #expect(rival.gameCenterPlayerID == nil)
         #expect(firstMatch.id == secondMatch.id)
         #expect(firstMatch.userPlayed == .white)
-        #expect(firstMatch.state.config.targetScore == 1)
+        #expect(firstMatch.state.config.targetScore == 7)
     }
 
     @Test("AI rivalry creates separate rivals per difficulty")

@@ -7,6 +7,14 @@ cd "$ROOT_DIR"
 BASE_REF="${BASE_REF:-origin/main}"
 PR_BODY_PATH="${PR_BODY_PATH:-$ROOT_DIR/.context/pr-body.md}"
 SCREENSHOT_DIR="${SCREENSHOT_DIR:-$ROOT_DIR/.context/pr-screenshots}"
+manual_screenshot_backup=""
+
+cleanup() {
+  if [[ -n "$manual_screenshot_backup" && -d "$manual_screenshot_backup" ]]; then
+    rm -rf "$manual_screenshot_backup"
+  fi
+}
+trap cleanup EXIT
 
 usage() {
   cat <<'USAGE'
@@ -48,6 +56,7 @@ done < <(
 
 ui_files=()
 manual_review_files=()
+screenshots=()
 
 is_ui_file() {
   local file="$1"
@@ -78,6 +87,52 @@ is_deterministic_flow_file() {
   esac
 }
 
+collect_screenshots() {
+  screenshots=()
+
+  [[ -d "$SCREENSHOT_DIR" ]] || return 0
+
+  while IFS= read -r screenshot; do
+    [[ -n "$screenshot" ]] && screenshots+=("$screenshot")
+  done < <(
+    find "$SCREENSHOT_DIR" \
+      -maxdepth 1 \
+      -type f \
+      \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) \
+      -print | sort
+  )
+}
+
+preserve_existing_screenshots() {
+  [[ -d "$SCREENSHOT_DIR" ]] || return 0
+
+  manual_screenshot_backup="$(mktemp -d "${TMPDIR:-/tmp}/pr-screenshots.XXXXXX")"
+  while IFS= read -r screenshot; do
+    cp "$screenshot" "$manual_screenshot_backup/$(basename "$screenshot")"
+  done < <(
+    find "$SCREENSHOT_DIR" \
+      -maxdepth 1 \
+      -type f \
+      \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) \
+      -print
+  )
+}
+
+restore_preserved_screenshots() {
+  [[ -n "$manual_screenshot_backup" && -d "$manual_screenshot_backup" ]] || return 0
+
+  mkdir -p "$SCREENSHOT_DIR"
+  while IFS= read -r screenshot; do
+    cp -n "$screenshot" "$SCREENSHOT_DIR/$(basename "$screenshot")"
+  done < <(
+    find "$manual_screenshot_backup" \
+      -maxdepth 1 \
+      -type f \
+      \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) \
+      -print
+  )
+}
+
 for file in "${changed_files[@]}"; do
   if is_ui_file "$file"; then
     ui_files+=("$file")
@@ -92,17 +147,18 @@ mkdir -p "$(dirname "$PR_BODY_PATH")"
 
 screenshot_count=0
 if [[ "${#ui_files[@]}" -gt 0 ]]; then
+  preserve_existing_screenshots
+  set +e
   SCREENSHOT_DIR="$SCREENSHOT_DIR" ./scripts/capture-pr-screenshots.sh
+  capture_status=$?
+  set -e
+  restore_preserved_screenshots
+  if [[ "$capture_status" -ne 0 ]]; then
+    exit "$capture_status"
+  fi
 
-  while IFS= read -r screenshot; do
-    [[ -n "$screenshot" ]] && screenshot_count=$((screenshot_count + 1))
-  done < <(
-    find "$SCREENSHOT_DIR" \
-      -maxdepth 1 \
-      -type f \
-      \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) \
-      -print
-  )
+  collect_screenshots
+  screenshot_count="${#screenshots[@]}"
 
   if [[ "$screenshot_count" -eq 0 ]]; then
     echo "No screenshots found in $SCREENSHOT_DIR after capture." >&2
@@ -122,17 +178,12 @@ fi
   if [[ "${#ui_files[@]}" -eq 0 ]]; then
     echo "Screenshots not applicable; this diff does not change app UI files."
   else
-    echo "Local deterministic screenshots captured in \`.context/pr-screenshots\`:"
-    while IFS= read -r screenshot; do
+    rel_screenshot_dir="${SCREENSHOT_DIR#$ROOT_DIR/}"
+    echo "Local screenshots available in \`$rel_screenshot_dir\`:"
+    for screenshot in "${screenshots[@]}"; do
       rel_path="${screenshot#$ROOT_DIR/}"
       echo "- \`$rel_path\`"
-    done < <(
-      find "$SCREENSHOT_DIR" \
-        -maxdepth 1 \
-        -type f \
-        \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) \
-        -print | sort
-    )
+    done
     echo
     echo "The PR screenshot workflow will upload the \`pr-screenshots\` artifact for reviewers."
 
@@ -143,7 +194,7 @@ fi
         echo "- \`$file\`"
       done
       echo
-      echo "Add any targeted manual screenshots to \`.context/pr-screenshots\` before submitting if these files changed visible states not covered above."
+      echo "Add targeted manual screenshots to \`$rel_screenshot_dir\`, then rerun \`./scripts/prepare-pr.sh\` so this PR body includes them."
     fi
   fi
 } > "$PR_BODY_PATH"

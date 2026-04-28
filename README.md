@@ -86,8 +86,9 @@ writes a PR body draft with the required Screenshots section:
 gh pr create --body-file .context/pr-body.md
 ```
 
-If the changed screen is outside the deterministic board flow, add any targeted
-manual screenshots to `.context/pr-screenshots` before submitting the PR.
+If the changed screen is outside the deterministic board flow, add targeted
+manual screenshots to `.context/pr-screenshots`, then rerun
+`./scripts/prepare-pr.sh` so the PR body lists them.
 
 ```sh
 swift build

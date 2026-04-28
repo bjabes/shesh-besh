@@ -120,14 +120,12 @@ public struct RootView: View {
     ) -> some View {
         if viewModel.doubleOfferForLocalPlayer != nil {
             DoubleOfferSheet(viewModel: viewModel, onBackToRivals: onBackToRivals)
-        } else if viewModel.isOpponentTurn {
-            OpponentTurnView(
+        } else {
+            BoardView(
                 viewModel: viewModel,
                 onBackToRivals: onBackToRivals,
                 onSendReminder: onSendReminder
             )
-        } else {
-            BoardView(viewModel: viewModel, onBackToRivals: onBackToRivals)
         }
     }
 

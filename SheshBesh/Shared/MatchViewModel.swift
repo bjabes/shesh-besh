@@ -76,7 +76,6 @@ public final class MatchViewModel {
     ) {
         let initialState = initialState ?? MatchEngine.newMatch(config: config)
         let initialLegalActions = engine.legalActions(in: initialState)
-        let resolvedOpponent = opponentController ?? LocalAIOpponent(difficulty: aiDifficulty)
 
         self.engine = engine
         self.state = initialState
@@ -85,7 +84,7 @@ public final class MatchViewModel {
         self.opponentName = opponentName
         self.isOpponentAutoplayEnabled = isOpponentAutoplayEnabled
         self.activeMatchID = activeMatchID
-        self.opponentController = resolvedOpponent
+        self.opponentController = opponentController ?? LocalAIOpponent(difficulty: aiDifficulty)
         self.opponentDelay = opponentDelay
         self.isOpponentThinking = false
         self.turnNotice = nil

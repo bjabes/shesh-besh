@@ -468,9 +468,7 @@ private struct BoardSurface: View {
             let barWidth = max(38, geometry.size.width * 0.08)
             let interactiveMoves = isReadOnly ? [] : viewModel.interactiveLegalMoves
             let legalSources = Set(interactiveMoves.map(\.source))
-            let legalDestinations = selectedSource.map { source in
-                Set(interactiveMoves.lazy.filter { $0.source == source }.map(\.destination))
-            } ?? []
+            let legalDestinationDice = Self.legalDestinationDice(for: interactiveMoves, selectedSource: selectedSource)
             let pointLayout = BoardPointLayout(localPlayer: viewModel.localPlayer)
 
             VStack(spacing: 0) {
@@ -483,7 +481,7 @@ private struct BoardSurface: View {
                     barWidth: barWidth,
                     pointsDown: true,
                     legalSources: legalSources,
-                    legalDestinations: legalDestinations,
+                    legalDestinationDice: legalDestinationDice,
                     onPointTap: onPointTap,
                     onBarTap: onBarTap
                 )
@@ -507,7 +505,7 @@ private struct BoardSurface: View {
                     barWidth: barWidth,
                     pointsDown: false,
                     legalSources: legalSources,
-                    legalDestinations: legalDestinations,
+                    legalDestinationDice: legalDestinationDice,
                     onPointTap: onPointTap,
                     onBarTap: onBarTap
                 )
@@ -521,6 +519,19 @@ private struct BoardSurface: View {
             .accessibilityIdentifier("board")
             .allowsHitTesting(!isReadOnly)
         }
+    }
+
+    private static func legalDestinationDice(
+        for moves: [Move],
+        selectedSource: MoveSource?
+    ) -> [MoveDestination: Int] {
+        guard let selectedSource else { return [:] }
+
+        var diceByDestination: [MoveDestination: Int] = [:]
+        for move in moves where move.source == selectedSource {
+            diceByDestination[move.destination] = diceByDestination[move.destination] ?? move.die
+        }
+        return diceByDestination
     }
 }
 
@@ -563,7 +574,7 @@ private struct BoardHalf: View {
     let barWidth: CGFloat
     let pointsDown: Bool
     let legalSources: Set<MoveSource>
-    let legalDestinations: Set<MoveDestination>
+    let legalDestinationDice: [MoveDestination: Int]
     let onPointTap: (PointID) -> Void
     let onBarTap: () -> Void
 
@@ -577,7 +588,7 @@ private struct BoardHalf: View {
                 pointsDown: pointsDown,
                 startsWithDarkPoint: pointsDown,
                 legalSources: legalSources,
-                legalDestinations: legalDestinations,
+                legalDestinationDice: legalDestinationDice,
                 onPointTap: onPointTap
             )
 
@@ -600,7 +611,7 @@ private struct BoardHalf: View {
                 pointsDown: pointsDown,
                 startsWithDarkPoint: !pointsDown,
                 legalSources: legalSources,
-                legalDestinations: legalDestinations,
+                legalDestinationDice: legalDestinationDice,
                 onPointTap: onPointTap
             )
         }
@@ -615,7 +626,7 @@ private struct PointRun: View {
     let pointsDown: Bool
     let startsWithDarkPoint: Bool
     let legalSources: Set<MoveSource>
-    let legalDestinations: Set<MoveDestination>
+    let legalDestinationDice: [MoveDestination: Int]
     let onPointTap: (PointID) -> Void
 
     var body: some View {
@@ -630,7 +641,7 @@ private struct PointRun: View {
                     isDarkPoint: (index.isMultiple(of: 2)) == startsWithDarkPoint,
                     isSelected: selectedSource == .point(pointID),
                     isLegalSource: legalSources.contains(.point(pointID)),
-                    isLegalDestination: legalDestinations.contains(.point(pointID)),
+                    legalDestinationDie: legalDestinationDice[.point(pointID)],
                     localPlayer: viewModel.localPlayer
                 ) {
                     onPointTap(pointID)
@@ -649,7 +660,7 @@ private struct PointCell: View {
     let isDarkPoint: Bool
     let isSelected: Bool
     let isLegalSource: Bool
-    let isLegalDestination: Bool
+    let legalDestinationDie: Int?
     let localPlayer: Player
     let onTap: () -> Void
 
@@ -663,6 +674,7 @@ private struct PointCell: View {
                 CheckerStack(
                     checkerIDs: checkerIDs,
                     pointsDown: pointsDown,
+                    isSelected: isSelected,
                     localPlayer: localPlayer,
                     checkerNamespace: checkerNamespace
                 )
@@ -681,7 +693,7 @@ private struct PointCell: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(Rectangle())
-            .overlay(highlight)
+            .overlay(pointTipMarker)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
@@ -692,39 +704,14 @@ private struct PointCell: View {
     }
 
     @ViewBuilder
-    private var highlight: some View {
-        if isSelected {
-            ZStack {
-                PointTriangle(pointsDown: pointsDown)
-                    .fill(LinenBrass.brass.opacity(0.14))
-                    .padding(3)
-                PointTriangle(pointsDown: pointsDown)
-                    .stroke(LinenBrass.saddle.opacity(0.86), lineWidth: 5)
-                    .padding(1)
-                PointTriangle(pointsDown: pointsDown)
-                    .stroke(LinenBrass.brass, lineWidth: 3)
-                    .padding(3)
+    private var pointTipMarker: some View {
+        if let legalDestinationDie {
+            PointTipOverlay(pointsDown: pointsDown) {
+                DiePipChip(value: legalDestinationDie)
             }
-        } else if isLegalDestination {
-            ZStack {
-                PointTriangle(pointsDown: pointsDown)
-                    .fill(LinenBrass.brass.opacity(0.16))
-                    .padding(5)
-                PointTriangle(pointsDown: pointsDown)
-                    .stroke(LinenBrass.saddle.opacity(0.62), lineWidth: 4)
-                    .padding(3)
-                PointTriangle(pointsDown: pointsDown)
-                    .stroke(LinenBrass.brass, lineWidth: 2.5)
-                    .padding(5)
-            }
-        } else if isLegalSource {
-            ZStack {
-                PointTriangle(pointsDown: pointsDown)
-                    .stroke(LinenBrass.saddle.opacity(0.66), lineWidth: 3)
-                    .padding(4)
-                PointTriangle(pointsDown: pointsDown)
-                    .stroke(LinenBrass.brass.opacity(0.96), lineWidth: 1.8)
-                    .padding(6)
+        } else if isLegalSource, !isSelected {
+            PointTipOverlay(pointsDown: pointsDown) {
+                SourceDot()
             }
         }
     }
@@ -740,16 +727,72 @@ private struct PointCell: View {
 
     private var stateSuffix: String {
         if isSelected { return ", selected" }
-        if isLegalDestination { return ", legal destination" }
+        if let legalDestinationDie { return ", legal destination using die \(legalDestinationDie)" }
         if isLegalSource { return ", legal source" }
         return ""
     }
 
     private var accessibilityHint: String {
         if isSelected { return "Tap to deselect this point." }
-        if isLegalDestination { return "Tap to move the selected checker here." }
+        if let legalDestinationDie { return "Tap to move the selected checker here using die \(legalDestinationDie)." }
         if isLegalSource { return "Tap to select this point as a move source." }
         return "Tap to inspect this point."
+    }
+}
+
+private struct PointTipOverlay<Content: View>: View {
+    let pointsDown: Bool
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        GeometryReader { geometry in
+            content()
+                .position(
+                    x: geometry.size.width / 2,
+                    y: pointsDown ? geometry.size.height * 0.9 : geometry.size.height * 0.1
+                )
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct DiePipChip: View {
+    let value: Int
+
+    var body: some View {
+        GeometryReader { geometry in
+            let pipSize = max(2.2, geometry.size.width * 0.13)
+
+            ZStack {
+                Circle()
+                    .fill(LinenBrass.rust)
+                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+
+                Circle()
+                    .stroke(LinenBrass.cream.opacity(0.88), lineWidth: 1.2)
+
+                ForEach(Array(DicePipLayout.positions(for: value).enumerated()), id: \.offset) { _, point in
+                    Circle()
+                        .fill(LinenBrass.cream)
+                        .frame(width: pipSize, height: pipSize)
+                        .position(x: geometry.size.width * point.x, y: geometry.size.height * point.y)
+                }
+            }
+        }
+        .frame(width: 21, height: 21)
+    }
+}
+
+private struct SourceDot: View {
+    var body: some View {
+        Circle()
+            .fill(LinenBrass.rust)
+            .frame(width: 7, height: 7)
+            .overlay {
+                Circle()
+                    .stroke(LinenBrass.cream.opacity(0.82), lineWidth: 0.8)
+            }
+            .shadow(color: .black.opacity(0.16), radius: 1, y: 0.5)
     }
 }
 
@@ -775,6 +818,7 @@ private struct PointTriangle: Shape {
 private struct CheckerStack: View {
     let checkerIDs: [CheckerID]
     let pointsDown: Bool
+    let isSelected: Bool
     let localPlayer: Player
     let checkerNamespace: Namespace.ID
 
@@ -793,6 +837,11 @@ private struct CheckerStack: View {
                 ForEach(renderedIDs, id: \.self) { checkerID in
                     Checker(owner: checkerID.player, localPlayer: localPlayer)
                         .frame(width: diameter, height: diameter)
+                        .overlay {
+                            if isSelected, checkerID == checkerIDs.last {
+                                SelectedCheckerRing()
+                            }
+                        }
                         .matchedGeometryEffect(id: checkerID, in: checkerNamespace)
                 }
 
@@ -811,6 +860,19 @@ private struct CheckerStack: View {
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
             .background(LinenBrass.brass, in: Capsule())
+    }
+}
+
+private struct SelectedCheckerRing: View {
+    var body: some View {
+        Circle()
+            .stroke(LinenBrass.cream.opacity(0.95), lineWidth: 5)
+            .overlay {
+                Circle()
+                    .stroke(LinenBrass.rust, lineWidth: 3)
+            }
+            .padding(-3)
+            .allowsHitTesting(false)
     }
 }
 
@@ -1261,7 +1323,7 @@ private struct DieFace: View {
                 RoundedRectangle(cornerRadius: 6)
                     .stroke(LinenBrass.coffee.opacity(0.24), lineWidth: 1)
 
-                ForEach(Array(pipPositions.enumerated()), id: \.offset) { _, point in
+                ForEach(Array(DicePipLayout.positions(for: value).enumerated()), id: \.offset) { _, point in
                     Circle()
                         .fill(LinenBrass.ink)
                         .frame(width: geometry.size.width * 0.13, height: geometry.size.width * 0.13)
@@ -1274,8 +1336,10 @@ private struct DieFace: View {
         }
         .aspectRatio(1, contentMode: .fit)
     }
+}
 
-    private var pipPositions: [CGPoint] {
+private enum DicePipLayout {
+    static func positions(for value: Int) -> [CGPoint] {
         guard (1...6).contains(value) else {
             return [CGPoint(x: 0.5, y: 0.5)]
         }

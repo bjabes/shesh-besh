@@ -377,13 +377,8 @@ public final class GameCenterMatchCoordinator {
         let existingActive = isOpponentResolved
             ? ledgerCoordinator.activeMatch(gameCenterMatchID: match.matchID)
             : nil
-        let rival = isOpponentResolved
-            ? ledgerCoordinator.rival(matchingGameCenterPlayerID: opponentID) ?? Rival(
-                displayName: opponentName,
-                gameCenterPlayerID: opponentID,
-                gameCenterDisplayName: opponentName
-            )
-            : Rival(
+        let rival = (isOpponentResolved ? ledgerCoordinator.rival(matchingGameCenterPlayerID: opponentID) : nil)
+            ?? Rival(
                 displayName: opponentName,
                 gameCenterPlayerID: opponentID,
                 gameCenterDisplayName: opponentName

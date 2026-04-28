@@ -711,17 +711,38 @@ private struct PointCell: View {
     @ViewBuilder
     private var highlight: some View {
         if isSelected {
-            PointTriangle(pointsDown: pointsDown)
-                .stroke(LinenBrass.brass, lineWidth: 3)
-                .padding(2)
+            ZStack {
+                PointTriangle(pointsDown: pointsDown)
+                    .fill(LinenBrass.brass.opacity(0.14))
+                    .padding(3)
+                PointTriangle(pointsDown: pointsDown)
+                    .stroke(LinenBrass.saddle.opacity(0.86), lineWidth: 5)
+                    .padding(1)
+                PointTriangle(pointsDown: pointsDown)
+                    .stroke(LinenBrass.brass, lineWidth: 3)
+                    .padding(3)
+            }
         } else if isLegalDestination {
-            PointTriangle(pointsDown: pointsDown)
-                .stroke(LinenBrass.brass.opacity(0.88), lineWidth: 2)
-                .padding(4)
+            ZStack {
+                PointTriangle(pointsDown: pointsDown)
+                    .fill(LinenBrass.brass.opacity(0.16))
+                    .padding(5)
+                PointTriangle(pointsDown: pointsDown)
+                    .stroke(LinenBrass.saddle.opacity(0.62), lineWidth: 4)
+                    .padding(3)
+                PointTriangle(pointsDown: pointsDown)
+                    .stroke(LinenBrass.brass, lineWidth: 2.5)
+                    .padding(5)
+            }
         } else if isLegalSource {
-            PointTriangle(pointsDown: pointsDown)
-                .stroke(LinenBrass.cream.opacity(0.48), lineWidth: 1)
-                .padding(5)
+            ZStack {
+                PointTriangle(pointsDown: pointsDown)
+                    .stroke(LinenBrass.saddle.opacity(0.66), lineWidth: 3)
+                    .padding(4)
+                PointTriangle(pointsDown: pointsDown)
+                    .stroke(LinenBrass.brass.opacity(0.96), lineWidth: 1.8)
+                    .padding(6)
+            }
         }
     }
 

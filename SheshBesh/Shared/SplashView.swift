@@ -40,7 +40,7 @@ public struct SplashView: View {
                         .opacity(diceLanded ? 1 : 0)
                 }
 
-                Text("Shesh Besh")
+                Text(AppBrand.name)
                     .font(.system(size: 44, weight: .semibold, design: .serif))
                     .foregroundStyle(LinenBrass.ink)
                     .tracking(1.5)

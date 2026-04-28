@@ -370,40 +370,30 @@ private struct HeaderCard: View {
     let onBackToRivals: (() -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 8) {
-                if let onBackToRivals {
-                    Button(action: onBackToRivals) {
-                        Image(systemName: "chevron.left")
-                            .font(LinenBrass.uiFont(size: 17, weight: .semibold))
-                            .frame(width: 44, height: 44, alignment: .leading)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(LinenBrass.coffee)
-                    .accessibilityLabel("Back to rivals")
-                    .accessibilityIdentifier("match-back-button")
+        HStack(alignment: .center, spacing: 4) {
+            if let onBackToRivals {
+                Button(action: onBackToRivals) {
+                    Image(systemName: "chevron.left")
+                        .font(LinenBrass.uiFont(size: 17, weight: .semibold))
+                        .frame(width: 28, height: 44, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
-
-                Text("vs \(viewModel.opponentName.uppercased())")
-                    .font(LinenBrass.uiFont(size: 13, weight: .semibold))
-                    .tracking(0.6)
-                    .foregroundStyle(LinenBrass.mutedInk)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-
-                Spacer(minLength: 10)
-
-                MatchProgressColumn(viewModel: viewModel)
+                .buttonStyle(.plain)
+                .foregroundStyle(LinenBrass.coffee)
+                .accessibilityLabel("Back to rivals")
+                .accessibilityIdentifier("match-back-button")
             }
 
-            Text(viewModel.phaseTitle)
-                .font(LinenBrass.displayFont(size: 26, weight: .bold))
-                .foregroundStyle(viewModel.isLocalTurn ? LinenBrass.brass : LinenBrass.ink)
+            Text("vs \(viewModel.opponentName.uppercased())")
+                .font(LinenBrass.uiFont(size: 13, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(LinenBrass.mutedInk)
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .padding(.leading, onBackToRivals != nil ? 4 : 0)
-                .accessibilityIdentifier("header-phase-title")
+                .minimumScaleFactor(0.78)
+
+            Spacer(minLength: 10)
+
+            MatchProgressColumn(viewModel: viewModel)
         }
         .foregroundStyle(LinenBrass.ink)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1190,7 +1180,7 @@ private struct BearOffStrip: View {
 
         HStack(spacing: 10) {
             BearOffZone(
-                title: "\(viewModel.displayName(for: opponent)) off",
+                title: viewModel.displayName(for: opponent),
                 checkerIDs: opponentCheckerIDs,
                 owner: opponent,
                 localPlayer: viewModel.localPlayer,
@@ -1202,7 +1192,7 @@ private struct BearOffStrip: View {
             .disabled(true)
 
             BearOffZone(
-                title: "You off",
+                title: viewModel.displayName(for: viewModel.localPlayer),
                 checkerIDs: localCheckerIDs,
                 owner: viewModel.localPlayer,
                 localPlayer: viewModel.localPlayer,
@@ -1245,19 +1235,12 @@ private struct BearOffZone: View {
                 )
                 .frame(width: 62, height: 32)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(LinenBrass.uiFont(size: 14, weight: .semibold))
-                        .foregroundStyle(LinenBrass.cream)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-
-                    Text("\(count) borne off")
-                        .font(LinenBrass.uiFont(size: 11, weight: .medium))
-                        .foregroundStyle(LinenBrass.cream.opacity(0.68))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                }
+                Text("\(title) \(count)")
+                    .font(LinenBrass.uiFont(size: 14, weight: .semibold))
+                    .foregroundStyle(LinenBrass.cream)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .accessibilityHidden(true)
 
                 Spacer(minLength: 0)
             }
@@ -1270,6 +1253,7 @@ private struct BearOffZone: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("\(title), \(count) borne off")
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 
@@ -1428,12 +1412,14 @@ private struct ActionBar: View {
                     onAction()
                 }
 
-                Text(draftStatusText)
-                    .font(LinenBrass.uiFont(size: 15, weight: .semibold))
-                    .foregroundStyle(LinenBrass.cream)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                    .frame(maxWidth: .infinity, minHeight: 48)
+                if !viewModel.canSubmitTurn {
+                    Text(draftStatusText)
+                        .font(LinenBrass.uiFont(size: 15, weight: .semibold))
+                        .foregroundStyle(LinenBrass.cream)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                }
 
                 PrimaryActionButton(title: "Submit turn", isEnabled: viewModel.canSubmitTurn) {
                     if viewModel.submitTurnIfAllowed() {
@@ -1443,7 +1429,10 @@ private struct ActionBar: View {
             } else {
                 switch viewModel.state.game.phase {
             case .awaitingOpeningRoll(let tiedRoll):
-                PrimaryActionButton(title: tiedRoll == nil ? "Opening roll" : "Reroll") {
+                PrimaryActionButton(
+                    title: tiedRoll == nil ? "Roll opening dice" : "Reroll",
+                    accessibilityIdentifier: tiedRoll == nil ? "action-opening-roll" : nil
+                ) {
                     viewModel.rollOpeningDice()
                     onAction()
                 }
@@ -1581,7 +1570,6 @@ private struct ActionBar: View {
     }
 
     private var draftStatusText: String {
-        guard !viewModel.canSubmitTurn else { return "Ready" }
         if case .awaitingMove(let turn) = viewModel.state.game.phase, turn.player == viewModel.localPlayer {
             return "\(turn.remainingDice.count) move\(turn.remainingDice.count == 1 ? "" : "s") left"
         }
@@ -1592,6 +1580,7 @@ private struct ActionBar: View {
 private struct PrimaryActionButton: View {
     let title: String
     var isEnabled: Bool = true
+    var accessibilityIdentifier: String?
     let action: () -> Void
 
     var body: some View {
@@ -1604,7 +1593,7 @@ private struct PrimaryActionButton: View {
         }
         .buttonStyle(LinenButtonStyle(kind: .primary))
         .disabled(!isEnabled)
-        .accessibilityIdentifier(actionAccessibilityIdentifier(for: title))
+        .accessibilityIdentifier(accessibilityIdentifier ?? actionAccessibilityIdentifier(for: title))
     }
 }
 

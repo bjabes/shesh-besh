@@ -14,8 +14,8 @@ final class SheshBeshUITests: XCTestCase {
         XCTAssertTrue(app.buttons["action-opening-roll"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["header-score"].exists)
         XCTAssertEqual(app.staticTexts["header-score"].label, "0-0")
-        XCTAssertTrue(app.staticTexts["header-phase-title"].exists)
-        XCTAssertEqual(app.staticTexts["header-phase-title"].label, "Opening roll")
+        XCTAssertTrue(app.staticTexts["tray-phase-title"].exists)
+        XCTAssertEqual(app.staticTexts["tray-phase-title"].label, "OPENING ROLL")
         XCTAssertTrue(element("board", in: app).exists)
         XCTAssertTrue(element("point-24", in: app).exists)
     }
@@ -41,7 +41,7 @@ final class SheshBeshUITests: XCTestCase {
         XCTAssertTrue(app.buttons["action-submit-turn"].exists)
         app.buttons["action-submit-turn"].tap()
         XCTAssertTrue(app.buttons["action-roll-dice"].waitForExistence(timeout: 4))
-        XCTAssertEqual(app.staticTexts["header-phase-title"].label, "Your turn")
+        XCTAssertEqual(app.staticTexts["tray-phase-title"].label, "YOUR TURN")
     }
 
     @MainActor

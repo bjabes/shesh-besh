@@ -323,24 +323,12 @@ struct RivalryStack: View {
     let onStart: (RivalLedger) -> Void
     let onResume: (ActiveMatch) -> Void
     var onDelete: (RivalLedger) -> Void = { _ in }
-    var startTitle: (RivalLedger) -> String = { _ in "Start match" }
-    var startSystemImage: (RivalLedger) -> String = { _ in "play.fill" }
-    var resumeTitle: (RivalLedger) -> String = { ledger in
-        ledger.activeMatch?.gameCenterMatchID == nil ? "Resume match" : "Open turn"
-    }
-    var resumeSystemImage: (RivalLedger) -> String = { ledger in
-        ledger.activeMatch?.gameCenterMatchID == nil ? "arrow.uturn.forward" : "arrow.turn.up.right"
-    }
 
     var body: some View {
         ForEach(Array(ledgers.enumerated()), id: \.element.rival.id) { index, ledger in
             RivalryCard(
                 ledger: ledger,
                 isHero: index == 0,
-                startTitle: startTitle(ledger),
-                startSystemImage: startSystemImage(ledger),
-                resumeTitle: resumeTitle(ledger),
-                resumeSystemImage: resumeSystemImage(ledger),
                 onStart: { onStart(ledger) },
                 onResume: {
                     if let match = ledger.activeMatch {
@@ -363,86 +351,65 @@ struct RivalryStack: View {
 private struct RivalryCard: View {
     let ledger: RivalLedger
     let isHero: Bool
-    let startTitle: String
-    let startSystemImage: String
-    let resumeTitle: String
-    let resumeSystemImage: String
     let onStart: () -> Void
     let onResume: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: isHero ? 16 : 12) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Image(systemName: ledger.rival.gameCenterPlayerID == nil ? "cpu" : "person.crop.circle.fill")
-                            .font(LedgerTheme.displayFont(size: isHero ? 28 : 22, weight: .bold))
-                            .foregroundStyle(LedgerTheme.mutedInk)
-                            .accessibilityHidden(true)
+        Button(action: primaryAction) {
+            VStack(alignment: .leading, spacing: isHero ? 16 : 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Image(systemName: ledger.rival.gameCenterPlayerID == nil ? "cpu" : "person.crop.circle.fill")
+                                .font(LedgerTheme.displayFont(size: isHero ? 28 : 22, weight: .bold))
+                                .foregroundStyle(LedgerTheme.mutedInk)
+                                .accessibilityHidden(true)
 
-                        Text(ledger.rival.displayName.uppercased())
-                            .font(LedgerTheme.displayFont(size: isHero ? 28 : 22, weight: .bold))
-                            .foregroundStyle(LedgerTheme.ink)
+                            Text(ledger.rival.displayName.uppercased())
+                                .font(LedgerTheme.displayFont(size: isHero ? 28 : 22, weight: .bold))
+                                .foregroundStyle(LedgerTheme.ink)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.68)
+                        }
+
+                        Text(statusLine)
+                            .font(LedgerTheme.uiFont(size: 14, weight: .semibold))
+                            .foregroundStyle(LedgerTheme.mutedInk)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.68)
+                            .minimumScaleFactor(0.76)
                     }
 
-                    Text(statusLine)
-                        .font(LedgerTheme.uiFont(size: 14, weight: .semibold))
+                    Spacer(minLength: 10)
+
+                    Text("\(ledger.userWins)-\(ledger.rivalWins)")
+                        .font(LedgerTheme.displayFont(size: isHero ? 34 : 28, weight: .bold))
+                        .foregroundStyle(LedgerTheme.rust)
+                        .monospacedDigit()
+                        .accessibilityIdentifier("ledger-score-\(ledger.rival.id.uuidString)")
+
+                    Image(systemName: "chevron.right")
+                        .font(LedgerTheme.uiFont(size: isHero ? 16 : 14, weight: .semibold))
                         .foregroundStyle(LedgerTheme.mutedInk)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.76)
+                        .accessibilityHidden(true)
                 }
 
-                Spacer(minLength: 10)
-
-                Text("\(ledger.userWins)-\(ledger.rivalWins)")
-                    .font(LedgerTheme.displayFont(size: isHero ? 34 : 28, weight: .bold))
-                    .foregroundStyle(LedgerTheme.rust)
-                    .monospacedDigit()
-                    .accessibilityIdentifier("ledger-score-\(ledger.rival.id.uuidString)")
-            }
-
-            HStack(spacing: 10) {
-                MetricPill(title: "Matches", value: "\(ledger.totalMatches)")
-                MetricPill(title: "Streak", value: streakText)
-                Spacer(minLength: 0)
-            }
-
-            if ledger.activeMatch == nil {
-                Button(action: onStart) {
-                    ThemedButtonLabel(
-                        title: startTitle,
-                        systemImage: startSystemImage,
-                        foregroundStyle: .white
-                    )
-                        .frame(maxWidth: .infinity)
+                HStack(spacing: 10) {
+                    MetricPill(title: "Matches", value: "\(ledger.totalMatches)")
+                    MetricPill(title: "Streak", value: streakText)
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(LedgerTheme.coffee)
-                .accessibilityIdentifier("start-match-\(ledger.rival.id.uuidString)")
-            } else {
-                Button(action: onResume) {
-                    ThemedButtonLabel(
-                        title: resumeTitle,
-                        systemImage: resumeSystemImage,
-                        foregroundStyle: .white
-                    )
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(LedgerTheme.brass)
-                .accessibilityIdentifier("resume-match-\(ledger.rival.id.uuidString)")
             }
         }
-        .padding(isHero ? 18 : 15)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(LedgerTheme.cream, in: RoundedRectangle(cornerRadius: 7))
-        .overlay(
-            RoundedRectangle(cornerRadius: 7)
-                .stroke(LedgerTheme.brass.opacity(isHero ? 0.86 : 0.52), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(isHero ? 0.16 : 0.09), radius: isHero ? 6 : 3, y: 2)
+        .buttonStyle(RivalryRowButtonStyle(isHero: isHero))
+        .accessibilityIdentifier("\(ledger.activeMatch == nil ? "start" : "resume")-match-\(ledger.rival.id.uuidString)")
+    }
+
+    private func primaryAction() {
+        if ledger.activeMatch == nil {
+            onStart()
+        } else {
+            onResume()
+        }
     }
 
     private var statusLine: String {
@@ -478,6 +445,27 @@ private struct RivalryCard: View {
         case .gameOver:
             "Game over"
         }
+    }
+}
+
+private struct RivalryRowButtonStyle: ButtonStyle {
+    let isHero: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(isHero ? 18 : 15)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                configuration.isPressed ? LedgerTheme.creamPressed : LedgerTheme.cream,
+                in: RoundedRectangle(cornerRadius: 7)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(LedgerTheme.brass.opacity(isHero ? 0.86 : 0.52), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(isHero ? 0.16 : 0.09), radius: isHero ? 6 : 3, y: 2)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .contentShape(RoundedRectangle(cornerRadius: 7))
     }
 }
 
@@ -567,6 +555,7 @@ struct LedgerBackground: View {
 enum LedgerTheme {
     static let linen = Color(red: 0.937, green: 0.902, blue: 0.831)
     static let cream = Color(red: 0.929, green: 0.886, blue: 0.800)
+    static let creamPressed = Color(red: 0.870, green: 0.823, blue: 0.730)
     static let coffee = Color(red: 0.420, green: 0.290, blue: 0.180)
     static let rust = Color(red: 0.659, green: 0.314, blue: 0.165)
     static let brass = Color(red: 0.722, green: 0.537, blue: 0.227)

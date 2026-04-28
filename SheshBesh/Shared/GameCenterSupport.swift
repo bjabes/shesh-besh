@@ -664,9 +664,7 @@ public struct GameCenterHomeView: View {
                         ledgers: ledgerCoordinator.ledgers,
                         onStart: startMatch,
                         onResume: resumeMatch,
-                        onDelete: requestDelete,
-                        startTitle: startTitle,
-                        startSystemImage: startSystemImage
+                        onDelete: requestDelete
                     )
                 }
             }
@@ -1063,14 +1061,6 @@ public struct GameCenterHomeView: View {
                 localError = "This Game Center match is not available right now."
             }
         }
-    }
-
-    private func startTitle(for ledger: RivalLedger) -> String {
-        ledger.rival.gameCenterPlayerID == nil ? "Start match" : "Invite again"
-    }
-
-    private func startSystemImage(for ledger: RivalLedger) -> String {
-        ledger.rival.gameCenterPlayerID == nil ? "play.fill" : "person.badge.plus"
     }
 
     private func loadAndOpen(match: GKTurnBasedMatch, targetScore: Int) async {

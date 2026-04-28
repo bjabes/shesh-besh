@@ -13,6 +13,7 @@ public struct HomeView: View {
     @State private var newRivalName = ""
     @State private var isWorking = false
     @State private var isShowingRemoveAllConfirmation = false
+    @State private var deletionRequest: RivalryDeletionRequest?
     @State private var localError: String?
 
     public init(
@@ -28,43 +29,46 @@ public struct HomeView: View {
             LedgerBackground()
                 .ignoresSafeArea()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    header
-                    RivalryLaunchActions(
-                        primaryTitle: "Practice vs AI",
-                        primarySystemImage: "cpu",
-                        secondaryTitle: "Add Rival",
-                        secondarySystemImage: "person.badge.plus",
-                        onPrimary: startAIRivalry,
-                        onSecondary: {
-                            newRivalName = ""
-                            isAddingRival = true
-                        }
+            List {
+                header
+                    .ledgerListRow(top: 18, bottom: 18)
+                RivalryLaunchActions(
+                    primaryTitle: "Practice vs AI",
+                    primarySystemImage: "cpu",
+                    secondaryTitle: "Add Rival",
+                    secondarySystemImage: "person.badge.plus",
+                    onPrimary: startAIRivalry,
+                    onSecondary: {
+                        newRivalName = ""
+                        isAddingRival = true
+                    }
+                )
+                .ledgerListRow(bottom: activeMatches.count > 0 ? 18 : 14)
+
+                if activeMatches.count > 0 {
+                    RemoveAllMatchesButton(
+                        activeMatchCount: activeMatches.count,
+                        isDisabled: isWorking,
+                        action: { isShowingRemoveAllConfirmation = true }
                     )
-
-                    if activeMatches.count > 0 {
-                        RemoveAllMatchesButton(
-                            activeMatchCount: activeMatches.count,
-                            isDisabled: isWorking,
-                            action: { isShowingRemoveAllConfirmation = true }
-                        )
-                    }
-
-                    if coordinator.ledgers.isEmpty {
-                        EmptyLedgerView()
-                    } else {
-                        RivalryStack(
-                            ledgers: coordinator.ledgers,
-                            onStart: startMatch,
-                            onResume: onOpenMatch
-                        )
-                    }
+                    .ledgerListRow(bottom: 18)
                 }
-                .padding(.horizontal, 18)
-                .padding(.top, 18)
-                .padding(.bottom, 28)
+
+                if coordinator.ledgers.isEmpty {
+                    EmptyLedgerView()
+                        .ledgerListRow(bottom: 28)
+                } else {
+                    RivalryStack(
+                        ledgers: coordinator.ledgers,
+                        onStart: startMatch,
+                        onResume: onOpenMatch,
+                        onDelete: requestDelete
+                    )
+                }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
         }
         .task {
             await coordinator.refresh()
@@ -85,6 +89,18 @@ public struct HomeView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(removeAllConfirmationMessage)
+        }
+        .alert("Delete Rivalry?", isPresented: deletionConfirmationBinding) {
+            if let request = deletionRequest {
+                Button("Delete Rivalry", role: .destructive) {
+                    deleteRival(request.ledger, deletingRecords: true)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let request = deletionRequest {
+                Text(deleteConfirmationMessage(for: request.ledger))
+            }
         }
         .alert(
             "Ledger Error",
@@ -110,6 +126,20 @@ public struct HomeView: View {
 
     private var removeAllConfirmationMessage: String {
         "This will clear \(activeMatches.count) active \(activeMatches.count == 1 ? "match" : "matches"). Completed rivalry history stays."
+    }
+
+    private var deletionConfirmationBinding: Binding<Bool> {
+        Binding {
+            deletionRequest != nil
+        } set: { isPresented in
+            if !isPresented {
+                deletionRequest = nil
+            }
+        }
+    }
+
+    private func deleteConfirmationMessage(for ledger: RivalLedger) -> String {
+        "This rivalry has \(ledger.totalMatches) completed \(ledger.totalMatches == 1 ? "match" : "matches"). Delete anyway?"
     }
 
     private var header: some View {
@@ -172,6 +202,28 @@ public struct HomeView: View {
         }
     }
 
+    private func requestDelete(_ ledger: RivalLedger) {
+        guard !isWorking else { return }
+        if ledger.totalMatches > 0 {
+            deletionRequest = RivalryDeletionRequest(ledger: ledger)
+        } else {
+            deleteRival(ledger, deletingRecords: false)
+        }
+    }
+
+    private func deleteRival(_ ledger: RivalLedger, deletingRecords: Bool) {
+        guard !isWorking else { return }
+        isWorking = true
+        Task {
+            do {
+                try await coordinator.deleteRival(ledger.rival, deletingRecords: deletingRecords)
+            } catch {
+                localError = error.localizedDescription
+            }
+            isWorking = false
+        }
+    }
+
     private func startMatch(for ledger: RivalLedger) {
         guard !isWorking else { return }
         isWorking = true
@@ -189,6 +241,11 @@ public struct HomeView: View {
             isWorking = false
         }
     }
+}
+
+struct RivalryDeletionRequest: Identifiable {
+    let ledger: RivalLedger
+    var id: Rival.ID { ledger.rival.id }
 }
 
 struct RemoveAllMatchesButton: View {
@@ -253,6 +310,7 @@ struct RivalryStack: View {
     let ledgers: [RivalLedger]
     let onStart: (RivalLedger) -> Void
     let onResume: (ActiveMatch) -> Void
+    var onDelete: (RivalLedger) -> Void = { _ in }
     var startTitle: (RivalLedger) -> String = { _ in "Start match" }
     var startSystemImage: (RivalLedger) -> String = { _ in "play.fill" }
     var resumeTitle: (RivalLedger) -> String = { ledger in
@@ -263,39 +321,28 @@ struct RivalryStack: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
-            if let hero = ledgers.first {
-                RivalryCard(
-                    ledger: hero,
-                    isHero: true,
-                    startTitle: startTitle(hero),
-                    startSystemImage: startSystemImage(hero),
-                    resumeTitle: resumeTitle(hero),
-                    resumeSystemImage: resumeSystemImage(hero),
-                    onStart: { onStart(hero) },
-                    onResume: {
-                        if let match = hero.activeMatch {
-                            onResume(match)
-                        }
+        ForEach(Array(ledgers.enumerated()), id: \.element.rival.id) { index, ledger in
+            RivalryCard(
+                ledger: ledger,
+                isHero: index == 0,
+                startTitle: startTitle(ledger),
+                startSystemImage: startSystemImage(ledger),
+                resumeTitle: resumeTitle(ledger),
+                resumeSystemImage: resumeSystemImage(ledger),
+                onStart: { onStart(ledger) },
+                onResume: {
+                    if let match = ledger.activeMatch {
+                        onResume(match)
                     }
-                )
-            }
-
-            ForEach(ledgers.dropFirst(), id: \.rival.id) { ledger in
-                RivalryCard(
-                    ledger: ledger,
-                    isHero: false,
-                    startTitle: startTitle(ledger),
-                    startSystemImage: startSystemImage(ledger),
-                    resumeTitle: resumeTitle(ledger),
-                    resumeSystemImage: resumeSystemImage(ledger),
-                    onStart: { onStart(ledger) },
-                    onResume: {
-                        if let match = ledger.activeMatch {
-                            onResume(match)
-                        }
-                    }
-                )
+                }
+            )
+            .ledgerListRow(bottom: index == ledgers.count - 1 ? 28 : 14)
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    onDelete(ledger)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
             }
         }
     }
@@ -490,5 +537,13 @@ enum LedgerTheme {
 
     static func uiFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         .system(size: size, weight: weight, design: .default)
+    }
+}
+
+extension View {
+    func ledgerListRow(top: CGFloat = 0, bottom: CGFloat) -> some View {
+        listRowInsets(EdgeInsets(top: top, leading: 18, bottom: bottom, trailing: 18))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
     }
 }

@@ -539,6 +539,7 @@ public struct GameCenterHomeView: View {
     @State private var isWorking = false
     @State private var isShowingRemoveAllConfirmation = false
     @State private var isShowingMatchmaker = false
+    @State private var deletionRequest: RivalryDeletionRequest?
     @State private var selectedTargetScore = 7
     @State private var localError: String?
 
@@ -561,46 +562,50 @@ public struct GameCenterHomeView: View {
             LedgerBackground()
                 .ignoresSafeArea()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    header
-                    RivalryLaunchActions(
-                        primaryTitle: "Practice vs AI",
-                        primarySystemImage: "cpu",
-                        secondaryTitle: "Invite Friend",
-                        secondarySystemImage: "person.badge.plus",
-                        onPrimary: startAIRivalry,
-                        onSecondary: startGameCenterInvite
+            List {
+                header
+                    .ledgerListRow(top: 18, bottom: 18)
+                RivalryLaunchActions(
+                    primaryTitle: "Practice vs AI",
+                    primarySystemImage: "cpu",
+                    secondaryTitle: "Invite Friend",
+                    secondarySystemImage: "person.badge.plus",
+                    onPrimary: startAIRivalry,
+                    onSecondary: startGameCenterInvite
+                )
+                .ledgerListRow(bottom: activeMatches.count > 0 ? 18 : 14)
+
+                if activeMatches.count > 0 {
+                    RemoveAllMatchesButton(
+                        activeMatchCount: activeMatches.count,
+                        isDisabled: isWorking,
+                        action: { isShowingRemoveAllConfirmation = true }
                     )
-
-                    if activeMatches.count > 0 {
-                        RemoveAllMatchesButton(
-                            activeMatchCount: activeMatches.count,
-                            isDisabled: isWorking,
-                            action: { isShowingRemoveAllConfirmation = true }
-                        )
-                    }
-
-                    if !session.authState.isAuthenticated {
-                        authPanel
-                    }
-
-                    if ledgerCoordinator.ledgers.isEmpty {
-                        EmptyGameCenterLedgerView()
-                    } else {
-                        RivalryStack(
-                            ledgers: ledgerCoordinator.ledgers,
-                            onStart: startMatch,
-                            onResume: resumeMatch,
-                            startTitle: startTitle,
-                            startSystemImage: startSystemImage
-                        )
-                    }
+                    .ledgerListRow(bottom: 18)
                 }
-                .padding(.horizontal, 18)
-                .padding(.top, 18)
-                .padding(.bottom, 28)
+
+                if !session.authState.isAuthenticated {
+                    authPanel
+                        .ledgerListRow(bottom: 18)
+                }
+
+                if ledgerCoordinator.ledgers.isEmpty {
+                    EmptyGameCenterLedgerView()
+                        .ledgerListRow(bottom: 28)
+                } else {
+                    RivalryStack(
+                        ledgers: ledgerCoordinator.ledgers,
+                        onStart: startMatch,
+                        onResume: resumeMatch,
+                        onDelete: requestDelete,
+                        startTitle: startTitle,
+                        startSystemImage: startSystemImage
+                    )
+                }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
         }
         .task {
             await refresh()
@@ -628,6 +633,18 @@ public struct GameCenterHomeView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(removeAllConfirmationMessage)
+        }
+        .alert("Delete Rivalry?", isPresented: deletionConfirmationBinding) {
+            if let request = deletionRequest {
+                Button("Delete Rivalry", role: .destructive) {
+                    deleteRival(request.ledger, deletingRecords: true)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let request = deletionRequest {
+                Text(deleteConfirmationMessage(for: request.ledger))
+            }
         }
         .alert(
             "Game Center Error",
@@ -675,6 +692,20 @@ public struct GameCenterHomeView: View {
 
         let action = parts.isEmpty ? "remove active matches" : parts.joined(separator: " and ")
         return "This will \(action). Completed rivalry history stays."
+    }
+
+    private var deletionConfirmationBinding: Binding<Bool> {
+        Binding {
+            deletionRequest != nil
+        } set: { isPresented in
+            if !isPresented {
+                deletionRequest = nil
+            }
+        }
+    }
+
+    private func deleteConfirmationMessage(for ledger: RivalLedger) -> String {
+        "This rivalry has \(ledger.totalMatches) completed \(ledger.totalMatches == 1 ? "match" : "matches"). Delete anyway?"
     }
 
     private var authenticationBinding: Binding<AuthenticationController?> {
@@ -849,6 +880,38 @@ public struct GameCenterHomeView: View {
             }
 
             localError = failureMessages.isEmpty ? nil : failureMessages.joined(separator: "\n")
+        }
+    }
+
+    private func requestDelete(_ ledger: RivalLedger) {
+        guard !isWorking else { return }
+        if ledger.totalMatches > 0 {
+            deletionRequest = RivalryDeletionRequest(ledger: ledger)
+        } else {
+            deleteRival(ledger, deletingRecords: false)
+        }
+    }
+
+    private func deleteRival(_ ledger: RivalLedger, deletingRecords: Bool) {
+        guard !isWorking else { return }
+        isWorking = true
+        Task {
+            defer { isWorking = false }
+
+            do {
+                if let gameCenterMatchID = ledger.activeMatch?.gameCenterMatchID {
+                    await refresh()
+                    if let loaded = loadedMatchesByID[gameCenterMatchID] {
+                        try await matchCoordinator.remove(loaded: loaded)
+                    }
+                }
+
+                try await ledgerCoordinator.deleteRival(ledger.rival, deletingRecords: deletingRecords)
+                await refresh()
+                localError = nil
+            } catch {
+                localError = error.localizedDescription
+            }
         }
     }
 

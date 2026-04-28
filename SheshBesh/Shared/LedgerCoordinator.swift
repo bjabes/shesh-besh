@@ -79,6 +79,22 @@ public final class LedgerCoordinator {
         await refresh()
     }
 
+    public func deleteRival(_ rival: Rival, deletingRecords: Bool = false) async throws {
+        let records = try await store.loadMatchRecords(rivalID: rival.id)
+        guard deletingRecords || records.isEmpty else {
+            throw LedgerStoreError.rivalHasHistory
+        }
+
+        if try await store.loadActiveMatch(rivalID: rival.id) != nil {
+            try await store.clearActiveMatch(rivalID: rival.id)
+        }
+        if deletingRecords {
+            try await store.deleteMatchRecords(rivalID: rival.id)
+        }
+        try await store.deleteRival(id: rival.id)
+        await refresh()
+    }
+
     public func recordCompletion(of match: ActiveMatch) async throws {
         let record = try makeRecord(from: match, completedAt: Date())
         try await store.saveActiveMatch(match)

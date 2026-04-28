@@ -318,11 +318,11 @@ struct MatchEngineTests {
         state = try engine.apply(action: .rollOpeningDice, to: state)
         state = try playFirstLegalMovesUntilRoll(from: state, using: engine)
         #expect(!state.game.isCrawford)
-        #expect(MatchEngine.legalActions(in: state).contains(.offerDouble(.black)))
+        #expect(!MatchEngine.legalActions(in: state).contains(.offerDouble(.black)))
     }
 
-    @Test("The doubling cube is available again after the Crawford game")
-    func cubeAvailableAfterCrawfordGameCompletes() throws {
+    @Test("A dead cube stays unavailable after the Crawford game")
+    func deadCubeStaysUnavailableAfterCrawfordGameCompletes() throws {
         let engine = MatchEngine(diceRoller: ScriptedDiceRoller([6, 1, 6, 1]))
         let previousResult = GameResult(winner: .black, winKind: .single, cubeValue: 1)
         var state = MatchState(
@@ -348,7 +348,37 @@ struct MatchEngineTests {
         state = try playFirstLegalMovesUntilRoll(from: state, using: engine)
 
         #expect(!state.game.isCrawford)
-        #expect(MatchEngine.legalActions(in: state).contains(.offerDouble(.black)))
+        #expect(!MatchEngine.legalActions(in: state).contains(.offerDouble(.black)))
+        expectInvalidAction {
+            _ = try engine.apply(action: .offerDouble(.black), to: state)
+        }
+    }
+
+    @Test("The trailer can offer the cube after the Crawford game")
+    func trailerCanOfferCubeAfterCrawfordGameCompletes() {
+        let state = MatchState(
+            config: .tournament(targetScore: 4),
+            score: MatchScore(white: 1, black: 3),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white)),
+            crawfordState: .completed
+        )
+
+        #expect(MatchEngine.legalActions(in: state).contains(.offerDouble(.white)))
+    }
+
+    @Test("A player cannot double when the current cube already wins the match")
+    func deadCubePreventsMatchWinningDouble() {
+        let engine = MatchEngine()
+        let state = MatchState(
+            config: .tournament(targetScore: 7),
+            score: MatchScore(white: 6, black: 0),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+
+        #expect(!MatchEngine.legalActions(in: state).contains(.offerDouble(.white)))
+        expectInvalidAction {
+            _ = try engine.apply(action: .offerDouble(.white), to: state)
+        }
     }
 
     @Test("Accepted resignation scores the offered result")
@@ -532,7 +562,7 @@ struct MatchEngineTests {
     func matchCompletion() throws {
         let engine = MatchEngine()
         var state = MatchState(
-            config: .tournament(targetScore: 3),
+            config: .tournament(targetScore: 4),
             game: GameState(
                 board: .initial(),
                 phase: .awaitingRoll(.white),
@@ -547,24 +577,33 @@ struct MatchEngineTests {
         #expect(MatchEngine.legalActions(in: state).isEmpty)
     }
 
-    @Test("Match completion is recorded when points exceed targetScore")
-    func matchCompletionWhenScoreExceedsTarget() throws {
+    @Test("Match completion caps points at targetScore")
+    func matchCompletionCapsPointsAtTargetScore() throws {
         let engine = MatchEngine()
         var state = MatchState(
-            config: .tournament(targetScore: 3),
-            score: MatchScore(white: 0, black: 2),
-            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+            config: .tournament(targetScore: 7),
+            score: MatchScore(white: 0, black: 6),
+            game: GameState(
+                board: .initial(),
+                phase: .awaitingRoll(.white),
+                cube: CubeState(value: 2, owner: .black)
+            )
         )
 
-        state = try engine.apply(action: .offerResignation(.white, .gammon), to: state)
+        state = try engine.apply(action: .offerResignation(.white, .single), to: state)
         state = try engine.apply(action: .acceptResignation(.black), to: state)
 
-        #expect(state.score.score(for: .black) == 4)
+        #expect(state.score.score(for: .black) == 7)
         #expect(state.completion == MatchCompletion(winner: .black, finalScore: state.score))
+        guard case .gameOver(let result) = state.game.phase else {
+            Issue.record("Expected game over after accepted resignation")
+            return
+        }
+        #expect(result == GameResult(winner: .black, winKind: .single, cubeValue: 2))
     }
 
-    @Test("A high cube backgammon completes the match when it overshoots the target")
-    func highCubeBackgammonCanCompleteMatchBeyondTarget() throws {
+    @Test("A high cube backgammon records the raw game result but caps match score")
+    func highCubeBackgammonCapsMatchScoreAtTarget() throws {
         var board = Board.empty()
         try board.setPoint(point(1), owner: .white, count: 1)
         try board.setBorneOff(for: .white, count: 14)
@@ -581,13 +620,76 @@ struct MatchEngineTests {
         let move = Move(player: .white, source: .point(point(1)), destination: .off, die: 1)
         let next = try MatchEngine().apply(action: .move(move), to: state)
 
-        #expect(next.score.score(for: .white) == 12)
+        #expect(next.score.score(for: .white) == 5)
         #expect(next.completion == MatchCompletion(winner: .white, finalScore: next.score))
         guard case .gameOver(let result) = next.game.phase else {
             Issue.record("Expected game over after final checker bears off")
             return
         }
         #expect(result == GameResult(winner: .white, winKind: .backgammon, cubeValue: 4))
+    }
+
+    @Test("Match point resignation only allows a single")
+    func matchPointResignationOnlyAllowsSingle() {
+        let state = MatchState(
+            config: .tournament(targetScore: 7),
+            score: MatchScore(white: 0, black: 6),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+        let actions = MatchEngine.legalActions(in: state)
+
+        #expect(actions.contains(.offerResignation(.white, .single)))
+        #expect(!actions.contains(.offerResignation(.white, .gammon)))
+        #expect(!actions.contains(.offerResignation(.white, .backgammon)))
+    }
+
+    @Test("Resignation still allows single when the cube value exceeds remaining points")
+    func resignationAllowsSingleWhenCubeExceedsRemainingPoints() {
+        let state = MatchState(
+            config: .tournament(targetScore: 7),
+            score: MatchScore(white: 0, black: 6),
+            game: GameState(
+                board: .initial(),
+                phase: .awaitingRoll(.white),
+                cube: CubeState(value: 2, owner: .black)
+            )
+        )
+        let actions = MatchEngine.legalActions(in: state)
+
+        #expect(actions.contains(.offerResignation(.white, .single)))
+        #expect(!actions.contains(.offerResignation(.white, .gammon)))
+        #expect(!actions.contains(.offerResignation(.white, .backgammon)))
+    }
+
+    @Test("Direct oversized resignation offers are rejected at match point")
+    func oversizedResignationOffersAreRejectedAtMatchPoint() {
+        let engine = MatchEngine()
+        let state = MatchState(
+            config: .tournament(targetScore: 7),
+            score: MatchScore(white: 0, black: 6),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+
+        expectInvalidAction {
+            _ = try engine.apply(action: .offerResignation(.white, .gammon), to: state)
+        }
+        expectInvalidAction {
+            _ = try engine.apply(action: .offerResignation(.white, .backgammon), to: state)
+        }
+    }
+
+    @Test("Resignation offers include larger results when they fit remaining points")
+    func largerResignationOffersRemainAvailableWhenTheyFit() {
+        let state = MatchState(
+            config: .tournament(targetScore: 7),
+            score: MatchScore(white: 0, black: 4),
+            game: GameState(board: .initial(), phase: .awaitingRoll(.white))
+        )
+        let actions = MatchEngine.legalActions(in: state)
+
+        #expect(actions.contains(.offerResignation(.white, .single)))
+        #expect(actions.contains(.offerResignation(.white, .gammon)))
+        #expect(actions.contains(.offerResignation(.white, .backgammon)))
     }
 
     @Test("A player who is one point away triggers Crawford for the next game")

@@ -25,14 +25,14 @@ public struct MatchEngine: Sendable {
                 actions.append(.offerDouble(player))
             }
             actions.append(.rollDice(player))
-            actions.append(contentsOf: resignationActions(for: player))
+            actions.append(contentsOf: resignationActions(for: player, in: state))
             return actions
         case .awaitingMove(let turn):
             var actions = MoveValidator.legalFirstMoves(for: turn.player, in: state.game).map(MatchAction.move)
             if actions.isEmpty {
                 actions.append(.passTurn(turn.player))
             }
-            actions.append(contentsOf: resignationActions(for: turn.player))
+            actions.append(contentsOf: resignationActions(for: turn.player, in: state))
             return actions
         case .awaitingCubeResponse(let offer):
             let responder = offer.offeredBy.opponent
@@ -203,6 +203,9 @@ public struct MatchEngine: Sendable {
         default:
             throw MatchEngineError.invalidAction("\(player.rawValue) cannot resign now.")
         }
+        guard Self.legalResignationWinKinds(for: player, in: state).contains(winKind) else {
+            throw MatchEngineError.invalidAction("\(player.rawValue) cannot offer a \(winKind.rawValue) resignation now.")
+        }
 
         var next = state
         next.game.phase = .awaitingResignationResponse(
@@ -287,7 +290,7 @@ public struct MatchEngine: Sendable {
     private static func finishGame(with result: GameResult, in state: MatchState) -> MatchState {
         var next = state
         next.game.phase = .gameOver(result)
-        next.score.add(result.points, to: result.winner)
+        next.score.add(scoredMatchPoints(for: result, in: state), to: result.winner)
 
         if next.score.score(for: result.winner) >= next.config.targetScore {
             next.completion = MatchCompletion(winner: result.winner, finalScore: next.score)
@@ -310,11 +313,28 @@ public struct MatchEngine: Sendable {
         guard !state.game.isCrawford else { return false }
         guard case .awaitingRoll(player) = state.game.phase else { return false }
         guard state.game.cube.value < state.config.maximumCubeValue else { return false }
+        guard !isCubeDead(for: player, in: state) else { return false }
         return state.game.cube.owner == nil || state.game.cube.owner == player
     }
 
-    private static func resignationActions(for player: Player) -> [MatchAction] {
-        WinKind.allCases.map { .offerResignation(player, $0) }
+    private static func resignationActions(for player: Player, in state: MatchState) -> [MatchAction] {
+        legalResignationWinKinds(for: player, in: state).map { .offerResignation(player, $0) }
+    }
+
+    private static func legalResignationWinKinds(for player: Player, in state: MatchState) -> [WinKind] {
+        let winner = player.opponent
+        let pointsNeeded = max(0, state.config.targetScore - state.score.score(for: winner))
+        let fittingKinds = WinKind.allCases.filter { state.game.cube.value * $0.multiplier <= pointsNeeded }
+        return fittingKinds.isEmpty ? [.single] : fittingKinds
+    }
+
+    private static func isCubeDead(for player: Player, in state: MatchState) -> Bool {
+        state.score.score(for: player) + state.game.cube.value >= state.config.targetScore
+    }
+
+    private static func scoredMatchPoints(for result: GameResult, in state: MatchState) -> Int {
+        let pointsNeeded = max(0, state.config.targetScore - state.score.score(for: result.winner))
+        return min(result.points, pointsNeeded)
     }
 }
 

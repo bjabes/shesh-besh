@@ -510,7 +510,17 @@ public final class MatchViewModel {
         isOpponentThinking = false
         isRaceAutoplayActive = true
         raceAutoplayTask = Task { [weak self] in
-            await self?.playRaceAutoplayUntilBlocked()
+            self?.isBatchingRaceAutoplayCallbacks = true
+
+            while !Task.isCancelled {
+                guard let step = self?.nextRaceAutoplayStep() else { break }
+
+                await step.delay()
+                guard !Task.isCancelled else { break }
+                guard self?.applyRaceAutoplayStep(step.action) == true else { break }
+            }
+
+            self?.finishRaceAutoplayTask(schedulesAutomation: !Task.isCancelled)
         }
     }
 
@@ -558,28 +568,26 @@ public final class MatchViewModel {
         }
     }
 
-    private func playRaceAutoplayUntilBlocked() async {
-        isBatchingRaceAutoplayCallbacks = true
+    private func nextRaceAutoplayStep() -> (delay: @Sendable () async -> Void, action: MatchAction)? {
+        guard isAutoplayEligible() else { return nil }
+        guard let action = autoplayAction() else { return nil }
+        return (raceAutoplayDelay, action)
+    }
 
-        while !Task.isCancelled {
-            guard isAutoplayEligible() else { break }
-            guard let action = autoplayAction() else { break }
+    private func applyRaceAutoplayStep(_ action: MatchAction) -> Bool {
+        guard isAutoplayEligible() else { return false }
+        apply(action, schedulesOpponent: false)
+        return lastError == nil
+    }
 
-            await raceAutoplayDelay()
-            guard !Task.isCancelled else { break }
-            guard isAutoplayEligible() else { break }
-
-            apply(action, schedulesOpponent: false)
-            if lastError != nil { break }
-        }
-
+    private func finishRaceAutoplayTask(schedulesAutomation: Bool) {
         isBatchingRaceAutoplayCallbacks = false
         isRaceAutoplayActive = false
         isLocalAutoplayRequested = false
         raceAutoplayTask = nil
         flushRaceAutoplayCallbacks()
 
-        if !Task.isCancelled {
+        if schedulesAutomation {
             scheduleAutomationIfNeeded()
         }
     }
@@ -649,35 +657,45 @@ public final class MatchViewModel {
 
         isOpponentThinking = true
         opponentTask = Task { [weak self] in
-            await self?.playOpponentUntilLocalTurn()
+            while !Task.isCancelled {
+                guard let delay = self?.beginOpponentAutomationStep() else { break }
+
+                await delay()
+                guard !Task.isCancelled else { break }
+                guard self?.applyOpponentAutomationStep() == true else { break }
+            }
+
+            self?.finishOpponentAutomationTask(schedulesAutomation: !Task.isCancelled)
         }
     }
 
-    private func playOpponentUntilLocalTurn() async {
-        while !Task.isCancelled {
-            guard isOpponentAutomationActive else { break }
-            isOpponentThinking = true
-            await opponentDelay()
-            guard !Task.isCancelled else { break }
+    private func beginOpponentAutomationStep() -> (@Sendable () async -> Void)? {
+        guard isOpponentAutomationActive else { return nil }
+        isOpponentThinking = true
+        return opponentDelay
+    }
 
-            guard let action = opponentController.action(
-                as: localPlayer.opponent,
-                in: state,
-                legalActions: legalActions,
-                pipCounts: pipCounts
-            ) else {
-                break
-            }
-
-            let previousState = state
-            apply(action, schedulesOpponent: false)
-            refreshOpponentTurnNotice(after: action, from: previousState)
+    private func applyOpponentAutomationStep() -> Bool {
+        guard let action = opponentController.action(
+            as: localPlayer.opponent,
+            in: state,
+            legalActions: legalActions,
+            pipCounts: pipCounts
+        ) else {
+            return false
         }
 
+        let previousState = state
+        apply(action, schedulesOpponent: false)
+        refreshOpponentTurnNotice(after: action, from: previousState)
+        return true
+    }
+
+    private func finishOpponentAutomationTask(schedulesAutomation: Bool) {
         isOpponentThinking = false
         opponentTask = nil
 
-        if !Task.isCancelled {
+        if schedulesAutomation {
             scheduleAutomationIfNeeded()
         }
     }

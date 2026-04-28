@@ -11,6 +11,7 @@
 		AF1000000000000000000003 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000004 /* RootView.swift */; };
 		AF1000000000000000000005 /* MatchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000006 /* MatchViewModel.swift */; };
 		AF1000000000000000000007 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000008 /* BoardView.swift */; };
+		AF5000000000000000000001 /* CheckerLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF5000000000000000000002 /* CheckerLayout.swift */; };
 		AF1000000000000000000009 /* SheshBeshGame.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF100000000000000000000A /* SheshBeshGame.framework */; };
 		AF100000000000000000000B /* Board.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF100000000000000000000C /* Board.swift */; };
 		AF100000000000000000000D /* Dice.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF100000000000000000000E /* Dice.swift */; };
@@ -60,6 +61,7 @@
 		AF1000000000000000000004 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		AF1000000000000000000006 /* MatchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchViewModel.swift; sourceTree = "<group>"; };
 		AF1000000000000000000008 /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
+		AF5000000000000000000002 /* CheckerLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckerLayout.swift; sourceTree = "<group>"; };
 		AF100000000000000000000A /* SheshBeshGame.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SheshBeshGame.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF100000000000000000000C /* Board.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Board.swift; sourceTree = "<group>"; };
 		AF100000000000000000000E /* Dice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dice.swift; sourceTree = "<group>"; };
@@ -169,6 +171,7 @@
 			children = (
 				AF1000000000000000000037 /* AppLaunchConfiguration.swift */,
 				AF1000000000000000000008 /* BoardView.swift */,
+				AF5000000000000000000002 /* CheckerLayout.swift */,
 				AF4000000000000000000002 /* GameCenterEnvelope.swift */,
 				AF4000000000000000000004 /* GameCenterSupport.swift */,
 				AF3000000000000000000004 /* HomeView.swift */,
@@ -373,6 +376,7 @@
 				AF1000000000000000000001 /* SheshBeshMain.swift in Sources */,
 				AF1000000000000000000036 /* AppLaunchConfiguration.swift in Sources */,
 				AF1000000000000000000007 /* BoardView.swift in Sources */,
+				AF5000000000000000000001 /* CheckerLayout.swift in Sources */,
 				AF4000000000000000000001 /* GameCenterEnvelope.swift in Sources */,
 				AF4000000000000000000003 /* GameCenterSupport.swift in Sources */,
 				AF3000000000000000000003 /* HomeView.swift in Sources */,

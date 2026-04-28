@@ -108,11 +108,13 @@ struct MatchViewModelTests {
 
         viewModel.rollOpeningDice()
         let rolledState = viewModel.state
+        let rolledLayout = viewModel.checkerLayout
 
         #expect(viewModel.applyMove(from: .point(PointID(rawValue: 24)!), to: .point(PointID(rawValue: 18)!)))
         viewModel.undoLastMove()
 
         #expect(viewModel.state == rolledState)
+        #expect(viewModel.checkerLayout == rolledLayout)
         #expect(!viewModel.isTurnDraftPending)
         #expect(!viewModel.canUndoTurnMove)
         #expect(viewModel.lastError == nil)

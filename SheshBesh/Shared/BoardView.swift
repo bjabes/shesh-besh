@@ -8,6 +8,7 @@ public struct BoardView: View {
     private let onBackToRivals: (() -> Void)?
 
     @State private var selectedSource: MoveSource?
+    @Namespace private var checkerNamespace
 
     public init(
         viewModel: MatchViewModel,
@@ -32,6 +33,7 @@ public struct BoardView: View {
 
                 BoardSurface(
                     viewModel: viewModel,
+                    checkerNamespace: checkerNamespace,
                     isReadOnly: isReadOnly,
                     selectedSource: selectedSource,
                     onPointTap: handlePointTap,
@@ -42,6 +44,7 @@ public struct BoardView: View {
 
                 BearOffStrip(
                     viewModel: viewModel,
+                    checkerNamespace: checkerNamespace,
                     selectedSource: selectedSource,
                     isReadOnly: isReadOnly,
                     onBearOffTap: handleBearOffTap
@@ -469,6 +472,7 @@ private struct PipStrip: View {
 
 private struct BoardSurface: View {
     let viewModel: MatchViewModel
+    let checkerNamespace: Namespace.ID
     let isReadOnly: Bool
     let selectedSource: MoveSource?
     let onPointTap: (PointID) -> Void
@@ -489,6 +493,7 @@ private struct BoardSurface: View {
             VStack(spacing: 0) {
                 BoardHalf(
                     viewModel: viewModel,
+                    checkerNamespace: checkerNamespace,
                     selectedSource: selectedSource,
                     leftPoints: pointLayout.topLeft,
                     rightPoints: pointLayout.topRight,
@@ -503,6 +508,7 @@ private struct BoardSurface: View {
 
                 TrayRow(
                     viewModel: viewModel,
+                    checkerNamespace: checkerNamespace,
                     selectedSource: selectedSource,
                     barWidth: barWidth,
                     onBarTap: onBarTap
@@ -511,6 +517,7 @@ private struct BoardSurface: View {
 
                 BoardHalf(
                     viewModel: viewModel,
+                    checkerNamespace: checkerNamespace,
                     selectedSource: selectedSource,
                     leftPoints: pointLayout.bottomLeft,
                     rightPoints: pointLayout.bottomRight,
@@ -566,6 +573,7 @@ private struct BoardPointLayout {
 
 private struct BoardHalf: View {
     let viewModel: MatchViewModel
+    let checkerNamespace: Namespace.ID
     let selectedSource: MoveSource?
     let leftPoints: [PointID]
     let rightPoints: [PointID]
@@ -580,6 +588,7 @@ private struct BoardHalf: View {
         HStack(spacing: 0) {
             PointRun(
                 viewModel: viewModel,
+                checkerNamespace: checkerNamespace,
                 selectedSource: selectedSource,
                 pointIDs: leftPoints,
                 pointsDown: pointsDown,
@@ -591,6 +600,7 @@ private struct BoardHalf: View {
 
             BarWell(
                 viewModel: viewModel,
+                checkerNamespace: checkerNamespace,
                 selectedSource: selectedSource,
                 segment: pointsDown ? .top : .bottom,
                 isLegalSource: legalSources.contains(.bar),
@@ -601,6 +611,7 @@ private struct BoardHalf: View {
 
             PointRun(
                 viewModel: viewModel,
+                checkerNamespace: checkerNamespace,
                 selectedSource: selectedSource,
                 pointIDs: rightPoints,
                 pointsDown: pointsDown,
@@ -615,6 +626,7 @@ private struct BoardHalf: View {
 
 private struct PointRun: View {
     let viewModel: MatchViewModel
+    let checkerNamespace: Namespace.ID
     let selectedSource: MoveSource?
     let pointIDs: [PointID]
     let pointsDown: Bool
@@ -629,6 +641,8 @@ private struct PointRun: View {
                 PointCell(
                     pointID: pointID,
                     point: viewModel.state.game.board.point(pointID),
+                    checkerIDs: viewModel.checkerLayout.slots[.point(pointID)] ?? [],
+                    checkerNamespace: checkerNamespace,
                     pointsDown: pointsDown,
                     isDarkPoint: (index.isMultiple(of: 2)) == startsWithDarkPoint,
                     isSelected: selectedSource == .point(pointID),
@@ -646,6 +660,8 @@ private struct PointRun: View {
 private struct PointCell: View {
     let pointID: PointID
     let point: PointState
+    let checkerIDs: [CheckerID]
+    let checkerNamespace: Namespace.ID
     let pointsDown: Bool
     let isDarkPoint: Bool
     let isSelected: Bool
@@ -661,7 +677,12 @@ private struct PointCell: View {
                     .fill(isDarkPoint ? LinenBrass.rust.opacity(0.68) : LinenBrass.cream.opacity(0.72))
                     .padding(.horizontal, 1)
 
-                CheckerStack(point: point, pointsDown: pointsDown, localPlayer: localPlayer)
+                CheckerStack(
+                    checkerIDs: checkerIDs,
+                    pointsDown: pointsDown,
+                    localPlayer: localPlayer,
+                    checkerNamespace: checkerNamespace
+                )
                     .padding(.vertical, 5)
                     .padding(.horizontal, 1)
 
@@ -748,33 +769,44 @@ private struct PointTriangle: Shape {
 }
 
 private struct CheckerStack: View {
-    let point: PointState
+    let checkerIDs: [CheckerID]
     let pointsDown: Bool
     let localPlayer: Player
+    let checkerNamespace: Namespace.ID
 
     var body: some View {
         GeometryReader { geometry in
-            let visibleCount = min(point.count, 5)
+            let visibleIDs = Array(checkerIDs.suffix(5))
+            let renderedIDs = pointsDown ? visibleIDs : Array(visibleIDs.reversed())
             let diameter = max(6, min(geometry.size.width * 0.88, geometry.size.height / 5.4))
             let spacing = max(-diameter * 0.12, -3)
 
             VStack(spacing: spacing) {
-                ForEach(0..<visibleCount, id: \.self) { _ in
-                    Checker(owner: point.owner, localPlayer: localPlayer)
-                        .frame(width: diameter, height: diameter)
+                if !pointsDown, checkerIDs.count > visibleIDs.count {
+                    checkerCountBadge
                 }
 
-                if point.count > visibleCount {
-                    Text("\(point.count)")
-                        .font(LinenBrass.uiFont(size: 10, weight: .bold))
-                        .foregroundStyle(LinenBrass.ink)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(LinenBrass.brass, in: Capsule())
+                ForEach(renderedIDs, id: \.self) { checkerID in
+                    Checker(owner: checkerID.player, localPlayer: localPlayer)
+                        .frame(width: diameter, height: diameter)
+                        .matchedGeometryEffect(id: checkerID, in: checkerNamespace)
+                }
+
+                if pointsDown, checkerIDs.count > visibleIDs.count {
+                    checkerCountBadge
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: pointsDown ? .top : .bottom)
         }
+    }
+
+    private var checkerCountBadge: some View {
+        Text("\(checkerIDs.count)")
+            .font(LinenBrass.uiFont(size: 10, weight: .bold))
+            .foregroundStyle(LinenBrass.ink)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(LinenBrass.brass, in: Capsule())
     }
 }
 
@@ -842,6 +874,7 @@ private enum BarSegment {
 
 private struct BarWell: View {
     let viewModel: MatchViewModel
+    let checkerNamespace: Namespace.ID
     let selectedSource: MoveSource?
     let segment: BarSegment
     let isLegalSource: Bool
@@ -879,17 +912,16 @@ private struct BarWell: View {
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 
+    @ViewBuilder
     private func barCheckers(for player: Player) -> some View {
-        let count = viewModel.state.game.board.barCount(for: player)
-        return Group {
-            if count > 0 {
-                Checker(owner: player, localPlayer: viewModel.localPlayer)
-                    .overlay {
-                        Text("\(count)")
-                            .font(LinenBrass.uiFont(size: 10, weight: .bold))
-                            .foregroundStyle(player == viewModel.localPlayer ? LinenBrass.cream : LinenBrass.ink)
-                    }
-            }
+        let checkerIDs = viewModel.checkerLayout.slots[.bar(player)] ?? []
+        if !checkerIDs.isEmpty {
+            BarCheckerStack(
+                checkerIDs: checkerIDs,
+                localPlayer: viewModel.localPlayer,
+                checkerNamespace: checkerNamespace
+            )
+            .frame(height: 74)
         }
     }
 
@@ -930,8 +962,42 @@ private struct BarWell: View {
     }
 }
 
+private struct BarCheckerStack: View {
+    let checkerIDs: [CheckerID]
+    let localPlayer: Player
+    let checkerNamespace: Namespace.ID
+
+    var body: some View {
+        GeometryReader { geometry in
+            let visibleIDs = Array(checkerIDs.suffix(3))
+            let diameter = max(14, min(geometry.size.width * 0.72, geometry.size.height / 3.2, 28))
+            let spacing = -diameter * 0.24
+
+            VStack(spacing: spacing) {
+                ForEach(visibleIDs, id: \.self) { checkerID in
+                    Checker(owner: checkerID.player, localPlayer: localPlayer)
+                        .frame(width: diameter, height: diameter)
+                        .matchedGeometryEffect(id: checkerID, in: checkerNamespace)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .overlay(alignment: .topTrailing) {
+                if checkerIDs.count > visibleIDs.count {
+                    Text("\(checkerIDs.count)")
+                        .font(LinenBrass.uiFont(size: 9, weight: .bold))
+                        .foregroundStyle(LinenBrass.ink)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(LinenBrass.brass, in: Capsule())
+                }
+            }
+        }
+    }
+}
+
 private struct TrayRow: View {
     let viewModel: MatchViewModel
+    let checkerNamespace: Namespace.ID
     let selectedSource: MoveSource?
     let barWidth: CGFloat
     let onBarTap: () -> Void
@@ -944,6 +1010,7 @@ private struct TrayRow: View {
 
             BarWell(
                 viewModel: viewModel,
+                checkerNamespace: checkerNamespace,
                 selectedSource: selectedSource,
                 segment: .tray,
                 isLegalSource: viewModel.isLegalSource(.bar),
@@ -1004,17 +1071,23 @@ private struct TrayRow: View {
 
 private struct BearOffStrip: View {
     let viewModel: MatchViewModel
+    let checkerNamespace: Namespace.ID
     let selectedSource: MoveSource?
     let isReadOnly: Bool
     let onBearOffTap: () -> Void
 
     var body: some View {
+        let opponent = viewModel.localPlayer.opponent
+        let opponentCheckerIDs = viewModel.checkerLayout.slots[.off(opponent)] ?? []
+        let localCheckerIDs = viewModel.checkerLayout.slots[.off(viewModel.localPlayer)] ?? []
+
         HStack(spacing: 10) {
             BearOffZone(
-                title: "\(viewModel.displayName(for: viewModel.localPlayer.opponent)) off",
-                count: viewModel.state.game.board.borneOffCount(for: viewModel.localPlayer.opponent),
-                owner: viewModel.localPlayer.opponent,
+                title: "\(viewModel.displayName(for: opponent)) off",
+                checkerIDs: opponentCheckerIDs,
+                owner: opponent,
                 localPlayer: viewModel.localPlayer,
+                checkerNamespace: checkerNamespace,
                 isLegalDestination: false,
                 accessibilityIdentifier: "bear-off-opponent",
                 onTap: {}
@@ -1023,9 +1096,10 @@ private struct BearOffStrip: View {
 
             BearOffZone(
                 title: "You off",
-                count: viewModel.state.game.board.borneOffCount(for: viewModel.localPlayer),
+                checkerIDs: localCheckerIDs,
                 owner: viewModel.localPlayer,
                 localPlayer: viewModel.localPlayer,
+                checkerNamespace: checkerNamespace,
                 isLegalDestination: !isReadOnly && viewModel.isLegalDestination(.off, from: selectedSource),
                 accessibilityIdentifier: "bear-off-local",
                 onTap: onBearOffTap
@@ -1045,9 +1119,10 @@ private struct BearOffStrip: View {
 
 private struct BearOffZone: View {
     let title: String
-    let count: Int
+    let checkerIDs: [CheckerID]
     let owner: Player
     let localPlayer: Player
+    let checkerNamespace: Namespace.ID
     let isLegalDestination: Bool
     let accessibilityIdentifier: String
     let onTap: () -> Void
@@ -1055,16 +1130,13 @@ private struct BearOffZone: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 10) {
-                Checker(owner: owner, localPlayer: localPlayer)
-                    .frame(width: 28, height: 28)
-                    .opacity(count == 0 ? 0.38 : 1)
-                    .overlay {
-                        if count > 0 {
-                            Text("\(count)")
-                                .font(LinenBrass.uiFont(size: 10, weight: .bold))
-                                .foregroundStyle(owner == localPlayer ? LinenBrass.cream : LinenBrass.ink)
-                        }
-                    }
+                BearOffCheckerStack(
+                    checkerIDs: checkerIDs,
+                    owner: owner,
+                    localPlayer: localPlayer,
+                    checkerNamespace: checkerNamespace
+                )
+                .frame(width: 62, height: 32)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title)
@@ -1092,6 +1164,52 @@ private struct BearOffZone: View {
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    private var count: Int {
+        checkerIDs.count
+    }
+}
+
+private struct BearOffCheckerStack: View {
+    let checkerIDs: [CheckerID]
+    let owner: Player
+    let localPlayer: Player
+    let checkerNamespace: Namespace.ID
+
+    var body: some View {
+        GeometryReader { geometry in
+            let visibleIDs = Array(checkerIDs.suffix(3))
+            let diameter = max(20, min(geometry.size.height * 0.86, 28))
+            let spacing = -diameter * 0.38
+
+            ZStack(alignment: .topTrailing) {
+                if visibleIDs.isEmpty {
+                    Checker(owner: owner, localPlayer: localPlayer)
+                        .frame(width: diameter, height: diameter)
+                        .opacity(0.32)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                } else {
+                    HStack(spacing: spacing) {
+                        ForEach(visibleIDs, id: \.self) { checkerID in
+                            Checker(owner: checkerID.player, localPlayer: localPlayer)
+                                .frame(width: diameter, height: diameter)
+                                .matchedGeometryEffect(id: checkerID, in: checkerNamespace)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                }
+
+                if checkerIDs.count > visibleIDs.count {
+                    Text("\(checkerIDs.count)")
+                        .font(LinenBrass.uiFont(size: 9, weight: .bold))
+                        .foregroundStyle(LinenBrass.ink)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(LinenBrass.brass, in: Capsule())
+                }
+            }
+        }
     }
 }
 

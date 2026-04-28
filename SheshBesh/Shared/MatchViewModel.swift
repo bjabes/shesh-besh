@@ -1,23 +1,27 @@
 import Foundation
 import Observation
 import SheshBeshGame
+import SwiftUI
 
 @MainActor
 @Observable
 public final class MatchViewModel {
+    private static let checkerMoveAnimation = Animation.spring(response: 0.32, dampingFraction: 0.82)
+
     private let engine: MatchEngine
     private let opponentController: LocalAIOpponent
     private let opponentDelay: @Sendable () async -> Void
     @ObservationIgnored private var opponentTask: Task<Void, Never>?
 
     public private(set) var state: MatchState
+    public private(set) var checkerLayout: CheckerLayout
     public private(set) var lastError: String?
     public private(set) var legalActions: [MatchAction]
     public private(set) var legalMoves: [Move]
     public private(set) var pipCounts: [Player: Int]
     public private(set) var isOpponentThinking: Bool
     public private(set) var turnNotice: String?
-    private var turnDraftSnapshots: [MatchState]
+    private var turnDraftSnapshots: [(state: MatchState, layout: CheckerLayout)]
 
     public let localPlayer: Player
     public let opponentName: String
@@ -48,6 +52,7 @@ public final class MatchViewModel {
 
         self.engine = engine
         self.state = initialState
+        self.checkerLayout = CheckerLayout.reconstructed(from: initialState.game.board)
         self.localPlayer = localPlayer
         self.opponentName = opponentName
         self.isOpponentAutoplayEnabled = isOpponentAutoplayEnabled
@@ -206,10 +211,25 @@ public final class MatchViewModel {
     private func apply(_ action: MatchAction, schedulesOpponent: Bool) {
         do {
             let hadCompletion = state.completion != nil
-            state = try engine.apply(action: action, to: state)
-            lastError = nil
-            turnDraftSnapshots.removeAll()
-            refreshDerivedState()
+            let nextState = try engine.apply(action: action, to: state)
+            let applyStateChanges = {
+                self.state = nextState
+                if case .move(let move) = action {
+                    self.checkerLayout.apply(move)
+                } else if action == .startNextGame {
+                    self.checkerLayout = CheckerLayout.reconstructed(from: nextState.game.board)
+                }
+                self.lastError = nil
+                self.turnDraftSnapshots.removeAll()
+                self.refreshDerivedState()
+            }
+
+            if case .move = action {
+                withAnimation(Self.checkerMoveAnimation, applyStateChanges)
+            } else {
+                applyStateChanges()
+            }
+
             notifyStorageCallbacks(hadCompletion: hadCompletion)
             if schedulesOpponent {
                 turnNotice = nil
@@ -255,7 +275,9 @@ public final class MatchViewModel {
     }
 
     public func restartMatch() {
-        state = MatchEngine.newMatch(config: state.config)
+        let nextState = MatchEngine.newMatch(config: state.config)
+        state = nextState
+        checkerLayout = CheckerLayout.reconstructed(from: nextState.game.board)
         lastError = nil
         turnDraftSnapshots.removeAll()
         didNotifyCompletion = false
@@ -277,11 +299,14 @@ public final class MatchViewModel {
     }
 
     public func undoLastMove() {
-        guard let previousState = turnDraftSnapshots.popLast() else { return }
-        state = previousState
-        lastError = nil
-        turnNotice = nil
-        refreshDerivedState()
+        guard let snapshot = turnDraftSnapshots.popLast() else { return }
+        withAnimation(Self.checkerMoveAnimation) {
+            state = snapshot.state
+            checkerLayout = snapshot.layout
+            lastError = nil
+            turnNotice = nil
+            refreshDerivedState()
+        }
     }
 
     @discardableResult
@@ -349,12 +374,16 @@ public final class MatchViewModel {
             return
         }
 
-        turnDraftSnapshots.append(state)
+        turnDraftSnapshots.append((state: state, layout: checkerLayout))
         do {
-            state = try engine.apply(action: .move(move), to: state)
-            lastError = nil
-            turnNotice = nil
-            refreshDerivedState()
+            let nextState = try engine.apply(action: .move(move), to: state)
+            withAnimation(Self.checkerMoveAnimation) {
+                state = nextState
+                checkerLayout.apply(move)
+                lastError = nil
+                turnNotice = nil
+                refreshDerivedState()
+            }
         } catch {
             _ = turnDraftSnapshots.popLast()
             lastError = friendlyErrorMessage(error)

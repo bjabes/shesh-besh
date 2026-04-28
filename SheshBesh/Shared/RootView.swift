@@ -188,11 +188,29 @@ public struct RootView: View {
 
     #if canImport(GameKit) && canImport(UIKit)
     private func configureGameCenterCallbacks() {
-        gameCenterSession.onTurnEvent = { match, _ in
-            Task { await loadAndOpenGameCenterMatch(match) }
+        gameCenterSession.onTurnEvent = { match, didBecomeActive in
+            Task {
+                do {
+                    let loaded = try await gameCenterMatchCoordinator.load(match: match)
+                    if activeGameCenterMatch?.match.matchID == match.matchID || didBecomeActive {
+                        openGameCenterMatch(loaded)
+                    }
+                } catch {
+                    routeError = error.localizedDescription
+                }
+            }
         }
         gameCenterSession.onMatchEnded = { match in
-            Task { await loadAndOpenGameCenterMatch(match) }
+            Task {
+                do {
+                    let loaded = try await gameCenterMatchCoordinator.load(match: match)
+                    if activeGameCenterMatch?.match.matchID == match.matchID {
+                        openGameCenterMatch(loaded)
+                    }
+                } catch {
+                    routeError = error.localizedDescription
+                }
+            }
         }
         gameCenterSession.onWantsToQuitMatch = { match in
             Task { await handleWantsToQuit(match) }

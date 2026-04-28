@@ -74,6 +74,7 @@ final class SheshBeshUITests: XCTestCase {
         let aiButton = app.buttons["home-new-ai-rival"]
         let inviteButton = app.buttons["home-new-game-center-rival"]
         let removeAllButton = app.buttons["home-remove-all-matches"]
+        let gameCenterSignInButton = app.buttons["game-center-sign-in"]
         let resumeButton = app.buttons.matching(
             NSPredicate(format: "identifier BEGINSWITH %@", "resume-match-")
         ).firstMatch
@@ -81,6 +82,7 @@ final class SheshBeshUITests: XCTestCase {
         XCTAssertTrue(aiButton.waitForExistence(timeout: 5))
         XCTAssertTrue(inviteButton.exists)
         XCTAssertTrue(removeAllButton.waitForExistence(timeout: 2))
+        XCTAssertTrue(gameCenterSignInButton.waitForExistence(timeout: 2))
         XCTAssertTrue(resumeButton.waitForExistence(timeout: 2))
 
         let screenshot = XCUIScreen.main.screenshot()
@@ -88,6 +90,7 @@ final class SheshBeshUITests: XCTestCase {
             ("Practice vs AI", aiButton),
             ("Invite Friend", inviteButton),
             ("Remove All Matches", removeAllButton),
+            ("Game Center sign in", gameCenterSignInButton),
             ("Resume match", resumeButton),
         ].filter { _, control in
             screenshotContainsSystemBlue(in: control.frame, screenshot: screenshot, appFrame: app.frame)

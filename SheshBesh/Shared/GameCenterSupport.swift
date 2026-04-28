@@ -819,22 +819,31 @@ public struct GameCenterHomeView: View {
                 Button {
                     session.retry()
                 } label: {
-                    Label(authButtonTitle, systemImage: "person.crop.circle.badge.checkmark")
+                    ThemedButtonLabel(
+                        title: authButtonTitle,
+                        systemImage: "person.crop.circle.badge.checkmark",
+                        foregroundStyle: .white
+                    )
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(LedgerTheme.rust)
                 .disabled(session.authState == .authenticating)
+                .accessibilityIdentifier("game-center-sign-in")
 
                 if session.canOpenSystemSettings {
                     Button {
                         session.openSystemSettings()
                     } label: {
-                        Label("Open Settings", systemImage: "gearshape")
+                        ThemedButtonLabel(
+                            title: "Open Settings",
+                            systemImage: "gearshape",
+                            foregroundStyle: LedgerTheme.coffee
+                        )
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
-                    .tint(LedgerTheme.ink)
+                    .accessibilityIdentifier("game-center-open-settings")
                 }
             }
         }

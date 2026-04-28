@@ -1,0 +1,72 @@
+name: Gemini Review Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  pull_request_review_comment:
+    types: [created, edited, deleted]
+  issue_comment:
+    types: [created, edited, deleted]
+
+jobs:
+  gemini-gate:
+    runs-on: ubicloud-standard-2
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Check Gemini reviewed and all threads resolved
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const p = context.payload;
+            const prNumber =
+              p.pull_request?.number ??
+              (p.issue?.pull_request ? p.issue.number : null);
+            if (!prNumber) {
+              core.info('Not a PR event, skipping.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const isGemini = (login) =>
+              login === 'gemini-code-assist' || login === 'gemini-code-assist[bot]';
+
+            // 1. Has Gemini reviewed at all?
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner, repo, pull_number: prNumber,
+            });
+            if (!reviews.some(r => r.user && isGemini(r.user.login))) {
+              core.setFailed('Gemini has not reviewed this PR yet.');
+              return;
+            }
+
+            // 2. Are all Gemini-started threads resolved?
+            const data = await github.graphql(`
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    reviewThreads(first: 100) {
+                      nodes {
+                        isResolved
+                        comments(first: 1) { nodes { author { login } } }
+                      }
+                    }
+                  }
+                }
+              }
+            `, { owner, repo, number: prNumber });
+
+            const unresolved = data.repository.pullRequest.reviewThreads.nodes.filter(t => {
+              if (t.isResolved) return false;
+              const author = t.comments.nodes[0]?.author?.login;
+              return author && isGemini(author);
+            });
+
+            if (unresolved.length > 0) {
+              core.setFailed(`${unresolved.length} unresolved Gemini thread(s).`);
+              return;
+            }
+
+            core.info('Gemini gate passed.');

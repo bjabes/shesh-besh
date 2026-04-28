@@ -374,11 +374,18 @@ private struct RivalryCard: View {
         VStack(alignment: .leading, spacing: isHero ? 16 : 12) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("YOU vs \(ledger.rival.displayName.uppercased())")
-                        .font(LedgerTheme.displayFont(size: isHero ? 28 : 22, weight: .bold))
-                        .foregroundStyle(LedgerTheme.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.68)
+                    HStack(spacing: 8) {
+                        Image(systemName: ledger.rival.gameCenterPlayerID == nil ? "cpu" : "person.crop.circle.fill")
+                            .font(LedgerTheme.displayFont(size: isHero ? 28 : 22, weight: .bold))
+                            .foregroundStyle(LedgerTheme.mutedInk)
+                            .accessibilityHidden(true)
+
+                        Text(ledger.rival.displayName.uppercased())
+                            .font(LedgerTheme.displayFont(size: isHero ? 28 : 22, weight: .bold))
+                            .foregroundStyle(LedgerTheme.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.68)
+                    }
 
                     Text(statusLine)
                         .font(LedgerTheme.uiFont(size: 14, weight: .semibold))
@@ -496,7 +503,7 @@ private struct MetricPill: View {
     }
 }
 
-private struct ThemedButtonLabel: View {
+struct ThemedButtonLabel: View {
     let title: String
     let systemImage: String
     let foregroundStyle: Color

@@ -33,12 +33,23 @@ jobs:
             const isGemini = (login) =>
               login === 'gemini-code-assist' || login === 'gemini-code-assist[bot]';
 
-            // 1. Has Gemini reviewed at all?
+            // 1. Has Gemini reviewed the CURRENT head commit?
+            const { data: pr } = await github.rest.pulls.get({
+              owner, repo, pull_number: prNumber,
+            });
+            const headSha = pr.head.sha;
+
             const reviews = await github.paginate(github.rest.pulls.listReviews, {
               owner, repo, pull_number: prNumber,
             });
-            if (!reviews.some(r => r.user && isGemini(r.user.login))) {
-              core.setFailed('Gemini has not reviewed this PR yet.');
+            const reviewedHead = reviews.some(r =>
+              r.user && isGemini(r.user.login) && r.commit_id === headSha
+            );
+            if (!reviewedHead) {
+              core.setFailed(
+                `Gemini has not reviewed the latest commit (${headSha.slice(0, 7)}). ` +
+                `Wait for Gemini to re-review after the most recent push.`
+              );
               return;
             }
 

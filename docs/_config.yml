@@ -1,3 +1,8 @@
 title: Gammonade
 description: A pure-Swift backgammon game for iPhone, with offline AI and Game Center turn-based matches.
 theme: jekyll-theme-cayman
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default

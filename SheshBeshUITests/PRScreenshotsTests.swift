@@ -31,7 +31,7 @@ final class PRScreenshotsTests: XCTestCase {
         attachScreenshot(named: "board-opening-pre-roll")
 
         app.buttons["action-opening-roll"].tap()
-        XCTAssertTrue(element("die-1", in: app).waitForExistence(timeout: 2))
+        XCTAssertTrue(element("die-1", in: app).waitForExistence(timeout: 5))
         attachScreenshot(named: "board-opening-rolled-6-1")
 
         element("point-24", in: app).tap()

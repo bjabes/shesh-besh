@@ -101,7 +101,7 @@ public final class MatchViewModel {
         self.opponentController = resolvedOpponentController
         self.opponentDelay = opponentDelay
         self.raceAutoplayController = raceAutoplayController
-            ?? (isOpponentAutoplayEnabled ? resolvedOpponentController : LocalAIOpponent(difficulty: .medium))
+            ?? (isOpponentAutoplayEnabled ? resolvedOpponentController : LocalAIOpponent(difficulty: aiDifficulty))
         self.raceAutoplayDelay = raceAutoplayDelay
         self.isOpponentThinking = false
         self.isRaceAutoplayActive = false

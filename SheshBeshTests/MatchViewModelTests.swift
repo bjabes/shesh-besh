@@ -587,6 +587,30 @@ struct MatchViewModelTests {
         #expect(viewModel.lastError == nil)
     }
 
+    @Test("Local autoplay respects AI difficulty without opponent automation")
+    @MainActor
+    func localAutoplayRespectsAIDifficultyWithoutOpponentAutomation() async throws {
+        let viewModel = MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([1, 1])),
+            localPlayer: .black,
+            initialState: try autoplayDifficultyProbeState(),
+            isOpponentAutoplayEnabled: false,
+            aiDifficulty: .hard,
+            raceAutoplayDelay: {}
+        )
+
+        #expect(viewModel.canStartLocalAutoplay)
+        viewModel.startLocalAutoplay()
+
+        let hitBlot = await waitUntil {
+            viewModel.state.game.board.barCount(for: .white) == 1
+        }
+
+        #expect(hitBlot)
+        #expect(viewModel.state.game.board.point(PointID(rawValue: 22)!).owner == .black)
+        #expect(viewModel.lastError == nil)
+    }
+
     @Test("Easy AI local autoplay keeps deterministic random selection")
     @MainActor
     func easyAILocalAutoplayKeepsDeterministicRandomSelection() async throws {

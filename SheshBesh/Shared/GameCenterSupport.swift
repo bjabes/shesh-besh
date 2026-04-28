@@ -130,7 +130,7 @@ public final class GameCenterSession: NSObject, @preconcurrency GKLocalPlayerLis
 
         let nsError = error as NSError
         let userInfoString = String(describing: nsError.userInfo)
-        gcLog.error("auth failure raw error: domain=\(nsError.domain, privacy: .public) code=\(nsError.code) userInfo=\(userInfoString, privacy: .public)")
+        gcLog.error("auth failure raw error: domain=\(nsError.domain, privacy: .public) code=\(nsError.code) userInfo=\(userInfoString, privacy: .private)")
 
         guard nsError.domain == GKErrorDomain,
               let code = GKError.Code(rawValue: nsError.code)
@@ -153,7 +153,7 @@ public final class GameCenterSession: NSObject, @preconcurrency GKLocalPlayerLis
             let pollCount = 8
             let pollInterval: Duration = .milliseconds(1500)
             for tick in 1...pollCount {
-                try? await Task.sleep(for: pollInterval)
+                try await Task.sleep(for: pollInterval)
                 guard let self else { return }
                 guard self.authenticationAttemptID == attemptID else {
                     self.trace("timeout poll bailed — attempt id changed (superseded)")

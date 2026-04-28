@@ -787,20 +787,25 @@ public struct GameCenterHomeView: View {
         Task {
             defer { isWorking = false }
 
+            var failureMessages: [String] = []
+
             do {
                 if !localMatchesToClear.isEmpty {
                     try await ledgerCoordinator.clearActiveMatches(localMatchesToClear)
                 }
             } catch {
-                localError = error.localizedDescription
-                return
+                failureMessages.append("Local matches could not be cleared: \(error.localizedDescription)")
             }
 
-            guard !gameCenterMatchesToRemove.isEmpty else { return }
+            guard !gameCenterMatchesToRemove.isEmpty else {
+                localError = failureMessages.first
+                return
+            }
 
             await refresh()
             let loadedByID = loadedMatchesByID
             var failedGameCenterCount = 0
+            var successfullyRemoved: [ActiveMatch] = []
 
             for activeMatch in gameCenterMatchesToRemove {
                 guard let gameCenterMatchID = activeMatch.gameCenterMatchID,
@@ -811,17 +816,29 @@ public struct GameCenterHomeView: View {
 
                 do {
                     try await matchCoordinator.remove(loaded: loaded)
-                    try await ledgerCoordinator.clearActiveMatches([activeMatch])
+                    successfullyRemoved.append(activeMatch)
                 } catch {
                     failedGameCenterCount += 1
+                }
+            }
+
+            if !successfullyRemoved.isEmpty {
+                do {
+                    try await ledgerCoordinator.clearActiveMatches(successfullyRemoved)
+                } catch {
+                    failureMessages.append(
+                        "\(successfullyRemoved.count) forfeited Game Center \(successfullyRemoved.count == 1 ? "match" : "matches") could not be cleared locally: \(error.localizedDescription)"
+                    )
                 }
             }
 
             await refresh()
 
             if failedGameCenterCount > 0 {
-                localError = "\(failedGameCenterCount) Game Center \(failedGameCenterCount == 1 ? "match" : "matches") could not be forfeited. Those matches were left active."
+                failureMessages.append("\(failedGameCenterCount) Game Center \(failedGameCenterCount == 1 ? "match" : "matches") could not be forfeited. Those matches were left active.")
             }
+
+            localError = failureMessages.isEmpty ? nil : failureMessages.joined(separator: "\n")
         }
     }
 

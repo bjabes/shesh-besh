@@ -275,7 +275,9 @@ public final class GameCenterMatchCoordinator {
                 localPlayerID: localPlayerID,
                 targetScore: targetScore
             )
-            if match.currentParticipant?.player?.gamePlayerID == localPlayerID {
+            if match.currentParticipant?.player?.gamePlayerID == localPlayerID,
+               !envelope.playerMapping.hasPendingGameCenterID(for: .white),
+               !envelope.playerMapping.hasPendingGameCenterID(for: .black) {
                 try await save(envelope: envelope, to: match)
             }
         }
@@ -373,14 +375,21 @@ public final class GameCenterMatchCoordinator {
         let opponent = localPlayer.opponent
         let opponentID = envelope.playerMapping.gameCenterID(for: opponent)
         let opponentName = envelope.playerMapping.displayName(for: opponent)
-
-        let rival = ledgerCoordinator.rival(matchingGameCenterPlayerID: opponentID)
-            ?? Rival(
+        let isOpponentResolved = !GameCenterPlayerMapping.isPendingGameCenterID(opponentID)
+        let existingActive = isOpponentResolved
+            ? ledgerCoordinator.activeMatch(gameCenterMatchID: match.matchID)
+            : nil
+        let rival = isOpponentResolved
+            ? ledgerCoordinator.rival(matchingGameCenterPlayerID: opponentID) ?? Rival(
                 displayName: opponentName,
                 gameCenterPlayerID: opponentID,
                 gameCenterDisplayName: opponentName
             )
-        let existingActive = ledgerCoordinator.activeMatch(gameCenterMatchID: match.matchID)
+            : Rival(
+                displayName: opponentName,
+                gameCenterPlayerID: opponentID,
+                gameCenterDisplayName: opponentName
+            )
         let activeMatch = ActiveMatch(
             id: existingActive?.id ?? UUID(),
             rivalID: rival.id,
@@ -392,7 +401,9 @@ public final class GameCenterMatchCoordinator {
             lastUpdatedAt: Date()
         )
 
-        try await ledgerCoordinator.saveGameCenterMatch(activeMatch, rival: rival)
+        if isOpponentResolved {
+            try await ledgerCoordinator.saveGameCenterMatch(activeMatch, rival: rival)
+        }
 
         return GameCenterLoadedMatch(
             match: match,
@@ -469,7 +480,7 @@ public final class GameCenterMatchCoordinator {
             guard let playerID = participant.player?.gamePlayerID else { return false }
             return playerID != localPlayerID
         }
-        let opponentID = opponent?.player?.gamePlayerID ?? "pending-\(match.matchID)"
+        let opponentID = opponent?.player?.gamePlayerID ?? "\(GameCenterPlayerMapping.pendingPlayerIDPrefix)\(match.matchID)"
         let opponentName = opponent?.player?.displayName ?? "Opponent"
         let config = MatchConfig.tournament(targetScore: targetScore)
 

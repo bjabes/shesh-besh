@@ -313,6 +313,54 @@ struct LedgerCoordinatorTests {
         #expect(try await store.loadActiveMatch(rivalID: rival.id) == nil)
         #expect(coordinator.ledger(for: rival.id) == nil)
     }
+
+    @Test("refresh purges pending Game Center placeholder rivalries")
+    @MainActor
+    func refreshPurgesPendingGameCenterPlaceholderRivalries() async throws {
+        let rival = Rival(
+            displayName: "Opponent",
+            gameCenterPlayerID: "pending-gc-match-1",
+            gameCenterDisplayName: "Opponent"
+        )
+        let active = ActiveMatch(
+            rivalID: rival.id,
+            gameCenterMatchID: "gc-match-1",
+            userPlayed: .white,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 7))
+        )
+        let store = InMemoryLedgerStore(rivals: [rival], activeMatches: [active])
+        let coordinator = LedgerCoordinator(store: store)
+
+        await coordinator.refresh()
+
+        #expect(try await store.loadRivals().isEmpty)
+        #expect(try await store.loadActiveMatch(rivalID: rival.id) == nil)
+        #expect(coordinator.ledgers.isEmpty)
+    }
+
+    @Test("refresh preserves resolved Game Center rival named Opponent")
+    @MainActor
+    func refreshPreservesResolvedGameCenterRivalNamedOpponent() async throws {
+        let rival = Rival(
+            displayName: "Opponent",
+            gameCenterPlayerID: "real-game-center-player",
+            gameCenterDisplayName: "Opponent"
+        )
+        let active = ActiveMatch(
+            rivalID: rival.id,
+            gameCenterMatchID: "gc-match-1",
+            userPlayed: .white,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 7))
+        )
+        let store = InMemoryLedgerStore(rivals: [rival], activeMatches: [active])
+        let coordinator = LedgerCoordinator(store: store)
+
+        await coordinator.refresh()
+
+        #expect(try await store.loadRivals() == [rival])
+        #expect(try await store.loadActiveMatch(rivalID: rival.id) == active)
+        #expect(coordinator.ledger(for: rival.id)?.activeMatch == active)
+    }
 }
 
 private final class CompletionDiceRoller: DiceRolling, @unchecked Sendable {

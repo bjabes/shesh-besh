@@ -3,6 +3,8 @@ import Foundation
 import SheshBeshGame
 
 public struct GameCenterPlayerMapping: Codable, Equatable, Hashable, Sendable {
+    static let pendingPlayerIDPrefix = "pending-"
+
     public var whitePlayerID: String
     public var blackPlayerID: String
     public var whiteDisplayName: String
@@ -42,6 +44,14 @@ public struct GameCenterPlayerMapping: Codable, Equatable, Hashable, Sendable {
         case .black:
             blackDisplayName
         }
+    }
+
+    func hasPendingGameCenterID(for player: Player) -> Bool {
+        Self.isPendingGameCenterID(gameCenterID(for: player))
+    }
+
+    static func isPendingGameCenterID(_ playerID: String) -> Bool {
+        playerID.hasPrefix(pendingPlayerIDPrefix)
     }
 }
 

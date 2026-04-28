@@ -178,6 +178,11 @@ public final class LedgerCoordinator {
         rival.gameCenterPlayerID == nil && rival.displayName == difficulty.rivalDisplayName
     }
 
+    private static func isPendingGameCenterRival(_ rival: Rival) -> Bool {
+        guard let gameCenterPlayerID = rival.gameCenterPlayerID else { return false }
+        return GameCenterPlayerMapping.isPendingGameCenterID(gameCenterPlayerID)
+    }
+
     private static func sortLedgers(_ lhs: RivalLedger, _ rhs: RivalLedger) -> Bool {
         let lhsDate = lhs.lastPlayedAt ?? lhs.activeMatch?.lastUpdatedAt ?? lhs.rival.createdAt
         let rhsDate = rhs.lastPlayedAt ?? rhs.activeMatch?.lastUpdatedAt ?? rhs.rival.createdAt
@@ -188,7 +193,11 @@ public final class LedgerCoordinator {
     }
 
     private func reconciledSnapshot() async throws -> LedgerSnapshot {
-        let snapshot = try await store.loadAllLedgerData()
+        var snapshot = try await store.loadAllLedgerData()
+        if try await purgePendingGameCenterRivals(in: snapshot) {
+            snapshot = try await store.loadAllLedgerData()
+        }
+
         let completedMatches = snapshot.activeMatchesByRival.values.filter { $0.state.completion != nil }
         guard !completedMatches.isEmpty else { return snapshot }
 
@@ -199,6 +208,23 @@ public final class LedgerCoordinator {
         }
 
         return try await store.loadAllLedgerData()
+    }
+
+    private func purgePendingGameCenterRivals(in snapshot: LedgerSnapshot) async throws -> Bool {
+        var didChange = false
+
+        for rival in snapshot.rivals where Self.isPendingGameCenterRival(rival) {
+            let records = snapshot.recordsByRival[rival.id, default: []]
+            guard records.isEmpty else { continue }
+
+            if snapshot.activeMatchesByRival[rival.id] != nil {
+                try await store.clearActiveMatch(rivalID: rival.id)
+            }
+            try await store.deleteRival(id: rival.id)
+            didChange = true
+        }
+
+        return didChange
     }
 
     private func makeRecord(from match: ActiveMatch, completedAt: Date) throws -> MatchRecord {

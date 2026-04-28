@@ -391,14 +391,14 @@ private struct HeaderCard: View {
             HStack(alignment: .center, spacing: 10) {
                 if let onBackToRivals {
                     Button(action: onBackToRivals) {
-                        Label("Rivals", systemImage: "chevron.left")
-                            .font(LinenBrass.uiFont(size: 14, weight: .semibold))
-                            .labelStyle(.titleAndIcon)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
+                        Image(systemName: "chevron.left")
+                            .font(LinenBrass.uiFont(size: 16, weight: .semibold))
+                            .frame(width: 44, height: 44, alignment: .leading)
+                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.bordered)
-                    .tint(LinenBrass.coffee)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(LinenBrass.coffee)
+                    .accessibilityLabel("Back to rivals")
                     .accessibilityIdentifier("match-back-button")
                 }
 

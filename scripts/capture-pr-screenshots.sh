@@ -9,6 +9,38 @@ SCREENSHOT_DIR="${SCREENSHOT_DIR:-$ROOT_DIR/.context/pr-screenshots}"
 RESULT_BUNDLE_PATH="${RESULT_BUNDLE_PATH:-$ROOT_DIR/.context/pr-screenshots.xcresult}"
 ATTACHMENTS_DIR="$SCREENSHOT_DIR/.xcresult-attachments"
 
+# Map scene names (from AppLaunchConfiguration.UITestScene) to the UI test
+# method name in PRScreenshotsTests. Keep this in sync with that file —
+# adding a new scene means adding both a test method and a case here.
+SCENE_NAMES="board-opening rivalries-home match-end-you-won match-end-rival-won"
+test_name_for_scene() {
+  case "$1" in
+    board-opening)        echo testCapture_BoardOpening ;;
+    rivalries-home)       echo testCapture_RivalriesHome ;;
+    match-end-you-won)    echo testCapture_MatchEndYouWon ;;
+    match-end-rival-won)  echo testCapture_MatchEndRivalWon ;;
+    *)                    return 1 ;;
+  esac
+}
+
+# Build the -only-testing flags. PR_SCREENSHOT_SCENES, when set, is a
+# comma-separated subset of scene names; unset means run them all.
+only_testing_flags=()
+if [[ -n "${PR_SCREENSHOT_SCENES:-}" ]]; then
+  IFS=',' read -r -a requested_scenes <<<"$PR_SCREENSHOT_SCENES"
+  for scene in "${requested_scenes[@]}"; do
+    scene="${scene//[[:space:]]/}"
+    [[ -z "$scene" ]] && continue
+    if ! test_name=$(test_name_for_scene "$scene"); then
+      echo "Unknown scene: $scene. Known scenes: $SCENE_NAMES" >&2
+      exit 1
+    fi
+    only_testing_flags+=("-only-testing:SheshBeshUITests/PRScreenshotsTests/$test_name")
+  done
+else
+  only_testing_flags+=("-only-testing:SheshBeshUITests/PRScreenshotsTests")
+fi
+
 rm -rf "$SCREENSHOT_DIR" "$RESULT_BUNDLE_PATH"
 mkdir -p "$ATTACHMENTS_DIR"
 
@@ -16,7 +48,7 @@ xcodebuild \
   -project SheshBesh.xcodeproj \
   -scheme SheshBesh \
   -destination "$IOS_TEST_DESTINATION" \
-  -only-testing:SheshBeshUITests/SheshBeshUITests/testPRScreenshots \
+  "${only_testing_flags[@]}" \
   -resultBundlePath "$RESULT_BUNDLE_PATH" \
   CODE_SIGNING_ALLOWED=NO \
   test

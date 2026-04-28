@@ -106,7 +106,7 @@ public struct BoardView: View {
             }
         }
         .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, minHeight: 42)
+        .frame(maxWidth: .infinity, minHeight: 64)
         .background(LinenBrass.coffee.opacity(0.94), in: RoundedRectangle(cornerRadius: 7))
         .overlay(
             RoundedRectangle(cornerRadius: 7)

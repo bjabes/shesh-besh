@@ -330,12 +330,14 @@ struct RivalryStack: View {
     let onStart: (RivalLedger) -> Void
     let onResume: (ActiveMatch) -> Void
     var onDelete: (RivalLedger) -> Void = { _ in }
+    var inertStatus: (RivalLedger) -> String? = { _ in nil }
 
     var body: some View {
         ForEach(Array(ledgers.enumerated()), id: \.element.rival.id) { index, ledger in
             RivalryCard(
                 ledger: ledger,
                 isHero: index == 0,
+                inertStatus: inertStatus(ledger),
                 onStart: { onStart(ledger) },
                 onResume: {
                     if let match = ledger.activeMatch {
@@ -358,6 +360,7 @@ struct RivalryStack: View {
 private struct RivalryCard: View {
     let ledger: RivalLedger
     let isHero: Bool
+    var inertStatus: String? = nil
     let onStart: () -> Void
     let onResume: () -> Void
 
@@ -394,10 +397,12 @@ private struct RivalryCard: View {
                         .monospacedDigit()
                         .accessibilityIdentifier("ledger-score-\(ledger.rival.id.uuidString)")
 
-                    Image(systemName: "chevron.right")
-                        .font(LedgerTheme.uiFont(size: isHero ? 16 : 14, weight: .semibold))
-                        .foregroundStyle(LedgerTheme.mutedInk)
-                        .accessibilityHidden(true)
+                    if inertStatus == nil {
+                        Image(systemName: "chevron.right")
+                            .font(LedgerTheme.uiFont(size: isHero ? 16 : 14, weight: .semibold))
+                            .foregroundStyle(LedgerTheme.mutedInk)
+                            .accessibilityHidden(true)
+                    }
                 }
 
                 HStack(spacing: 10) {
@@ -408,11 +413,25 @@ private struct RivalryCard: View {
             }
         }
         .buttonStyle(RivalryRowButtonStyle(isHero: isHero))
-        .accessibilityIdentifier("\(ledger.activeMatch == nil ? "start" : "resume")-match-\(ledger.rival.id.uuidString)")
-        .accessibilityLabel("\(ledger.activeMatch == nil ? "Start" : "Resume") match against \(ledger.rival.displayName). Score: \(ledger.userWins) to \(ledger.rivalWins). \(statusLine)")
+        .disabled(inertStatus != nil)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .accessibilityLabel("\(accessibilityVerb) match against \(ledger.rival.displayName). Score: \(ledger.userWins) to \(ledger.rivalWins). \(statusLine)")
+    }
+
+    private var accessibilityIdentifier: String {
+        if inertStatus != nil {
+            return "inert-match-\(ledger.rival.id.uuidString)"
+        }
+        return "\(ledger.activeMatch == nil ? "start" : "resume")-match-\(ledger.rival.id.uuidString)"
+    }
+
+    private var accessibilityVerb: String {
+        if inertStatus != nil { return "Closed" }
+        return ledger.activeMatch == nil ? "Start" : "Resume"
     }
 
     private func primaryAction() {
+        if inertStatus != nil { return }
         if ledger.activeMatch == nil {
             onStart()
         } else {
@@ -421,6 +440,8 @@ private struct RivalryCard: View {
     }
 
     private var statusLine: String {
+        if let inertStatus { return inertStatus }
+
         if let activeMatch = ledger.activeMatch {
             return activeStatus(for: activeMatch)
         }

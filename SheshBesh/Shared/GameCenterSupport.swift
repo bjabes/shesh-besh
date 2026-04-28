@@ -227,6 +227,7 @@ public struct GameCenterLoadedMatch {
     public var activeMatch: ActiveMatch
     public var rival: Rival
     public var localPlayerID: String
+    public var localParticipantStatus: GKTurnBasedParticipant.Status
 
     public var localPlayer: Player {
         envelope.playerMapping.player(forGameCenterID: localPlayerID) ?? .white
@@ -255,6 +256,9 @@ public final class GameCenterMatchCoordinator {
 
     public func load(match: GKTurnBasedMatch, targetScore: Int = 7) async throws -> GameCenterLoadedMatch {
         let localPlayerID = GKLocalPlayer.local.gamePlayerID
+        let localParticipant = match.participants.first {
+            $0.player?.gamePlayerID == localPlayerID
+        }
         let data = try await match.loadMatchData()
         let envelope: GameCenterMatchEnvelope
 
@@ -275,12 +279,18 @@ public final class GameCenterMatchCoordinator {
                 localPlayerID: localPlayerID,
                 targetScore: targetScore
             )
-            if match.currentParticipant?.player?.gamePlayerID == localPlayerID {
+            if match.currentParticipant?.player?.gamePlayerID == localPlayerID,
+               localParticipant?.status == .active {
                 try await save(envelope: envelope, to: match)
             }
         }
 
-        return try await reconcileLedger(for: match, envelope: envelope, localPlayerID: localPlayerID)
+        return try await reconcileLedger(
+            for: match,
+            envelope: envelope,
+            localPlayerID: localPlayerID,
+            localParticipantStatus: localParticipant?.status ?? .unknown
+        )
     }
 
     public func commit(state: MatchState, for loaded: GameCenterLoadedMatch) async throws -> GameCenterLoadedMatch {
@@ -318,10 +328,14 @@ public final class GameCenterMatchCoordinator {
             try await match.saveCurrentTurn(withMatch: data)
         }
 
+        let localParticipant = match.participants.first {
+            $0.player?.gamePlayerID == loaded.localPlayerID
+        }
         let updated = try await reconcileLedger(
             for: match,
             envelope: envelope,
-            localPlayerID: loaded.localPlayerID
+            localPlayerID: loaded.localPlayerID,
+            localParticipantStatus: localParticipant?.status ?? .unknown
         )
 
         if state.completion != nil {
@@ -365,7 +379,8 @@ public final class GameCenterMatchCoordinator {
     private func reconcileLedger(
         for match: GKTurnBasedMatch,
         envelope: GameCenterMatchEnvelope,
-        localPlayerID: String
+        localPlayerID: String,
+        localParticipantStatus: GKTurnBasedParticipant.Status
     ) async throws -> GameCenterLoadedMatch {
         await ledgerCoordinator.refresh()
 
@@ -399,7 +414,8 @@ public final class GameCenterMatchCoordinator {
             envelope: envelope,
             activeMatch: activeMatch,
             rival: rival,
-            localPlayerID: localPlayerID
+            localPlayerID: localPlayerID,
+            localParticipantStatus: localParticipantStatus
         )
     }
 
@@ -664,7 +680,8 @@ public struct GameCenterHomeView: View {
                         ledgers: ledgerCoordinator.ledgers,
                         onStart: startMatch,
                         onResume: resumeMatch,
-                        onDelete: requestDelete
+                        onDelete: requestDelete,
+                        inertStatus: inertStatusFor
                     )
                 }
             }
@@ -749,6 +766,30 @@ public struct GameCenterHomeView: View {
 
     private var loadedMatchesByID: [String: GameCenterLoadedMatch] {
         Dictionary(matches.map { ($0.match.matchID, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private var inertStatusByMatchID: [String: String] {
+        var result: [String: String] = [:]
+        for loaded in matches {
+            switch loaded.localParticipantStatus {
+            case .declined:
+                result[loaded.match.matchID] = "Invitation declined"
+            case .done:
+                if loaded.envelope.state.completion == nil {
+                    result[loaded.match.matchID] = "Match ended"
+                }
+            default:
+                continue
+            }
+        }
+        return result
+    }
+
+    private func inertStatusFor(_ ledger: RivalLedger) -> String? {
+        guard let gameCenterMatchID = ledger.activeMatch?.gameCenterMatchID else {
+            return nil
+        }
+        return inertStatusByMatchID[gameCenterMatchID]
     }
 
     private var removeAllConfirmationMessage: String {
@@ -877,20 +918,37 @@ public struct GameCenterHomeView: View {
         isLoadingMatches = true
         defer { isLoadingMatches = false }
 
+        let gameCenterMatches: [GKTurnBasedMatch]
         do {
-            let gameCenterMatches = try await session.loadMatches()
-            var loaded: [GameCenterLoadedMatch] = []
-            for match in gameCenterMatches {
-                loaded.append(try await matchCoordinator.load(match: match, targetScore: selectedTargetScore))
-            }
-            matches = loaded.sorted { lhs, rhs in
-                if lhs.isLocalTurn != rhs.isLocalTurn {
-                    return lhs.isLocalTurn
-                }
-                return lhs.match.creationDate > rhs.match.creationDate
-            }
+            gameCenterMatches = try await session.loadMatches()
         } catch {
             localError = error.localizedDescription
+            return
+        }
+
+        var loaded: [GameCenterLoadedMatch] = []
+        var failures: [String] = []
+        for match in gameCenterMatches {
+            do {
+                loaded.append(try await matchCoordinator.load(match: match, targetScore: selectedTargetScore))
+            } catch {
+                failures.append("\(match.matchID): \(error.localizedDescription)")
+            }
+        }
+
+        if !failures.isEmpty {
+            gcLog.error("refresh() skipped \(failures.count, privacy: .public) match(es): \(failures.joined(separator: " | "), privacy: .private)")
+        }
+
+        matches = loaded.sorted { lhs, rhs in
+            if lhs.isLocalTurn != rhs.isLocalTurn {
+                return lhs.isLocalTurn
+            }
+            return lhs.match.creationDate > rhs.match.creationDate
+        }
+
+        if loaded.isEmpty, let firstFailure = failures.first {
+            localError = firstFailure
         }
     }
 

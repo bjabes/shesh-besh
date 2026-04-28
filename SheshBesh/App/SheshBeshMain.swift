@@ -14,6 +14,9 @@ struct SheshBeshMain: App {
 }
 
 private struct RootContainer: View {
+    private static let splashFadeDuration: Double = 0.35
+    private static let splashRemovalBuffer: Double = 0.05
+
     @State private var splashOpacity: Double
     @State private var splashRemoved: Bool
     private let root: RootView
@@ -30,11 +33,11 @@ private struct RootContainer: View {
             root
             if !splashRemoved {
                 SplashView(onFinished: {
-                    withAnimation(.easeInOut(duration: 0.35)) {
+                    withAnimation(.easeInOut(duration: Self.splashFadeDuration)) {
                         splashOpacity = 0
                     }
                     Task {
-                        try? await Task.sleep(for: .milliseconds(380))
+                        try? await Task.sleep(for: .seconds(Self.splashFadeDuration + Self.splashRemovalBuffer))
                         splashRemoved = true
                     }
                 })

@@ -369,8 +369,6 @@ public final class GameCenterMatchCoordinator {
         envelope: GameCenterMatchEnvelope,
         localPlayerID: String
     ) async throws -> GameCenterLoadedMatch {
-        await ledgerCoordinator.refresh()
-
         let localPlayer = envelope.playerMapping.player(forGameCenterID: localPlayerID) ?? .white
         let opponent = localPlayer.opponent
         let opponentID = envelope.playerMapping.gameCenterID(for: opponent)

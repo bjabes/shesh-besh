@@ -1,14 +1,13 @@
 name: Gemini Review Gate
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
   pull_request_review:
     types: [submitted, edited, dismissed]
   pull_request_review_comment:
     types: [created, edited, deleted]
   issue_comment:
     types: [created, edited, deleted]
+  workflow_dispatch:
 
 jobs:
   gemini-gate:

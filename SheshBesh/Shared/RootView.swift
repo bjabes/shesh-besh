@@ -48,6 +48,25 @@ public struct RootView: View {
         #endif
     }
 
+    #if DEBUG
+    /// Debug-only seam used by UI test scenes to surface the match-end sheet
+    /// over a posed board without playing a full match. The completed record
+    /// is presented immediately and the supplied view model renders behind it.
+    public init(
+        coordinator: LedgerCoordinator,
+        backgroundMatchViewModel: MatchViewModel,
+        completedRecordPreview: MatchRecord
+    ) {
+        _singleMatchViewModel = State(initialValue: nil)
+        _coordinator = State(initialValue: coordinator)
+        _activeMatchViewModel = State(initialValue: backgroundMatchViewModel)
+        _completedRecord = State(initialValue: completedRecordPreview)
+        #if canImport(GameKit) && canImport(UIKit)
+        _gameCenterMatchCoordinator = State(initialValue: GameCenterMatchCoordinator(ledgerCoordinator: coordinator))
+        #endif
+    }
+    #endif
+
     public var body: some View {
         Group {
             if let singleMatchViewModel {

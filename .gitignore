@@ -62,3 +62,8 @@ playground.xcworkspace
 .env.*
 !.env.example
 .gstack/
+
+# Local screenshot output and skill workspaces (not shipped)
+.context/
+.claude/skills/*/workspace/
+.claude/skills/*-workspace/

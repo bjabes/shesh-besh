@@ -45,7 +45,7 @@ public enum AppLaunchConfiguration {
     private static func seededRootLedgerCoordinator() -> LedgerCoordinator {
         let rival = Rival(
             id: UUID(uuidString: "7C48FB94-F61B-4D71-BF7F-A181713381B4")!,
-            displayName: "Local AI",
+            displayName: AIDifficulty.medium.rivalDisplayName,
             createdAt: Date(timeIntervalSinceReferenceDate: 800_000_000)
         )
         let activeMatch = ActiveMatch(

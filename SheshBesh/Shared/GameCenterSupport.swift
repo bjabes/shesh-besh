@@ -896,12 +896,12 @@ public struct GameCenterHomeView: View {
         }
     }
 
-    private func startAIRivalry() {
+    private func startAIRivalry(difficulty: AIDifficulty) {
         guard !isWorking else { return }
         isWorking = true
         Task {
             do {
-                onOpenLocalMatch(try await ledgerCoordinator.startAIRivalry())
+                onOpenLocalMatch(try await ledgerCoordinator.startAIRivalry(difficulty: difficulty))
             } catch {
                 localError = error.localizedDescription
             }

@@ -119,23 +119,48 @@ struct LedgerCoordinatorTests {
         #expect(records.first?.gameIndex == 0)
     }
 
-    @Test("AI rivalry starts or resumes a Local AI quick match")
+    @Test("AI rivalry starts or resumes a Medium AI quick match")
     @MainActor
     func aiRivalryStartsOrResumesQuickMatch() async throws {
         let store = InMemoryLedgerStore()
         let coordinator = LedgerCoordinator(store: store)
 
-        let firstMatch = try await coordinator.startAIRivalry()
+        let firstMatch = try await coordinator.startAIRivalry(difficulty: .medium)
         let rival = try #require(coordinator.rival(for: firstMatch.rivalID))
-        let secondMatch = try await coordinator.startAIRivalry()
+        let secondMatch = try await coordinator.startAIRivalry(difficulty: .medium)
         let rivals = try await store.loadRivals()
 
         #expect(rivals.count == 1)
-        #expect(rival.displayName == "Local AI")
+        #expect(rival.displayName == "Medium AI")
         #expect(rival.gameCenterPlayerID == nil)
         #expect(firstMatch.id == secondMatch.id)
         #expect(firstMatch.userPlayed == .white)
         #expect(firstMatch.state.config.targetScore == 1)
+    }
+
+    @Test("AI rivalry creates separate rivals per difficulty")
+    @MainActor
+    func aiRivalryCreatesSeparateRivalsPerDifficulty() async throws {
+        let store = InMemoryLedgerStore()
+        let coordinator = LedgerCoordinator(store: store)
+
+        let easyMatch = try await coordinator.startAIRivalry(difficulty: .easy)
+        let mediumMatch = try await coordinator.startAIRivalry(difficulty: .medium)
+        let hardMatch = try await coordinator.startAIRivalry(difficulty: .hard)
+
+        let easyRival = try #require(coordinator.rival(for: easyMatch.rivalID))
+        let mediumRival = try #require(coordinator.rival(for: mediumMatch.rivalID))
+        let hardRival = try #require(coordinator.rival(for: hardMatch.rivalID))
+
+        #expect(easyRival.displayName == "Easy AI")
+        #expect(mediumRival.displayName == "Medium AI")
+        #expect(hardRival.displayName == "Hard AI")
+        #expect(Set([easyRival.id, mediumRival.id, hardRival.id]).count == 3)
+
+        let resumedEasy = try await coordinator.startAIRivalry(difficulty: .easy)
+        let resumedHard = try await coordinator.startAIRivalry(difficulty: .hard)
+        #expect(resumedEasy.id == easyMatch.id)
+        #expect(resumedHard.id == hardMatch.id)
     }
 
     @Test("clearing active matches preserves rivals and completed records")

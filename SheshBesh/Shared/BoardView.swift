@@ -393,6 +393,8 @@ private struct HeaderCard: View {
                     Button(action: onBackToRivals) {
                         Image(systemName: "chevron.left")
                             .font(LinenBrass.uiFont(size: 16, weight: .semibold))
+                            .frame(width: 44, height: 44, alignment: .leading)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(LinenBrass.coffee)

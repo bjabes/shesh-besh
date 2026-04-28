@@ -113,9 +113,9 @@ public enum GameCenterEnvelopeError: Error, Equatable, LocalizedError, Sendable 
         case .emptyMatchData:
             "This Game Center match does not have game data yet."
         case .futureSchemaVersion:
-            "Update Shesh Besh to continue this match."
+            "Update \(AppBrand.name) to continue this match."
         case .futureMinimumSupportedSchemaVersion:
-            "Update Shesh Besh to continue this match."
+            "Update \(AppBrand.name) to continue this match."
         case .corruptMatchData:
             "This match data could not be read. Try reloading the match."
         case .matchDataTooLarge(let size, let maximum):

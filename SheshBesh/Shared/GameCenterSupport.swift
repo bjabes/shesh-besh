@@ -306,7 +306,7 @@ public final class GameCenterMatchCoordinator {
             let turnData = try validatedData(for: envelope, maximumSize: match.matchDataMaximumSize)
             let nextParticipant = try participant(for: activePlayer, in: match, envelope: envelope)
             match.setLocalizableMessageWithKey(
-                "%@ played a turn in Shesh Besh.",
+                "%@ played a turn in \(AppBrand.name).",
                 arguments: [GKLocalPlayer.local.displayName]
             )
             try await match.endTurn(
@@ -336,7 +336,7 @@ public final class GameCenterMatchCoordinator {
         let nextParticipant = try participant(for: loaded.opponentPlayer, in: match, envelope: loaded.envelope)
         try await match.sendReminder(
             to: [nextParticipant],
-            localizableMessageKey: "Your move in Shesh Besh.",
+            localizableMessageKey: "Your move in \(AppBrand.name).",
             arguments: []
         )
     }
@@ -550,7 +550,7 @@ public struct GameCenterMatchmakerSheet: UIViewControllerRepresentable {
         request.minPlayers = 2
         request.maxPlayers = 2
         request.defaultNumberOfPlayers = 2
-        request.inviteMessage = "Play a \(targetScore)-point Shesh Besh match."
+        request.inviteMessage = "Play a \(targetScore)-point \(AppBrand.name) match."
 
         let controller = GKTurnBasedMatchmakerViewController(matchRequest: request)
         controller.turnBasedMatchmakerDelegate = context.coordinator

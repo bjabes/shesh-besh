@@ -2,17 +2,15 @@ import SwiftUI
 
 public struct SplashView: View {
     private let onFinished: () -> Void
-    private let firstDieValue: Int
-    private let secondDieValue: Int
 
+    @State private var firstDieValue = Int.random(in: 1...6)
+    @State private var secondDieValue = Int.random(in: 1...6)
     @State private var diceLanded = false
     @State private var pulse = false
     @State private var titleVisible = false
 
     public init(onFinished: @escaping () -> Void) {
         self.onFinished = onFinished
-        self.firstDieValue = Int.random(in: 1...6)
-        self.secondDieValue = Int.random(in: 1...6)
     }
 
     public var body: some View {

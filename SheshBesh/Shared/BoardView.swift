@@ -413,6 +413,8 @@ private struct HeaderCard: View {
 private struct MatchProgressColumn: View {
     let viewModel: MatchViewModel
 
+    private static let dotDisplayMaxTarget = 7
+
     private var target: Int { viewModel.state.config.targetScore }
 
     var body: some View {
@@ -423,16 +425,24 @@ private struct MatchProgressColumn: View {
                 .monospacedDigit()
                 .accessibilityIdentifier("header-score")
 
-            dotRow(
-                label: "You",
-                score: viewModel.localScore,
-                filled: LinenBrass.brass
-            )
-            dotRow(
-                label: viewModel.opponentName,
-                score: viewModel.opponentScore,
-                filled: LinenBrass.coffee
-            )
+            if target <= Self.dotDisplayMaxTarget {
+                dotRow(
+                    label: "You",
+                    score: viewModel.localScore,
+                    filled: LinenBrass.brass
+                )
+                dotRow(
+                    label: viewModel.opponentName,
+                    score: viewModel.opponentScore,
+                    filled: LinenBrass.coffee
+                )
+            } else {
+                Text("to \(target)")
+                    .font(LinenBrass.uiFont(size: 11, weight: .semibold))
+                    .tracking(0.5)
+                    .foregroundStyle(LinenBrass.mutedInk)
+                    .textCase(.uppercase)
+            }
         }
     }
 

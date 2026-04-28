@@ -12,6 +12,7 @@ public struct HomeView: View {
     @State private var isAddingRival = false
     @State private var newRivalName = ""
     @State private var isWorking = false
+    @State private var isShowingRemoveAllConfirmation = false
     @State private var localError: String?
 
     public init(
@@ -42,6 +43,14 @@ public struct HomeView: View {
                         }
                     )
 
+                    if activeMatches.count > 0 {
+                        RemoveAllMatchesButton(
+                            activeMatchCount: activeMatches.count,
+                            isDisabled: isWorking,
+                            action: { isShowingRemoveAllConfirmation = true }
+                        )
+                    }
+
                     if coordinator.ledgers.isEmpty {
                         EmptyLedgerView()
                     } else {
@@ -69,6 +78,14 @@ public struct HomeView: View {
         } message: {
             Text("Create a head-to-head ledger.")
         }
+        .alert("Remove All Matches?", isPresented: $isShowingRemoveAllConfirmation) {
+            Button("Remove All Matches", role: .destructive) {
+                removeAllActiveMatches()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(removeAllConfirmationMessage)
+        }
         .alert(
             "Ledger Error",
             isPresented: Binding(
@@ -85,6 +102,14 @@ public struct HomeView: View {
         } message: {
             Text(localError ?? coordinator.lastErrorMessage ?? "")
         }
+    }
+
+    private var activeMatches: [ActiveMatch] {
+        coordinator.ledgers.compactMap(\.activeMatch)
+    }
+
+    private var removeAllConfirmationMessage: String {
+        "This will clear \(activeMatches.count) active \(activeMatches.count == 1 ? "match" : "matches"). Completed rivalry history stays."
     }
 
     private var header: some View {
@@ -131,6 +156,22 @@ public struct HomeView: View {
         }
     }
 
+    private func removeAllActiveMatches() {
+        guard !isWorking else { return }
+        let matchesToClear = activeMatches
+        guard !matchesToClear.isEmpty else { return }
+
+        isWorking = true
+        Task {
+            do {
+                try await coordinator.clearActiveMatches(matchesToClear)
+            } catch {
+                localError = error.localizedDescription
+            }
+            isWorking = false
+        }
+    }
+
     private func startMatch(for ledger: RivalLedger) {
         guard !isWorking else { return }
         isWorking = true
@@ -147,6 +188,27 @@ public struct HomeView: View {
             }
             isWorking = false
         }
+    }
+}
+
+struct RemoveAllMatchesButton: View {
+    let activeMatchCount: Int
+    let isDisabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(role: .destructive, action: action) {
+            Label("Remove All Matches", systemImage: "trash")
+                .font(LedgerTheme.uiFont(size: 15, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+        }
+        .buttonStyle(.bordered)
+        .tint(LedgerTheme.rust)
+        .disabled(isDisabled || activeMatchCount == 0)
+        .accessibilityIdentifier("home-remove-all-matches")
     }
 }
 

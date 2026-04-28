@@ -641,7 +641,8 @@ public struct GameCenterHomeView: View {
     }
 
     public var body: some View {
-        ZStack {
+        let inertStatusMap = inertStatusByMatchID
+        return ZStack {
             LedgerBackground()
                 .ignoresSafeArea()
 
@@ -681,7 +682,10 @@ public struct GameCenterHomeView: View {
                         onStart: startMatch,
                         onResume: resumeMatch,
                         onDelete: requestDelete,
-                        inertStatus: inertStatusFor
+                        inertStatus: { ledger in
+                            guard let id = ledger.activeMatch?.gameCenterMatchID else { return nil }
+                            return inertStatusMap[id]
+                        }
                     )
                 }
             }
@@ -783,13 +787,6 @@ public struct GameCenterHomeView: View {
             }
         }
         return result
-    }
-
-    private func inertStatusFor(_ ledger: RivalLedger) -> String? {
-        guard let gameCenterMatchID = ledger.activeMatch?.gameCenterMatchID else {
-            return nil
-        }
-        return inertStatusByMatchID[gameCenterMatchID]
     }
 
     private var removeAllConfirmationMessage: String {

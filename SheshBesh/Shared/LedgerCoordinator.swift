@@ -9,7 +9,7 @@ import SheshBeshLedger
 @MainActor
 @Observable
 public final class LedgerCoordinator {
-    private static let quickAIMatchConfig = MatchConfig.tournament(targetScore: 1)
+    private static let quickAIMatchConfig = MatchConfig.tournament(targetScore: 7)
 
     @ObservationIgnored private let store: any LedgerStore
 

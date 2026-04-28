@@ -68,10 +68,8 @@ the SwiftUI-independent `SheshBeshGame` and `SheshBeshLedger` targets and their
 tests, so the cloud runner does not compile app code that depends on Apple UI
 frameworks.
 
-Pull requests also run a dedicated screenshot workflow. It drives the
-deterministic UI test flow, exports the kept screenshots, uploads them as the
-`pr-screenshots` artifact, and links the artifact from the PR. To reproduce that
-capture locally:
+The local PR prep flow can capture deterministic UI screenshots before you open
+a pull request:
 
 ```sh
 ./scripts/capture-pr-screenshots.sh
@@ -83,12 +81,19 @@ writes a PR body draft with the required Screenshots section:
 
 ```sh
 ./scripts/prepare-pr.sh
-gh pr create --body-file .context/pr-body.md
+```
+
+To create the PR from this machine and embed captured screenshots, use the local
+PR wrapper. When screenshots are present, it uploads them to a secret gist and
+adds the image URLs to the PR body:
+
+```sh
+PR_TITLE="chore: describe the change" ./scripts/create-pr.sh
 ```
 
 If the changed screen is outside the deterministic board flow, add targeted
 manual screenshots to `.context/pr-screenshots`, then rerun
-`./scripts/prepare-pr.sh` so the PR body lists them.
+`./scripts/create-pr.sh` so the PR body includes them.
 
 ```sh
 swift build

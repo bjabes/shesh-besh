@@ -7,6 +7,7 @@ cd "$ROOT_DIR"
 BASE_REF="${BASE_REF:-origin/main}"
 PR_BODY_PATH="${PR_BODY_PATH:-$ROOT_DIR/.context/pr-body.md}"
 SCREENSHOT_DIR="${SCREENSHOT_DIR:-$ROOT_DIR/.context/pr-screenshots}"
+SCREENSHOT_MANIFEST_PATH="${SCREENSHOT_MANIFEST_PATH:-$ROOT_DIR/.context/pr-screenshots.txt}"
 manual_screenshot_backup=""
 
 cleanup() {
@@ -29,6 +30,8 @@ Environment:
   BASE_REF       Diff base. Default: origin/main
   PR_BODY_PATH   Output PR body draft. Default: .context/pr-body.md
   SCREENSHOT_DIR Screenshot output directory. Default: .context/pr-screenshots
+  SCREENSHOT_MANIFEST_PATH
+                 Output screenshot manifest. Default: .context/pr-screenshots.txt
 USAGE
 }
 
@@ -143,7 +146,8 @@ for file in "${changed_files[@]}"; do
   fi
 done
 
-mkdir -p "$(dirname "$PR_BODY_PATH")"
+mkdir -p "$(dirname "$PR_BODY_PATH")" "$(dirname "$SCREENSHOT_MANIFEST_PATH")"
+: > "$SCREENSHOT_MANIFEST_PATH"
 
 screenshot_count=0
 if [[ "${#ui_files[@]}" -gt 0 ]]; then
@@ -159,6 +163,7 @@ if [[ "${#ui_files[@]}" -gt 0 ]]; then
 
   collect_screenshots
   screenshot_count="${#screenshots[@]}"
+  printf '%s\n' "${screenshots[@]}" > "$SCREENSHOT_MANIFEST_PATH"
 
   if [[ "$screenshot_count" -eq 0 ]]; then
     echo "No screenshots found in $SCREENSHOT_DIR after capture." >&2
@@ -184,9 +189,6 @@ fi
       rel_path="${screenshot#$ROOT_DIR/}"
       echo "- \`$rel_path\`"
     done
-    echo
-    echo "The PR screenshot workflow will upload the \`pr-screenshots\` artifact for reviewers."
-
     if [[ "${#manual_review_files[@]}" -gt 0 ]]; then
       echo
       echo "Manual screenshot review needed for changed files outside the deterministic board flow:"

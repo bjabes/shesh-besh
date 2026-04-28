@@ -529,7 +529,7 @@ private struct BoardSurface: View {
 
         var diceByDestination: [MoveDestination: Int] = [:]
         for move in moves where move.source == selectedSource {
-            diceByDestination[move.destination] = diceByDestination[move.destination] ?? move.die
+            diceByDestination[move.destination] = move.die
         }
         return diceByDestination
     }
@@ -762,6 +762,7 @@ private struct DiePipChip: View {
     var body: some View {
         GeometryReader { geometry in
             let pipSize = max(2.2, geometry.size.width * 0.13)
+            let positions = DicePipLayout.positions(for: value)
 
             ZStack {
                 Circle()
@@ -771,7 +772,7 @@ private struct DiePipChip: View {
                 Circle()
                     .stroke(LinenBrass.cream.opacity(0.88), lineWidth: 1.2)
 
-                ForEach(Array(DicePipLayout.positions(for: value).enumerated()), id: \.offset) { _, point in
+                ForEach(Array(positions.enumerated()), id: \.offset) { _, point in
                     Circle()
                         .fill(LinenBrass.cream)
                         .frame(width: pipSize, height: pipSize)

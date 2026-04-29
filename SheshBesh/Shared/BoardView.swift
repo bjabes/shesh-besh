@@ -6,7 +6,7 @@ public struct BoardView: View {
     private let onBackToRivals: (() -> Void)?
     private let onSendReminder: (@MainActor () async -> Void)?
 
-    @State private var isSendingReminder = false
+    @State private var didSendReminder = false
     @State private var selectedSource: MoveSource?
     @Namespace private var checkerNamespace
 
@@ -118,20 +118,22 @@ public struct BoardView: View {
 
     private func reminderButton(action: @escaping @MainActor () async -> Void) -> some View {
         Button {
-            isSendingReminder = true
+            didSendReminder = true
             Task {
                 await action()
-                isSendingReminder = false
             }
         } label: {
-            Label("Remind", systemImage: "bell.badge")
+            Label(
+                didSendReminder ? "Reminded" : "Remind",
+                systemImage: didSendReminder ? "bell.fill" : "bell.badge"
+            )
                 .font(LinenBrass.uiFont(size: 13, weight: .semibold))
                 .labelStyle(.titleAndIcon)
         }
         .buttonStyle(.bordered)
         .tint(LinenBrass.brass)
         .foregroundStyle(LinenBrass.cream)
-        .disabled(isSendingReminder)
+        .disabled(didSendReminder)
         .accessibilityIdentifier("opponent-turn-remind")
     }
 

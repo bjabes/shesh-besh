@@ -1,32 +1,62 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Capture marketing-quality screenshots at App Store device sizes.
+# Build the App Store-ready marketing pack: 1024×1024 icon + screenshots.
 #
-# Runs every method in SheshBeshUITests/PRScreenshotsTests against one or
-# more iPhone simulators and exports the named attachments as PNGs into
-# marketing/screenshots/<size>/. The PR pipeline lives in
-# scripts/capture-pr-screenshots.sh and is intentionally separate so the
-# diff visuals don't drift when this list grows.
+# Outputs land under marketing/icon/ and marketing/screenshots/<size>/.
+# Both subtrees are gitignored — run this script before any App Store
+# Connect upload, not as a checked-in artifact.
+#
+# Icon step: copies SheshBesh/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+# into marketing/icon/icon-1024.png with alpha stripped (App Store rejects
+# alpha channels).
+#
+# Screenshot step: runs every method in SheshBeshUITests/PRScreenshotsTests
+# against one or more iPhone simulators and exports the named attachments
+# as PNGs. The PR pipeline lives in scripts/capture-pr-screenshots.sh and
+# is intentionally separate so the diff visuals don't drift when this list
+# grows.
 #
 # Override which devices to capture by setting MARKETING_SCREENSHOT_DEVICES
 # to a comma-separated list of "<size-key>:<simulator-name>" entries, e.g.
 #   MARKETING_SCREENSHOT_DEVICES="iphone-6.9:iPhone 17 Pro Max"
-# Defaults capture both the App Store-required 6.9" size and a 6.3"
-# reference size.
+# Defaults capture the three App Store-relevant sizes: 6.9" (current Pro
+# Max class), 6.5" (legacy Plus / Pro Max class), and 6.3" (standard).
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 OS_VERSION="${MARKETING_SCREENSHOT_OS:-latest}"
-DEVICES_RAW="${MARKETING_SCREENSHOT_DEVICES:-iphone-6.9:iPhone 17 Pro Max,iphone-6.3:iPhone 17}"
+DEVICES_RAW="${MARKETING_SCREENSHOT_DEVICES:-iphone-6.9:iPhone 17 Pro Max,iphone-6.5:iPhone 11 Pro Max,iphone-6.3:iPhone 17}"
 OUTPUT_ROOT="${MARKETING_SCREENSHOT_DIR:-$ROOT_DIR/marketing/screenshots}"
 RESULT_BUNDLE_ROOT="${MARKETING_RESULT_BUNDLE_DIR:-$ROOT_DIR/.context/marketing-screenshots-xcresult}"
+ICON_SOURCE="$ROOT_DIR/SheshBesh/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
+ICON_DEST_DIR="$ROOT_DIR/marketing/icon"
+ICON_DEST="$ICON_DEST_DIR/icon-1024.png"
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "jq is required for marketing screenshot renaming. Install with: brew install jq" >&2
   exit 1
 fi
+
+echo "==> Building App Store icon"
+if [[ ! -f "$ICON_SOURCE" ]]; then
+  echo "Missing icon source at $ICON_SOURCE" >&2
+  exit 1
+fi
+mkdir -p "$ICON_DEST_DIR"
+source_alpha="$(sips -g hasAlpha "$ICON_SOURCE" | awk '/hasAlpha/ {print $2}')"
+if [[ "$source_alpha" == "yes" ]]; then
+  sips -s format png -s hasAlpha no "$ICON_SOURCE" --out "$ICON_DEST" >/dev/null
+else
+  cp "$ICON_SOURCE" "$ICON_DEST"
+fi
+dest_alpha="$(sips -g hasAlpha "$ICON_DEST" | awk '/hasAlpha/ {print $2}')"
+if [[ "$dest_alpha" != "no" ]]; then
+  echo "Icon at $ICON_DEST has alpha (got: $dest_alpha) — App Store rejects alpha" >&2
+  exit 1
+fi
+echo "  wrote $ICON_DEST"
 
 mkdir -p "$OUTPUT_ROOT"
 rm -rf "$RESULT_BUNDLE_ROOT"
@@ -100,6 +130,7 @@ done
 
 rm -rf "$RESULT_BUNDLE_ROOT"
 
+printf '%s\n' "$ICON_DEST"
 find "$OUTPUT_ROOT" \
   -type f \
   \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) \

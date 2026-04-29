@@ -103,7 +103,9 @@ public struct RootView: View {
         }
         .task {
             #if canImport(GameKit) && canImport(UIKit)
-            configureGameCenterCallbacks()
+            if !ProcessInfo.processInfo.arguments.contains("-uiTestScene") {
+                configureGameCenterCallbacks()
+            }
             #endif
         }
         .alert(

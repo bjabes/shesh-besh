@@ -108,6 +108,7 @@
    </AnalyzeAction>
    <ArchiveAction
       buildConfiguration = "Release"
+      customArchiveName = "Gammonade"
       revealArchiveInOrganizer = "YES">
    </ArchiveAction>
 </Scheme>

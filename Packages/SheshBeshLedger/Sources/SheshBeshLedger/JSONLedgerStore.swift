@@ -12,19 +12,22 @@ public actor JSONLedgerStore: LedgerStore {
     }
 
     public static func defaultFileURL(
-        applicationName: String = "SheshBesh",
-        fileManager: FileManager = .default
+        applicationName: String = "Gammonade",
+        fileManager: FileManager = .default,
+        applicationSupportURL: URL? = nil
     ) throws -> URL {
-        guard let applicationSupportURL = fileManager.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first else {
-            throw CocoaError(.fileNoSuchFile)
-        }
-
-        return applicationSupportURL
+        let applicationSupportURL = try applicationSupportURL ?? defaultApplicationSupportURL(fileManager: fileManager)
+        let fileURL = applicationSupportURL
             .appendingPathComponent(applicationName, isDirectory: true)
             .appendingPathComponent("ledger.json")
+
+        try migrateLegacyLedgerIfNeeded(
+            to: fileURL,
+            applicationSupportURL: applicationSupportURL,
+            fileManager: fileManager
+        )
+
+        return fileURL
     }
 
     public func loadRivals() async throws -> [Rival] {
@@ -116,6 +119,40 @@ public actor JSONLedgerStore: LedgerStore {
         return decoded
     }
 
+    private static func defaultApplicationSupportURL(fileManager: FileManager) throws -> URL {
+        guard let applicationSupportURL = fileManager.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return applicationSupportURL
+    }
+
+    private static func migrateLegacyLedgerIfNeeded(
+        to fileURL: URL,
+        applicationSupportURL: URL,
+        fileManager: FileManager
+    ) throws {
+        guard !fileManager.fileExists(atPath: fileURL.path) else { return }
+
+        let legacyFileURL = applicationSupportURL
+            .appendingPathComponent("SheshBesh", isDirectory: true)
+            .appendingPathComponent("ledger.json")
+        guard fileManager.fileExists(atPath: legacyFileURL.path) else { return }
+
+        try fileManager.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try fileManager.moveItem(at: legacyFileURL, to: fileURL)
+
+        let legacyDirectoryURL = legacyFileURL.deletingLastPathComponent()
+        if let remainingItems = try? fileManager.contentsOfDirectory(atPath: legacyDirectoryURL.path),
+           remainingItems.isEmpty {
+            try? fileManager.removeItem(at: legacyDirectoryURL)
+        }
+    }
 }
 
 private struct PersistedSnapshot: Codable, Equatable, Sendable {

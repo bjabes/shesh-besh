@@ -4,7 +4,7 @@
     {
       "id": 1,
       "name": "board-tweak",
-      "prompt": "I just finished tightening up the spacing at the top of the in-game board view (BoardView.swift, the VStack right under the linen background). I'm about to open a PR for this on shesh-besh — handle screenshots first please.",
+      "prompt": "I just finished tightening up the spacing at the top of the in-game board view (BoardView.swift, the VStack right under the linen background). I'm about to open a PR for this on Gammonade — handle screenshots first please.",
       "expected_output": "Skill identifies BoardView.swift as a covered surface, runs scripts/capture-pr-screenshots.sh, and reports the captured PNG paths. Should NOT skip and should NOT flag a coverage gap.",
       "files": []
     },

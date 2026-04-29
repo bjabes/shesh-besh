@@ -10,7 +10,7 @@ import SwiftUI
 import SheshBeshLedger
 #endif
 
-private let gcLog = Logger(subsystem: "com.sheshbesh.gamecenter", category: "auth")
+private let gcLog = Logger(subsystem: "com.gammonade.gamecenter", category: "auth")
 
 public enum GameCenterAuthState: Equatable, Sendable {
     case notStarted

@@ -1,11 +1,11 @@
 ---
 name: pr-screenshots
-description: Capture relevant iOS simulator screenshots for a shesh-besh PR before opening it. Inspects the staged/unstaged diff (and the diff vs main if on a branch), figures out which named scenes are actually affected, runs only those scenes from the deterministic XCUITest screenshot pipeline, and surfaces the resulting image paths so they can be referenced in the PR body. Use this whenever you are about to create or update a PR in this repo, whenever the user says "ship", "open a PR", "create a PR", or asks for screenshots, before-and-afters, or visual evidence of a change. Also use proactively when the user has finished work on the iOS app (anything under SheshBesh/) and is moving toward landing it. Skip when the diff is purely engine/ledger/tests/docs with no UI surface touched.
+description: Capture relevant iOS simulator screenshots for a Gammonade PR before opening it. Inspects the staged/unstaged diff (and the diff vs main if on a branch), figures out which named scenes are actually affected, runs only those scenes from the deterministic XCUITest screenshot pipeline, and surfaces the resulting image paths so they can be referenced in the PR body. Use this whenever you are about to create or update a PR in this repo, whenever the user says "ship", "open a PR", "create a PR", or asks for screenshots, before-and-afters, or visual evidence of a change. Also use proactively when the user has finished work on the iOS app (anything under SheshBesh/) and is moving toward landing it. Skip when the diff is purely engine/ledger/tests/docs with no UI surface touched.
 ---
 
 # pr-screenshots
 
-A skill for the shesh-besh iOS app. The repo ships a scene-based screenshot pipeline:
+A skill for the Gammonade iOS app. The repo ships a scene-based screenshot pipeline:
 
 - `SheshBeshUITests/PRScreenshotsTests.swift` — one `testCapture_<SceneName>` method per named scene. Each launches the app with `-uiTestScene <name>` and attaches one or more screenshots.
 - `SheshBesh/Shared/AppLaunchConfiguration.swift` — defines the `UITestScene` enum and seeds the right state for each scene (deterministic dice for the board, in-memory ledger for the rivalries home, pre-completed records for match-end sheets, and so on).

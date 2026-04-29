@@ -1,4 +1,4 @@
-# Shesh Besh
+# Gammonade
 
 An iOS backgammon game repo. The current implementation has a pure Swift rules
 engine plus an early SwiftUI app shell with a Linen & Brass portrait board.
@@ -13,7 +13,7 @@ engine plus an early SwiftUI app shell with a Linen & Brass portrait board.
 ## Repository Layout
 
 ```text
-shesh-besh/
+gammonade/
   Package.swift              # repo-root entry point for swift build/test
   Packages/
     SheshBeshGame/

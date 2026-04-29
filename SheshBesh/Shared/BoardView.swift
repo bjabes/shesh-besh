@@ -1510,12 +1510,12 @@ private struct ActionBar: View {
             case .awaitingRoll(let player) where player == viewModel.localPlayer:
                 resignationMenu
                 if viewModel.containsAction(.offerDouble(viewModel.localPlayer)) {
-                    SecondaryActionButton(title: "Offer double") {
+                    SecondaryActionButton(title: "Double") {
                         viewModel.offerDoubleIfAllowed()
                         onAction()
                     }
                 }
-                PrimaryActionButton(title: "Roll dice") {
+                PrimaryActionButton(title: "Roll") {
                     viewModel.rollDiceIfAllowed()
                     onAction()
                 }

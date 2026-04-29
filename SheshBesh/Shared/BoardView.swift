@@ -370,7 +370,7 @@ private struct HeaderCard: View {
     let onBackToRivals: (() -> Void)?
 
     var body: some View {
-        HStack(alignment: .center, spacing: -12) {
+        HStack(alignment: .center, spacing: 0) {
             if let onBackToRivals {
                 Button(action: onBackToRivals) {
                     Image(systemName: "chevron.left")
@@ -383,13 +383,6 @@ private struct HeaderCard: View {
                 .accessibilityLabel("Back to rivals")
                 .accessibilityIdentifier("match-back-button")
             }
-
-            Text("vs \(viewModel.opponentName.uppercased())")
-                .font(LinenBrass.uiFont(size: 13, weight: .semibold))
-                .tracking(0.6)
-                .foregroundStyle(LinenBrass.mutedInk)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
 
             Spacer(minLength: 10)
 

@@ -1101,7 +1101,7 @@ private struct TrayRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Spacer(minLength: 0)
+            PreviousRollSlot(viewModel: viewModel)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(LinenBrass.linenDeep)
 
@@ -1331,6 +1331,45 @@ private struct CubeView: View {
     private var label: String {
         let displayValue = cube.owner == nil && cube.value == 1 ? cube.value * 2 : cube.value
         return "\(displayValue)"
+    }
+}
+
+private struct PreviousRollSlot: View {
+    let viewModel: MatchViewModel
+
+    var body: some View {
+        if let dice = viewModel.previousRollDice {
+            HStack(spacing: 9) {
+                ForEach(Array(dice.enumerated()), id: \.offset) { index, value in
+                    DieFace(value: value, accessibilityIdentifier: "previous-die-\(index + 1)")
+                        .frame(width: 28, height: 28)
+                        .opacity(0.86)
+                }
+
+                if let notation = viewModel.previousMoveNotation {
+                    Text(notation)
+                        .font(LinenBrass.uiFont(size: 12, weight: .semibold))
+                        .foregroundStyle(LinenBrass.coffee.opacity(0.86))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.62)
+                } else if let skipNote = viewModel.previousRollSkipNote {
+                    Text(skipNote.uppercased())
+                        .font(LinenBrass.uiFont(size: 12, weight: .semibold))
+                        .foregroundStyle(LinenBrass.coffee.opacity(0.7))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.62)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("previous-roll-slot")
+        } else {
+            Spacer(minLength: 0)
+        }
     }
 }
 

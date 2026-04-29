@@ -34,3 +34,13 @@ public struct MoveSequence: Codable, Equatable, Hashable, Sendable {
         self.moves = moves
     }
 }
+
+public struct AppliedMove: Codable, Equatable, Hashable, Sendable {
+    public let move: Move
+    public let didHit: Bool
+
+    public init(move: Move, didHit: Bool = false) {
+        self.move = move
+        self.didHit = didHit
+    }
+}

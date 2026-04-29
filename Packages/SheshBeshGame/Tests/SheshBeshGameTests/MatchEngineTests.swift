@@ -802,6 +802,158 @@ struct MatchEngineTests {
         #expect(next.game.phase == .awaitingOpeningRoll())
     }
 
+    @Test("Auto-skip on roll preserves the wasted dice in previousTurn")
+    func autoSkipOnRollCapturesPreviousTurn() throws {
+        var board = Board.empty()
+        try board.setBar(for: .white, count: 1)
+        try board.setBorneOff(for: .white, count: 14)
+        try board.setPoint(point(24), owner: .black, count: 2)
+        try board.setPoint(point(23), owner: .black, count: 2)
+        try board.setBorneOff(for: .black, count: 11)
+
+        let engine = MatchEngine(diceRoller: ScriptedDiceRoller([1, 2]))
+        let state = MatchState(
+            config: .tournament(targetScore: 5),
+            game: GameState(board: board, phase: .awaitingRoll(.white))
+        )
+        let next = try engine.apply(action: .rollDice(.white), to: state)
+
+        let previous = try #require(next.previousTurn)
+        #expect(previous.player == .white)
+        #expect(previous.roll.die1 == 1)
+        #expect(previous.roll.die2 == 2)
+        #expect(previous.moves.isEmpty)
+        #expect(previous.wasSkipped)
+        #expect(next.currentTurnMoves.isEmpty)
+    }
+
+    @Test("Mid-turn auto-skip records the moves played before the skip")
+    func midTurnAutoSkipCapturesPlayedMoves() throws {
+        var board = Board.empty()
+        try board.setPoint(point(6), owner: .white, count: 1)
+        try board.setBorneOff(for: .white, count: 14)
+        try board.setPoint(point(4), owner: .black, count: 2)
+        try board.setBorneOff(for: .black, count: 13)
+
+        let engine = MatchEngine()
+        var state = try makeMatch(board: board, player: .white, dice: [1, 1, 1, 1])
+        let move = Move(player: .white, source: .point(point(6)), destination: .point(point(5)), die: 1)
+
+        state = try engine.apply(action: .move(move), to: state)
+
+        let previous = try #require(state.previousTurn)
+        #expect(previous.player == .white)
+        #expect(previous.moves == [AppliedMove(move: move)])
+        #expect(previous.wasSkipped)
+        #expect(state.currentTurnMoves.isEmpty)
+    }
+
+    @Test("A normal completed turn captures every move with wasSkipped false")
+    func completedTurnCapturesAllMoves() throws {
+        let engine = MatchEngine()
+        let board = Board.initial()
+        var state = try makeMatch(board: board, player: .white, dice: [4, 1])
+        let firstMove = Move(player: .white, source: .point(point(13)), destination: .point(point(9)), die: 4)
+        let secondMove = Move(player: .white, source: .point(point(9)), destination: .point(point(8)), die: 1)
+
+        state = try engine.apply(action: .move(firstMove), to: state)
+        #expect(state.previousTurn == nil)
+        #expect(state.currentTurnMoves == [AppliedMove(move: firstMove)])
+
+        state = try engine.apply(action: .move(secondMove), to: state)
+
+        let previous = try #require(state.previousTurn)
+        #expect(previous.player == .white)
+        #expect(previous.roll.die1 == 4)
+        #expect(previous.roll.die2 == 1)
+        #expect(previous.moves == [AppliedMove(move: firstMove), AppliedMove(move: secondMove)])
+        #expect(!previous.wasSkipped)
+        #expect(state.currentTurnMoves.isEmpty)
+        #expect(state.game.phase == .awaitingRoll(.black))
+    }
+
+    @Test("A manual pass captures the skipped roll in previousTurn")
+    func manualPassCapturesPreviousTurn() throws {
+        var board = Board.empty()
+        try board.setBar(for: .white, count: 1)
+        try board.setBorneOff(for: .white, count: 14)
+        try board.setPoint(point(24), owner: .black, count: 2)
+        try board.setPoint(point(23), owner: .black, count: 2)
+        try board.setBorneOff(for: .black, count: 11)
+
+        let state = try makeMatch(board: board, player: .white, dice: [1, 2])
+        let passed = try MatchEngine().apply(action: .passTurn(.white), to: state)
+
+        let previous = try #require(passed.previousTurn)
+        #expect(previous.player == .white)
+        #expect(previous.roll.die1 == 1)
+        #expect(previous.roll.die2 == 2)
+        #expect(previous.moves.isEmpty)
+        #expect(previous.wasSkipped)
+    }
+
+    @Test("A subsequent roll replaces the previousTurn snapshot")
+    func subsequentRollReplacesPreviousTurn() throws {
+        let engine = MatchEngine(diceRoller: ScriptedDiceRoller([5, 2]))
+        let board = Board.initial()
+        var state = try makeMatch(board: board, player: .white, dice: [4, 1])
+        let firstMove = Move(player: .white, source: .point(point(13)), destination: .point(point(9)), die: 4)
+        let secondMove = Move(player: .white, source: .point(point(9)), destination: .point(point(8)), die: 1)
+
+        state = try engine.apply(action: .move(firstMove), to: state)
+        state = try engine.apply(action: .move(secondMove), to: state)
+
+        let priorPrevious = try #require(state.previousTurn)
+        #expect(priorPrevious.player == .white)
+
+        state = try engine.apply(action: .rollDice(.black), to: state)
+
+        let updated = try #require(state.previousTurn)
+        #expect(updated.player == .white)
+        #expect(updated.moves == [AppliedMove(move: firstMove), AppliedMove(move: secondMove)])
+    }
+
+    @Test("A hit move records didHit on the AppliedMove")
+    func hitMoveIsRecorded() throws {
+        var board = Board.empty()
+        try board.setPoint(point(8), owner: .white, count: 2)
+        try board.setBorneOff(for: .white, count: 13)
+        try board.setPoint(point(5), owner: .black, count: 1)
+        try board.setBorneOff(for: .black, count: 14)
+
+        let state = try makeMatch(board: board, player: .white, dice: [3])
+        let move = Move(player: .white, source: .point(point(8)), destination: .point(point(5)), die: 3)
+        let next = try MatchEngine().apply(action: .move(move), to: state)
+
+        let previous = try #require(next.previousTurn)
+        #expect(previous.moves == [AppliedMove(move: move, didHit: true)])
+    }
+
+    @Test("Starting the next game clears previousTurn")
+    func startNextGameClearsPreviousTurn() throws {
+        let engine = MatchEngine()
+        let previousTurn = PreviousTurn(
+            player: .white,
+            roll: try DiceRoll(die1: 4, die2: 1),
+            moves: [],
+            wasSkipped: true
+        )
+        var state = MatchState(
+            config: .tournament(targetScore: 5),
+            game: GameState(
+                board: .initial(),
+                phase: .gameOver(GameResult(winner: .white, winKind: .single, cubeValue: 1))
+            ),
+            gameNumber: 2,
+            previousTurn: previousTurn
+        )
+
+        state = try engine.apply(action: .startNextGame, to: state)
+
+        #expect(state.previousTurn == nil)
+        #expect(state.currentTurnMoves.isEmpty)
+    }
+
     @Test("Bear-off can queue Crawford and continue to the post-Crawford game")
     func bearOffQueuesCrawfordThenMatchContinuesAfterCrawford() throws {
         let engine = MatchEngine(diceRoller: ScriptedDiceRoller([6, 1, 6, 1]))

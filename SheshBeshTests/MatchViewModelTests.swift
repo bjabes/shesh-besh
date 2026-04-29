@@ -410,7 +410,8 @@ struct MatchViewModelTests {
 
         #expect(passed)
         #expect(viewModel.lastError == nil)
-        #expect(viewModel.phaseTitle == "Medium AI had no legal moves")
+        #expect(viewModel.previousRollSkipNote == "No legal moves")
+        #expect(viewModel.previousRollDice != nil)
     }
 
     @Test("Local AI passes after rolling blocked bar entries")
@@ -445,7 +446,8 @@ struct MatchViewModelTests {
 
         #expect(passed)
         #expect(viewModel.lastError == nil)
-        #expect(viewModel.phaseTitle == "Medium AI had no legal moves")
+        #expect(viewModel.previousRollSkipNote == "No legal moves")
+        #expect(viewModel.previousRollDice != nil)
     }
 
     @Test("Local AI prefers the biggest pip reduction and breaks ties deterministically")

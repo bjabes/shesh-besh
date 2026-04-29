@@ -93,6 +93,7 @@ public struct MatchEngine: Sendable {
         let roll = DiceRoll(uncheckedDie1: whiteDie, die2: blackDie)
         var next = state
         next.game = Self.beginTurn(player: player, roll: roll, in: state.game)
+        Self.captureSkippedRollIfNeeded(player: player, roll: roll, into: &next)
         return next
     }
 
@@ -103,6 +104,7 @@ public struct MatchEngine: Sendable {
         let roll = DiceRoll(uncheckedDie1: try rollDie(), die2: try rollDie())
         var next = state
         next.game = Self.beginTurn(player: player, roll: roll, in: state.game)
+        Self.captureSkippedRollIfNeeded(player: player, roll: roll, into: &next)
         return next
     }
 
@@ -120,7 +122,9 @@ public struct MatchEngine: Sendable {
         }
 
         var next = state
+        let didHit = Self.moveHits(move, on: state.game.board)
         try next.game.board.apply(move)
+        next.currentTurnMoves.append(AppliedMove(move: move, didHit: didHit))
 
         if next.game.board.borneOffCount(for: move.player) == 15 {
             return Self.finishGame(winner: move.player, board: next.game.board, in: next)
@@ -129,11 +133,13 @@ public struct MatchEngine: Sendable {
         let remainingDice = turn.remainingDice.removingFirst(move.die)
         if remainingDice.isEmpty {
             next.game.phase = .awaitingRoll(turn.player.opponent)
+            Self.captureCompletedTurn(turn: turn, into: &next, wasSkipped: false)
         } else {
             let nextTurn = TurnState(player: turn.player, roll: turn.roll, remainingDice: remainingDice)
             next.game.phase = .awaitingMove(nextTurn)
             if MoveValidator.legalFirstMoves(for: turn.player, in: next.game).isEmpty {
                 next.game.phase = .awaitingRoll(turn.player.opponent)
+                Self.captureCompletedTurn(turn: turn, into: &next, wasSkipped: true)
             }
         }
 
@@ -150,6 +156,7 @@ public struct MatchEngine: Sendable {
 
         var next = state
         next.game.phase = .awaitingRoll(player.opponent)
+        Self.captureCompletedTurn(turn: turn, into: &next, wasSkipped: true)
         return next
     }
 
@@ -253,6 +260,8 @@ public struct MatchEngine: Sendable {
             cube: CubeState(),
             isCrawford: isCrawford
         )
+        next.currentTurnMoves = []
+        next.previousTurn = nil
         return next
     }
 
@@ -271,6 +280,28 @@ public struct MatchEngine: Sendable {
             next.phase = .awaitingRoll(player.opponent)
         }
         return next
+    }
+
+    private static func captureSkippedRollIfNeeded(player: Player, roll: DiceRoll, into state: inout MatchState) {
+        guard case .awaitingRoll = state.game.phase else { return }
+        state.previousTurn = PreviousTurn(player: player, roll: roll, moves: [], wasSkipped: true)
+        state.currentTurnMoves = []
+    }
+
+    private static func captureCompletedTurn(turn: TurnState, into state: inout MatchState, wasSkipped: Bool) {
+        state.previousTurn = PreviousTurn(
+            player: turn.player,
+            roll: turn.roll,
+            moves: state.currentTurnMoves,
+            wasSkipped: wasSkipped
+        )
+        state.currentTurnMoves = []
+    }
+
+    private static func moveHits(_ move: Move, on board: Board) -> Bool {
+        guard case .point(let point) = move.destination else { return false }
+        let target = board.point(point)
+        return target.count == 1 && target.owner != nil && target.owner != move.player
     }
 
     private static func finishGame(winner: Player, board: Board, in state: MatchState) -> MatchState {

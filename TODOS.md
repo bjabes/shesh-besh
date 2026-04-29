@@ -119,6 +119,22 @@ Deferred items surfaced during /plan-eng-review on 2026-04-23. Each captures wha
 
 ---
 
+## Render the back chevron in board-opening UI test scene
+
+**What:** Pass an `onBackToRivals` stub into the `RootView`/`BoardView` constructed by `AppLaunchConfiguration.UITestScene.boardOpening` so the header's back chevron is rendered in PR screenshots.
+
+**Why:** The board-opening scene currently constructs the board without a back callback, so the chevron is hidden — even though the production path in `RootView` always passes the callback when navigating Rivalries → Match. PR reviewers looking at header screenshots can wrongly conclude the chevron was removed (surfaced in PR #68).
+
+**Pros:** PR screenshots match production fidelity for header changes.
+
+**Cons:** Trivial.
+
+**Context:** `SheshBesh/Shared/AppLaunchConfiguration.swift:53` (the `.boardOpening` case). May need a small adjustment to the test-only `RootView`/`BoardView` initializer wiring to thread a stub callback into this construction path. `HeaderCard` in `SheshBesh/Shared/BoardView.swift:368` is the gated component.
+
+**Depends on / blocked by:** None.
+
+---
+
 ## Full VoiceOver game-play narration (pre-App-Store)
 
 **What:** VoiceOver support for actual backgammon gameplay — board state narration ("opponent has 5 checkers on the 19 point"), legal-move announcement on source tap ("3 legal destinations: 17-point, 15-point, bear off"), turn transitions, dice announcements, cube offer narration. Baseline a11y (44pt touch targets, Dynamic Type, reduce-motion, WCAG AA contrast) is already in V1; this is the next layer.

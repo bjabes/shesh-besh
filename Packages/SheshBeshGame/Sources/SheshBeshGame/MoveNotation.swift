@@ -58,9 +58,6 @@ public enum MoveNotation {
     }
 
     private static func pointNumber(_ point: PointID, from perspective: Player) -> Int {
-        switch perspective {
-        case .white: return point.rawValue
-        case .black: return 25 - point.rawValue
-        }
+        point.perspectiveValue(for: perspective)
     }
 }

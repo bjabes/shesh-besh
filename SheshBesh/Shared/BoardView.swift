@@ -1476,7 +1476,7 @@ private struct ActionBar: View {
                         onAction()
                     }
                 }
-                PrimaryActionButton(title: "Roll dice") {
+                PrimaryActionButton(title: "Roll") {
                     viewModel.rollDiceIfAllowed()
                     onAction()
                 }

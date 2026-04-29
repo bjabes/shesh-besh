@@ -40,7 +40,7 @@ final class PRScreenshotsTests: XCTestCase {
         element("point-23", in: app).tap()
         app.buttons["action-submit-turn"].tap()
 
-        XCTAssertTrue(app.buttons["action-roll-dice"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.buttons["action-roll"].waitForExistence(timeout: 4))
         attachScreenshot(named: "board-opening-after-first-turn")
     }
 

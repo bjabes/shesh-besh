@@ -1,5 +1,5 @@
 import Foundation
-import SheshBeshApp
+@testable import SheshBeshApp
 import SheshBeshGame
 import Testing
 
@@ -65,4 +65,31 @@ struct GameCenterEnvelopeTests {
 
         #expect(rolls == [5, 4, 4, 6, 4, 2])
     }
+
+    @Test("pending Game Center IDs are identified as unresolved participants")
+    func pendingGameCenterIDsAreUnresolvedParticipants() {
+        let mapping = GameCenterPlayerMapping(
+            whitePlayerID: "local-player",
+            blackPlayerID: "pending-match-123",
+            whiteDisplayName: "Boris",
+            blackDisplayName: "Opponent"
+        )
+
+        #expect(mapping.hasPendingGameCenterID(for: .black))
+        #expect(!mapping.hasPendingGameCenterID(for: .white))
+        #expect(GameCenterPlayerMapping.isPendingGameCenterID("pending-match-123"))
+        #expect(!GameCenterPlayerMapping.isPendingGameCenterID("real-player"))
+    }
+
+    #if canImport(GameKit) && canImport(UIKit)
+    @Test("transient Game Center active match IDs are stable")
+    func transientGameCenterActiveMatchIDsAreStable() {
+        let firstID = GameCenterMatchCoordinator.transientActiveMatchID(for: "gc-match-1")
+        let secondID = GameCenterMatchCoordinator.transientActiveMatchID(for: "gc-match-1")
+        let otherID = GameCenterMatchCoordinator.transientActiveMatchID(for: "gc-match-2")
+
+        #expect(firstID == secondID)
+        #expect(firstID != otherID)
+    }
+    #endif
 }

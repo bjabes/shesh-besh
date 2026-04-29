@@ -275,7 +275,9 @@ public final class GameCenterMatchCoordinator {
                 localPlayerID: localPlayerID,
                 targetScore: targetScore
             )
-            if match.currentParticipant?.player?.gamePlayerID == localPlayerID {
+            if match.currentParticipant?.player?.gamePlayerID == localPlayerID,
+               !envelope.playerMapping.hasPendingGameCenterID(for: .white),
+               !envelope.playerMapping.hasPendingGameCenterID(for: .black) {
                 try await save(envelope: envelope, to: match)
             }
         }
@@ -367,22 +369,25 @@ public final class GameCenterMatchCoordinator {
         envelope: GameCenterMatchEnvelope,
         localPlayerID: String
     ) async throws -> GameCenterLoadedMatch {
-        await ledgerCoordinator.refresh()
-
         let localPlayer = envelope.playerMapping.player(forGameCenterID: localPlayerID) ?? .white
         let opponent = localPlayer.opponent
         let opponentID = envelope.playerMapping.gameCenterID(for: opponent)
         let opponentName = envelope.playerMapping.displayName(for: opponent)
-
-        let rival = ledgerCoordinator.rival(matchingGameCenterPlayerID: opponentID)
+        let isOpponentResolved = !GameCenterPlayerMapping.isPendingGameCenterID(opponentID)
+        let existingActive = isOpponentResolved
+            ? ledgerCoordinator.activeMatch(gameCenterMatchID: match.matchID)
+            : nil
+        let rival = (isOpponentResolved ? ledgerCoordinator.rival(matchingGameCenterPlayerID: opponentID) : nil)
             ?? Rival(
                 displayName: opponentName,
                 gameCenterPlayerID: opponentID,
                 gameCenterDisplayName: opponentName
             )
-        let existingActive = ledgerCoordinator.activeMatch(gameCenterMatchID: match.matchID)
+        let activeMatchID = existingActive?.id ?? (
+            isOpponentResolved ? UUID() : Self.transientActiveMatchID(for: match.matchID)
+        )
         let activeMatch = ActiveMatch(
-            id: existingActive?.id ?? UUID(),
+            id: activeMatchID,
             rivalID: rival.id,
             gameCenterMatchID: match.matchID,
             gameIndex: envelope.gameIndex,
@@ -392,7 +397,9 @@ public final class GameCenterMatchCoordinator {
             lastUpdatedAt: Date()
         )
 
-        try await ledgerCoordinator.saveGameCenterMatch(activeMatch, rival: rival)
+        if isOpponentResolved {
+            try await ledgerCoordinator.saveGameCenterMatch(activeMatch, rival: rival)
+        }
 
         return GameCenterLoadedMatch(
             match: match,
@@ -469,7 +476,7 @@ public final class GameCenterMatchCoordinator {
             guard let playerID = participant.player?.gamePlayerID else { return false }
             return playerID != localPlayerID
         }
-        let opponentID = opponent?.player?.gamePlayerID ?? "pending-\(match.matchID)"
+        let opponentID = opponent?.player?.gamePlayerID ?? "\(GameCenterPlayerMapping.pendingPlayerIDPrefix)\(match.matchID)"
         let opponentName = opponent?.player?.displayName ?? "Opponent"
         let config = MatchConfig.tournament(targetScore: targetScore)
 
@@ -484,6 +491,21 @@ public final class GameCenterMatchCoordinator {
             config: config,
             state: MatchEngine.newMatch(config: config)
         )
+    }
+
+    static func transientActiveMatchID(for gameCenterMatchID: String) -> UUID {
+        let high = GameCenterDiceRoller.stableHash("transient-active-match:\(gameCenterMatchID):high")
+        let low = GameCenterDiceRoller.stableHash("transient-active-match:\(gameCenterMatchID):low")
+        var bytes = high.bigEndianBytes + low.bigEndianBytes
+        bytes[6] = (bytes[6] & 0x0F) | 0x50
+        bytes[8] = (bytes[8] & 0x3F) | 0x80
+
+        return UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
     }
 
     private static func resolvingParticipants(
@@ -1104,5 +1126,11 @@ private struct EmptyGameCenterLedgerView: View {
 private struct AuthenticationController: Identifiable {
     let viewController: UIViewController
     var id: ObjectIdentifier { ObjectIdentifier(viewController) }
+}
+
+private extension UInt64 {
+    var bigEndianBytes: [UInt8] {
+        withUnsafeBytes(of: bigEndian) { Array($0) }
+    }
 }
 #endif

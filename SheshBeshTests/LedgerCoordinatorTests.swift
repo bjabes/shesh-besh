@@ -313,6 +313,135 @@ struct LedgerCoordinatorTests {
         #expect(try await store.loadActiveMatch(rivalID: rival.id) == nil)
         #expect(coordinator.ledger(for: rival.id) == nil)
     }
+
+    @Test("refresh purges pending Game Center placeholder rivalries")
+    @MainActor
+    func refreshPurgesPendingGameCenterPlaceholderRivalries() async throws {
+        let rival = Rival(
+            displayName: "Opponent",
+            gameCenterPlayerID: "pending-gc-match-1",
+            gameCenterDisplayName: "Opponent"
+        )
+        let active = ActiveMatch(
+            rivalID: rival.id,
+            gameCenterMatchID: "gc-match-1",
+            userPlayed: .white,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 7))
+        )
+        let store = InMemoryLedgerStore(rivals: [rival], activeMatches: [active])
+        let coordinator = LedgerCoordinator(store: store)
+
+        await coordinator.refresh()
+
+        #expect(try await store.loadRivals().isEmpty)
+        #expect(try await store.loadActiveMatch(rivalID: rival.id) == nil)
+        #expect(coordinator.ledgers.isEmpty)
+    }
+
+    @Test("refresh reuses the snapshot after purging pending Game Center placeholders")
+    @MainActor
+    func refreshReusesSnapshotAfterPurgingPendingGameCenterPlaceholders() async throws {
+        let rival = Rival(
+            displayName: "Opponent",
+            gameCenterPlayerID: "pending-gc-match-1",
+            gameCenterDisplayName: "Opponent"
+        )
+        let active = ActiveMatch(
+            rivalID: rival.id,
+            gameCenterMatchID: "gc-match-1",
+            userPlayed: .white,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 7))
+        )
+        let store = CountingLedgerStore(rivals: [rival], activeMatches: [active])
+        let coordinator = LedgerCoordinator(store: store)
+
+        await coordinator.refresh()
+
+        #expect(await store.loadAllLedgerDataCount == 1)
+        #expect(coordinator.ledgers.isEmpty)
+    }
+
+    @Test("refresh preserves resolved Game Center rival named Opponent")
+    @MainActor
+    func refreshPreservesResolvedGameCenterRivalNamedOpponent() async throws {
+        let rival = Rival(
+            displayName: "Opponent",
+            gameCenterPlayerID: "real-game-center-player",
+            gameCenterDisplayName: "Opponent"
+        )
+        let active = ActiveMatch(
+            rivalID: rival.id,
+            gameCenterMatchID: "gc-match-1",
+            userPlayed: .white,
+            state: MatchEngine.newMatch(config: .tournament(targetScore: 7))
+        )
+        let store = InMemoryLedgerStore(rivals: [rival], activeMatches: [active])
+        let coordinator = LedgerCoordinator(store: store)
+
+        await coordinator.refresh()
+
+        #expect(try await store.loadRivals() == [rival])
+        #expect(try await store.loadActiveMatch(rivalID: rival.id) == active)
+        #expect(coordinator.ledger(for: rival.id)?.activeMatch == active)
+    }
+}
+
+private actor CountingLedgerStore: LedgerStore {
+    private let store: InMemoryLedgerStore
+    private(set) var loadAllLedgerDataCount = 0
+
+    init(
+        rivals: [Rival] = [],
+        records: [MatchRecord] = [],
+        activeMatches: [ActiveMatch] = []
+    ) {
+        self.store = InMemoryLedgerStore(
+            rivals: rivals,
+            records: records,
+            activeMatches: activeMatches
+        )
+    }
+
+    func loadRivals() async throws -> [Rival] {
+        try await store.loadRivals()
+    }
+
+    func upsertRival(_ rival: Rival) async throws {
+        try await store.upsertRival(rival)
+    }
+
+    func deleteRival(id: Rival.ID) async throws {
+        try await store.deleteRival(id: id)
+    }
+
+    func loadMatchRecords(rivalID: Rival.ID) async throws -> [MatchRecord] {
+        try await store.loadMatchRecords(rivalID: rivalID)
+    }
+
+    func appendMatchRecord(_ record: MatchRecord) async throws {
+        try await store.appendMatchRecord(record)
+    }
+
+    func deleteMatchRecords(rivalID: Rival.ID) async throws {
+        try await store.deleteMatchRecords(rivalID: rivalID)
+    }
+
+    func loadActiveMatch(rivalID: Rival.ID) async throws -> ActiveMatch? {
+        try await store.loadActiveMatch(rivalID: rivalID)
+    }
+
+    func saveActiveMatch(_ match: ActiveMatch) async throws {
+        try await store.saveActiveMatch(match)
+    }
+
+    func clearActiveMatch(rivalID: Rival.ID) async throws {
+        try await store.clearActiveMatch(rivalID: rivalID)
+    }
+
+    func loadAllLedgerData() async throws -> LedgerSnapshot {
+        loadAllLedgerDataCount += 1
+        return try await store.loadAllLedgerData()
+    }
 }
 
 private final class CompletionDiceRoller: DiceRolling, @unchecked Sendable {

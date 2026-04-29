@@ -67,3 +67,7 @@ playground.xcworkspace
 .context/
 .claude/skills/*/workspace/
 .claude/skills/*-workspace/
+
+# Generated marketing pack — produced by scripts/build-marketing-pack.sh
+marketing/icon/
+marketing/screenshots/

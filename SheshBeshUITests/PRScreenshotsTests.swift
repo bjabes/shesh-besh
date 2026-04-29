@@ -45,6 +45,18 @@ final class PRScreenshotsTests: XCTestCase {
     }
 
     @MainActor
+    func testCapture_BoardOpponentSkip() throws {
+        let app = sceneApp("board-opponent-skip")
+        app.launch()
+
+        // The AI rolls into a closed-out home and auto-skips. Wait for the
+        // local roll-dice button so we know the skip has finished and the
+        // tray's previous-roll slot is rendered.
+        XCTAssertTrue(app.buttons["action-roll-dice"].waitForExistence(timeout: 5))
+        attachScreenshot(named: "board-opponent-skip")
+    }
+
+    @MainActor
     func testCapture_RivalriesHome() throws {
         let app = sceneApp("rivalries-home")
         app.launch()

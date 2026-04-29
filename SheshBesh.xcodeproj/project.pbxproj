@@ -18,6 +18,7 @@
 		AF100000000000000000000F /* MatchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000010 /* MatchEngine.swift */; };
 		AF1000000000000000000011 /* Moves.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000012 /* Moves.swift */; };
 		AF1000000000000000000013 /* MoveValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000014 /* MoveValidator.swift */; };
+		AF1000000000000000000060 /* MoveNotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000061 /* MoveNotation.swift */; };
 		AF1000000000000000000015 /* Player.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000016 /* Player.swift */; };
 		AF1000000000000000000017 /* State.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000018 /* State.swift */; };
 		AF1000000000000000000036 /* AppLaunchConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1000000000000000000037 /* AppLaunchConfiguration.swift */; };
@@ -71,6 +72,7 @@
 		AF1000000000000000000010 /* MatchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchEngine.swift; sourceTree = "<group>"; };
 		AF1000000000000000000012 /* Moves.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Moves.swift; sourceTree = "<group>"; };
 		AF1000000000000000000014 /* MoveValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoveValidator.swift; sourceTree = "<group>"; };
+		AF1000000000000000000061 /* MoveNotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoveNotation.swift; sourceTree = "<group>"; };
 		AF1000000000000000000016 /* Player.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Player.swift; sourceTree = "<group>"; };
 		AF1000000000000000000018 /* State.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = State.swift; sourceTree = "<group>"; };
 		AF100000000000000000001C /* Gammonade.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "$(PRODUCT_NAME).app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -215,6 +217,7 @@
 				AF1000000000000000000010 /* MatchEngine.swift */,
 				AF1000000000000000000012 /* Moves.swift */,
 				AF1000000000000000000014 /* MoveValidator.swift */,
+				AF1000000000000000000061 /* MoveNotation.swift */,
 				AF1000000000000000000016 /* Player.swift */,
 				AF1000000000000000000018 /* State.swift */,
 			);
@@ -416,6 +419,7 @@
 				AF100000000000000000000F /* MatchEngine.swift in Sources */,
 				AF1000000000000000000011 /* Moves.swift in Sources */,
 				AF1000000000000000000013 /* MoveValidator.swift in Sources */,
+				AF1000000000000000000060 /* MoveNotation.swift in Sources */,
 				AF1000000000000000000015 /* Player.swift in Sources */,
 				AF1000000000000000000017 /* State.swift in Sources */,
 			);

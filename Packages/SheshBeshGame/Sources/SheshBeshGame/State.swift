@@ -113,6 +113,20 @@ public struct TurnState: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+public struct PreviousTurn: Codable, Equatable, Hashable, Sendable {
+    public let player: Player
+    public let roll: DiceRoll
+    public let moves: [AppliedMove]
+    public let wasSkipped: Bool
+
+    public init(player: Player, roll: DiceRoll, moves: [AppliedMove], wasSkipped: Bool) {
+        self.player = player
+        self.roll = roll
+        self.moves = moves
+        self.wasSkipped = wasSkipped
+    }
+}
+
 public struct CubeOffer: Codable, Equatable, Hashable, Sendable {
     public let offeredBy: Player
     public let proposedValue: Int
@@ -193,6 +207,8 @@ public struct MatchState: Codable, Equatable, Hashable, Sendable {
     public var gameNumber: Int
     public var crawfordState: CrawfordState
     public var completion: MatchCompletion?
+    public var currentTurnMoves: [AppliedMove]
+    public var previousTurn: PreviousTurn?
 
     public init(
         config: MatchConfig,
@@ -200,7 +216,9 @@ public struct MatchState: Codable, Equatable, Hashable, Sendable {
         game: GameState = GameState(),
         gameNumber: Int = 1,
         crawfordState: CrawfordState = .notReached,
-        completion: MatchCompletion? = nil
+        completion: MatchCompletion? = nil,
+        currentTurnMoves: [AppliedMove] = [],
+        previousTurn: PreviousTurn? = nil
     ) {
         self.config = config
         self.score = score
@@ -208,6 +226,31 @@ public struct MatchState: Codable, Equatable, Hashable, Sendable {
         self.gameNumber = gameNumber
         self.crawfordState = crawfordState
         self.completion = completion
+        self.currentTurnMoves = currentTurnMoves
+        self.previousTurn = previousTurn
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case config
+        case score
+        case game
+        case gameNumber
+        case crawfordState
+        case completion
+        case currentTurnMoves
+        case previousTurn
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        config = try container.decode(MatchConfig.self, forKey: .config)
+        score = try container.decode(MatchScore.self, forKey: .score)
+        game = try container.decode(GameState.self, forKey: .game)
+        gameNumber = try container.decode(Int.self, forKey: .gameNumber)
+        crawfordState = try container.decode(CrawfordState.self, forKey: .crawfordState)
+        completion = try container.decodeIfPresent(MatchCompletion.self, forKey: .completion)
+        currentTurnMoves = try container.decodeIfPresent([AppliedMove].self, forKey: .currentTurnMoves) ?? []
+        previousTurn = try container.decodeIfPresent(PreviousTurn.self, forKey: .previousTurn)
     }
 }
 

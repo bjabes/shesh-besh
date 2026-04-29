@@ -268,6 +268,23 @@ public final class MatchViewModel {
         player == localPlayer ? "You" : opponentName
     }
 
+    public var previousRollDice: [Int]? {
+        guard let previous = state.previousTurn else { return nil }
+        return [previous.roll.die1, previous.roll.die2]
+    }
+
+    public var previousMoveNotation: String? {
+        guard let previous = state.previousTurn, !previous.moves.isEmpty else { return nil }
+        return MoveNotation.format(previous.moves, from: localPlayer)
+    }
+
+    public var previousRollSkipNote: String? {
+        guard let previous = state.previousTurn,
+              previous.wasSkipped,
+              previous.moves.isEmpty else { return nil }
+        return "No legal moves"
+    }
+
     public func containsAction(_ action: MatchAction) -> Bool {
         legalActions.contains(action)
     }
@@ -686,9 +703,7 @@ public final class MatchViewModel {
             return false
         }
 
-        let previousState = state
         apply(action, schedulesOpponent: false)
-        refreshOpponentTurnNotice(after: action, from: previousState)
         return true
     }
 
@@ -698,24 +713,6 @@ public final class MatchViewModel {
 
         if schedulesAutomation {
             scheduleAutomationIfNeeded()
-        }
-    }
-
-    private func refreshOpponentTurnNotice(after action: MatchAction, from previousState: MatchState) {
-        guard lastError == nil else { return }
-        let opponent = localPlayer.opponent
-
-        switch action {
-        case .passTurn(let player) where player == opponent:
-            turnNotice = "\(opponentName) had no legal moves"
-        case .rollDice(let player) where player == opponent:
-            if case .awaitingRoll(let previousPlayer) = previousState.game.phase,
-               previousPlayer == opponent,
-               activePlayer == localPlayer {
-                turnNotice = "\(opponentName) had no legal moves"
-            }
-        default:
-            break
         }
     }
 

@@ -12,10 +12,11 @@ ATTACHMENTS_DIR="$SCREENSHOT_DIR/.xcresult-attachments"
 # Map scene names (from AppLaunchConfiguration.UITestScene) to the UI test
 # method name in PRScreenshotsTests. Keep this in sync with that file —
 # adding a new scene means adding both a test method and a case here.
-SCENE_NAMES="board-opening rivalries-home match-end-you-won match-end-rival-won"
+SCENE_NAMES="board-opening board-opponent-skip rivalries-home match-end-you-won match-end-rival-won"
 test_name_for_scene() {
   case "$1" in
     board-opening)        echo testCapture_BoardOpening ;;
+    board-opponent-skip)  echo testCapture_BoardOpponentSkip ;;
     rivalries-home)       echo testCapture_RivalriesHome ;;
     match-end-you-won)    echo testCapture_MatchEndYouWon ;;
     match-end-rival-won)  echo testCapture_MatchEndRivalWon ;;

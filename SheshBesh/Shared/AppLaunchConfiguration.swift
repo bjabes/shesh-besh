@@ -43,6 +43,7 @@ public enum AppLaunchConfiguration {
     /// reachable from any UI test that launches the app.
     public enum UITestScene: String, CaseIterable {
         case boardOpening = "board-opening"
+        case boardOpponentSkip = "board-opponent-skip"
         case rivalriesHome = "rivalries-home"
         case matchEndYouWon = "match-end-you-won"
         case matchEndRivalWon = "match-end-rival-won"
@@ -59,6 +60,9 @@ public enum AppLaunchConfiguration {
                         opponentDelay: {}
                     )
                 )
+
+            case .boardOpponentSkip:
+                return RootView(viewModel: makeOpponentSkipViewModel())
 
             case .rivalriesHome:
                 return RootView(coordinator: seededRootLedgerCoordinator())
@@ -80,6 +84,43 @@ public enum AppLaunchConfiguration {
             return nil
         }
         return UITestScene(rawValue: arguments[arguments.index(after: flagIndex)])
+    }
+
+    /// Seed a midgame state where the opponent's next roll is forced to skip:
+    /// black has a checker on the bar and white owns every entry point with 2+
+    /// checkers. The AI rolls, finds no legal entry, and the engine rotates the
+    /// turn back to the local player. The screenshot fires once "Roll dice" is
+    /// available again.
+    @MainActor
+    private static func makeOpponentSkipViewModel() -> MatchViewModel {
+        var board = Board.empty()
+        // White locks every point in their home board so black cannot enter.
+        try! board.setPoint(PointID(rawValue: 1)!, owner: .white, count: 2)
+        try! board.setPoint(PointID(rawValue: 2)!, owner: .white, count: 2)
+        try! board.setPoint(PointID(rawValue: 3)!, owner: .white, count: 2)
+        try! board.setPoint(PointID(rawValue: 4)!, owner: .white, count: 2)
+        try! board.setPoint(PointID(rawValue: 5)!, owner: .white, count: 2)
+        try! board.setPoint(PointID(rawValue: 6)!, owner: .white, count: 2)
+        try! board.setPoint(PointID(rawValue: 8)!, owner: .white, count: 2)
+        try! board.setPoint(PointID(rawValue: 13)!, owner: .white, count: 1)
+        // Black has 1 on the bar plus 14 elsewhere.
+        try! board.setBar(for: .black, count: 1)
+        try! board.setPoint(PointID(rawValue: 12)!, owner: .black, count: 5)
+        try! board.setPoint(PointID(rawValue: 17)!, owner: .black, count: 3)
+        try! board.setPoint(PointID(rawValue: 19)!, owner: .black, count: 5)
+        try! board.setPoint(PointID(rawValue: 24)!, owner: .black, count: 1)
+
+        let initialState = MatchState(
+            config: .tournament(targetScore: 7),
+            game: GameState(board: board, phase: .awaitingRoll(.black))
+        )
+
+        return MatchViewModel(
+            engine: MatchEngine(diceRoller: ScriptedDiceRoller([5, 3])),
+            config: .tournament(targetScore: 7),
+            initialState: initialState,
+            opponentDelay: {}
+        )
     }
 
     @MainActor

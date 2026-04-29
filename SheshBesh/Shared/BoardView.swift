@@ -713,7 +713,7 @@ private struct PointCell: View {
 
                 VStack {
                     if pointsDown { Spacer(minLength: 0) }
-                    Text("\(pointID.rawValue)")
+                    Text("\(displayPointNumber)")
                         .font(LinenBrass.uiFont(size: 9, weight: .medium))
                         .foregroundStyle(LinenBrass.coffee.opacity(0.64))
                         .lineLimit(1)
@@ -748,11 +748,15 @@ private struct PointCell: View {
 
     private var accessibilityLabel: String {
         guard let owner = point.owner else {
-            return "Point \(pointID.rawValue), empty\(stateSuffix)"
+            return "Point \(displayPointNumber), empty\(stateSuffix)"
         }
         let player = owner == localPlayer ? "your" : "opponent"
         let checkerWord = point.count == 1 ? "checker" : "checkers"
-        return "Point \(pointID.rawValue), \(point.count) \(player) \(checkerWord)\(stateSuffix)"
+        return "Point \(displayPointNumber), \(point.count) \(player) \(checkerWord)\(stateSuffix)"
+    }
+
+    private var displayPointNumber: Int {
+        pointID.perspectiveValue(for: localPlayer)
     }
 
     private var stateSuffix: String {

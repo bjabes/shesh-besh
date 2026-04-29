@@ -778,12 +778,12 @@ public final class MatchViewModel {
         var black = 0
 
         for (offset, point) in board.points.enumerated() {
-            let rawPoint = offset + 1
+            guard let pointID = PointID(rawValue: offset + 1) else { continue }
             switch point.owner {
             case .white:
-                white += rawPoint * point.count
+                white += pointID.perspectiveValue(for: .white) * point.count
             case .black:
-                black += (25 - rawPoint) * point.count
+                black += pointID.perspectiveValue(for: .black) * point.count
             case nil:
                 continue
             }
@@ -1057,12 +1057,7 @@ public struct LocalAIOpponent: Sendable {
     }
 
     private func pips(from point: PointID, for player: Player) -> Int {
-        switch player {
-        case .white:
-            return point.rawValue
-        case .black:
-            return 25 - point.rawValue
-        }
+        point.perspectiveValue(for: player)
     }
 
     private func clampedRandomIndex(upperBound: Int) -> Int {

@@ -168,7 +168,7 @@ public struct Board: Codable, Equatable, Hashable, Sendable {
                 self.point(PointID(rawValue: rawValue)!).owner != .white
             }
         case .black:
-            let exactDie = 25 - point.rawValue
+            let exactDie = point.perspectiveValue(for: player)
             if exactDie == die { return true }
             guard die > exactDie else { return false }
             let fartherPoints = 19..<(point.rawValue)

@@ -11,6 +11,14 @@ struct BoardTests {
         #expect(PointID(rawValue: -1) == nil)
     }
 
+    @Test("Point IDs expose player-perspective numbering")
+    func pointIDPerspectiveValueUsesPlayerView() {
+        let point = point(18)
+
+        #expect(point.perspectiveValue(for: .white) == 18)
+        #expect(point.perspectiveValue(for: .black) == 7)
+    }
+
     @Test("Initial board has standard checker placement")
     func initialBoardPlacement() {
         let board = Board.initial()

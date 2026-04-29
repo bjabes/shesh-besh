@@ -70,6 +70,11 @@ public struct BoardView: View {
         .onChange(of: viewModel.state.game.phase) { _, _ in
             selectedSource = nil
         }
+        .onChange(of: viewModel.isOpponentTurn) { _, isOpponentTurn in
+            if isOpponentTurn {
+                didSendReminder = false
+            }
+        }
     }
 
     @ViewBuilder

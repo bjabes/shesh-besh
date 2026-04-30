@@ -1419,18 +1419,18 @@ private struct ActionBar: View {
                 localAutoplayButton
 
             case .awaitingCubeResponse(let offer) where offer.offeredBy.opponent == viewModel.localPlayer:
-                PrimaryActionButton(
-                    title: "Take \(offer.proposedValue)",
-                    accessibilityIdentifier: "action-take-double"
-                ) {
-                    viewModel.takeDoubleIfAllowed()
-                    onAction()
-                }
                 SecondaryActionButton(
                     title: "Drop",
                     accessibilityIdentifier: "action-drop-double"
                 ) {
                     viewModel.dropDoubleIfAllowed()
+                    onAction()
+                }
+                PrimaryActionButton(
+                    title: "Take \(offer.proposedValue)",
+                    accessibilityIdentifier: "action-take-double"
+                ) {
+                    viewModel.takeDoubleIfAllowed()
                     onAction()
                 }
 

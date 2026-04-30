@@ -45,6 +45,37 @@ final class SheshBeshUITests: XCTestCase {
     }
 
     @MainActor
+    func testIncomingDoubleOfferUsesBottomActionBar() throws {
+        let app = doubleOfferApp()
+        app.launch()
+
+        XCTAssertTrue(element("board", in: app).waitForExistence(timeout: 5))
+        XCTAssertTrue(element("point-24", in: app).exists)
+        XCTAssertFalse(element("double-offer-title", in: app).exists)
+        XCTAssertTrue(app.buttons["action-take-double"].exists)
+        XCTAssertTrue(app.buttons["action-drop-double"].exists)
+
+        app.buttons["action-take-double"].tap()
+
+        XCTAssertTrue(element("opponent-turn-status", in: app).waitForExistence(timeout: 2))
+        XCTAssertFalse(app.buttons["action-take-double"].exists)
+        XCTAssertFalse(app.buttons["action-drop-double"].exists)
+    }
+
+    @MainActor
+    func testIncomingDoubleDropResolvesOffer() throws {
+        let app = doubleOfferApp()
+        app.launch()
+
+        XCTAssertTrue(app.buttons["action-drop-double"].waitForExistence(timeout: 5))
+        app.buttons["action-drop-double"].tap()
+
+        XCTAssertTrue(app.buttons["action-next-game"].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.buttons["action-take-double"].exists)
+        XCTAssertFalse(app.buttons["action-drop-double"].exists)
+    }
+
+    @MainActor
     func testRootRivalryButtonsDoNotRenderSystemBlueIcons() throws {
         let app = rootLedgerApp()
         app.launch()
@@ -88,6 +119,13 @@ final class SheshBeshUITests: XCTestCase {
             "-uiTestDice",
             "6,1,6,1",
         ]
+        return app
+    }
+
+    @MainActor
+    private func doubleOfferApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTestScene", "board-double-offer"]
         return app
     }
 

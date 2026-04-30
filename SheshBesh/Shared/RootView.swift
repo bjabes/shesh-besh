@@ -139,15 +139,11 @@ public struct RootView: View {
         onBackToRivals: (() -> Void)? = nil,
         onSendReminder: (@MainActor () async -> Void)? = nil
     ) -> some View {
-        if viewModel.doubleOfferForLocalPlayer != nil {
-            DoubleOfferSheet(viewModel: viewModel, onBackToRivals: onBackToRivals)
-        } else {
-            BoardView(
-                viewModel: viewModel,
-                onBackToRivals: onBackToRivals,
-                onSendReminder: onSendReminder
-            )
-        }
+        BoardView(
+            viewModel: viewModel,
+            onBackToRivals: onBackToRivals,
+            onSendReminder: onSendReminder
+        )
     }
 
     private func openMatch(_ match: ActiveMatch) {

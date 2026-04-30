@@ -89,7 +89,7 @@ Deferred items surfaced during /plan-eng-review on 2026-04-23. Each captures wha
 **Status:** Completed on 2026-04-26. Approved manifest:
 `~/.gstack/projects/bjabes-shesh-besh/designs/secondary-screens-20260424/approved.json`.
 
-**What:** Approved design directions exist for the four secondary V1 screens. Screens: HomeView (0-rival empty, 1-rival hero, multi-rival scrollable), Opponent-Turn read-only board, DoubleOfferSheet ("Dan is offering a double to 4 - Take/Drop"), Match-End sheet overlay.
+**What:** Approved design directions exist for the four secondary V1 screens. Screens: HomeView (0-rival empty, 1-rival hero, multi-rival scrollable), Opponent-Turn read-only board, incoming double response ("Dan is offering a double to 4 - Take/Drop"), Match-End sheet overlay.
 
 **Why:** BoardView has a locked visual identity (Linen & Brass) but half the V1 experience lives on the other four screens. Without mockups, engineering ships placeholders and the visual language fragments across states.
 

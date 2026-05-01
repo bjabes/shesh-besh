@@ -164,7 +164,7 @@ public struct BoardView: View {
     }
 
     private var showsActionBar: Bool {
-        !viewModel.isOpponentTurn && viewModel.doubleOfferForLocalPlayer == nil
+        !viewModel.isOpponentTurn
     }
 
     private func handlePointTap(_ pointID: PointID) {
@@ -205,128 +205,6 @@ public struct BoardView: View {
         if viewModel.applyMove(from: selectedSource, to: .off) {
             self.selectedSource = nil
         }
-    }
-}
-
-public struct DoubleOfferSheet: View {
-    public let viewModel: MatchViewModel
-    private let onBackToRivals: (() -> Void)?
-
-    public init(
-        viewModel: MatchViewModel,
-        onBackToRivals: (() -> Void)? = nil
-    ) {
-        self.viewModel = viewModel
-        self.onBackToRivals = onBackToRivals
-    }
-
-    public var body: some View {
-        ZStack {
-            BoardView(
-                viewModel: viewModel,
-                onBackToRivals: onBackToRivals
-            )
-
-            LinenBrass.ink.opacity(0.42)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-
-            if let offer = viewModel.doubleOfferForLocalPlayer {
-                offerCard(offer)
-                    .padding(.horizontal, 24)
-            }
-        }
-    }
-
-    private func offerCard(_ offer: CubeOffer) -> some View {
-        VStack(spacing: 18) {
-            CubeView(cube: CubeState(value: offer.proposedValue, owner: viewModel.localPlayer.opponent), localPlayer: viewModel.localPlayer)
-                .frame(width: 54, height: 54)
-
-            VStack(spacing: 6) {
-                Text("\(viewModel.opponentName) is offering a double to \(offer.proposedValue)")
-                    .font(LinenBrass.displayFont(size: 24, weight: .bold))
-                    .foregroundStyle(LinenBrass.ink)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(3)
-                    .minimumScaleFactor(0.78)
-                    .accessibilityIdentifier("double-offer-title")
-
-                Text("The board is frozen until you take or drop.")
-                    .font(LinenBrass.uiFont(size: 14, weight: .medium))
-                    .foregroundStyle(LinenBrass.mutedInk)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-            }
-
-            VStack(spacing: 8) {
-                consequenceRow(
-                    title: "Take",
-                    detail: "Play on with the cube at \(offer.proposedValue)."
-                )
-                consequenceRow(
-                    title: "Drop",
-                    detail: "\(viewModel.opponentName) scores \(pointsText(offer.previousCubeValue))."
-                )
-            }
-
-            HStack(spacing: 12) {
-                Button {
-                    viewModel.dropDoubleIfAllowed()
-                } label: {
-                    Text("Drop")
-                        .font(LinenBrass.uiFont(size: 17, weight: .semibold))
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                }
-                .buttonStyle(LinenButtonStyle(kind: .secondary))
-                .accessibilityIdentifier("action-drop-double")
-
-                Button {
-                    viewModel.takeDoubleIfAllowed()
-                } label: {
-                    Text("Take")
-                        .font(LinenBrass.uiFont(size: 17, weight: .semibold))
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                }
-                .buttonStyle(LinenButtonStyle(kind: .primary))
-                .accessibilityIdentifier("action-take-double")
-            }
-        }
-        .padding(22)
-        .frame(maxWidth: 360)
-        .background(
-            RoundedRectangle(cornerRadius: 7)
-                .fill(LinenBrass.cream)
-                .shadow(color: .black.opacity(0.28), radius: 14, y: 7)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 7)
-                .stroke(LinenBrass.brass.opacity(0.72), lineWidth: 1)
-        )
-    }
-
-    private func consequenceRow(title: String, detail: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(title)
-                .font(LinenBrass.uiFont(size: 14, weight: .bold))
-                .foregroundStyle(LinenBrass.ink)
-                .frame(width: 44, alignment: .leading)
-
-            Text(detail)
-                .font(LinenBrass.uiFont(size: 14, weight: .medium))
-                .foregroundStyle(LinenBrass.mutedInk)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .background(LinenBrass.linen, in: RoundedRectangle(cornerRadius: 6))
-    }
-
-    private func pointsText(_ value: Int) -> String {
-        value == 1 ? "1 point" : "\(value) points"
     }
 }
 
@@ -1541,12 +1419,18 @@ private struct ActionBar: View {
                 localAutoplayButton
 
             case .awaitingCubeResponse(let offer) where offer.offeredBy.opponent == viewModel.localPlayer:
-                PrimaryActionButton(title: "Take \(offer.proposedValue)") {
-                    viewModel.send(.takeDouble(viewModel.localPlayer))
+                SecondaryActionButton(
+                    title: "Drop",
+                    accessibilityIdentifier: "action-drop-double"
+                ) {
+                    viewModel.dropDoubleIfAllowed()
                     onAction()
                 }
-                SecondaryActionButton(title: "Drop") {
-                    viewModel.send(.dropDouble(viewModel.localPlayer))
+                PrimaryActionButton(
+                    title: "Take \(offer.proposedValue)",
+                    accessibilityIdentifier: "action-take-double"
+                ) {
+                    viewModel.takeDoubleIfAllowed()
                     onAction()
                 }
 
@@ -1678,6 +1562,7 @@ private struct PrimaryActionButton: View {
 
 private struct SecondaryActionButton: View {
     let title: String
+    var accessibilityIdentifier: String?
     let action: () -> Void
 
     var body: some View {
@@ -1689,7 +1574,7 @@ private struct SecondaryActionButton: View {
                 .frame(maxWidth: .infinity, minHeight: 48)
         }
         .buttonStyle(LinenButtonStyle(kind: .secondary))
-        .accessibilityIdentifier(actionAccessibilityIdentifier(for: title))
+        .accessibilityIdentifier(accessibilityIdentifier ?? actionAccessibilityIdentifier(for: title))
     }
 }
 

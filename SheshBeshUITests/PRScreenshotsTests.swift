@@ -50,9 +50,9 @@ final class PRScreenshotsTests: XCTestCase {
         app.launch()
 
         // The AI rolls into a closed-out home and auto-skips. Wait for the
-        // local roll-dice button so we know the skip has finished and the
+        // local roll button so we know the skip has finished and the
         // tray's previous-roll slot is rendered.
-        XCTAssertTrue(app.buttons["action-roll-dice"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["action-roll"].waitForExistence(timeout: 5))
         attachScreenshot(named: "board-opponent-skip")
     }
 

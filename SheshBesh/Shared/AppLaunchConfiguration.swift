@@ -44,6 +44,7 @@ public enum AppLaunchConfiguration {
     public enum UITestScene: String, CaseIterable {
         case boardOpening = "board-opening"
         case boardOpponentSkip = "board-opponent-skip"
+        case boardDoubleOffer = "board-double-offer"
         case rivalriesHome = "rivalries-home"
         case matchEndYouWon = "match-end-you-won"
         case matchEndRivalWon = "match-end-rival-won"
@@ -63,6 +64,9 @@ public enum AppLaunchConfiguration {
 
             case .boardOpponentSkip:
                 return RootView(viewModel: makeOpponentSkipViewModel())
+
+            case .boardDoubleOffer:
+                return RootView(viewModel: makeDoubleOfferViewModel())
 
             case .rivalriesHome:
                 return RootView(coordinator: seededRootLedgerCoordinator())
@@ -119,6 +123,29 @@ public enum AppLaunchConfiguration {
             engine: MatchEngine(diceRoller: ScriptedDiceRoller([5, 3])),
             config: .tournament(targetScore: 7),
             initialState: initialState,
+            opponentDelay: {}
+        )
+    }
+
+    @MainActor
+    private static func makeDoubleOfferViewModel() -> MatchViewModel {
+        let initialState = MatchState(
+            config: .tournament(targetScore: 7),
+            game: GameState(
+                phase: .awaitingCubeResponse(
+                    CubeOffer(
+                        offeredBy: .black,
+                        proposedValue: 2,
+                        previousCubeValue: 1
+                    )
+                )
+            )
+        )
+
+        return MatchViewModel(
+            config: .tournament(targetScore: 7),
+            initialState: initialState,
+            isOpponentAutoplayEnabled: false,
             opponentDelay: {}
         )
     }

@@ -45,15 +45,6 @@ public struct PointID: RawRepresentable, Codable, Comparable, Equatable, Hashabl
         self.rawValue = rawValue
     }
 
-    public func perspectiveValue(for player: Player) -> Int {
-        switch player {
-        case .white:
-            rawValue
-        case .black:
-            25 - rawValue
-        }
-    }
-
     public static func < (lhs: PointID, rhs: PointID) -> Bool {
         lhs.rawValue < rhs.rawValue
     }

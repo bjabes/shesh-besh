@@ -275,7 +275,7 @@ public final class MatchViewModel {
 
     public var previousMoveNotation: String? {
         guard let previous = state.previousTurn, !previous.moves.isEmpty else { return nil }
-        return MoveNotation.format(previous.moves, from: localPlayer)
+        return MoveNotation.format(previous.moves)
     }
 
     public var previousRollSkipNote: String? {
@@ -781,9 +781,9 @@ public final class MatchViewModel {
             guard let pointID = PointID(rawValue: offset + 1) else { continue }
             switch point.owner {
             case .white:
-                white += pointID.perspectiveValue(for: .white) * point.count
+                white += pointID.rawValue * point.count
             case .black:
-                black += pointID.perspectiveValue(for: .black) * point.count
+                black += (25 - pointID.rawValue) * point.count
             case nil:
                 continue
             }
@@ -1057,7 +1057,10 @@ public struct LocalAIOpponent: Sendable {
     }
 
     private func pips(from point: PointID, for player: Player) -> Int {
-        point.perspectiveValue(for: player)
+        switch player {
+        case .white: point.rawValue
+        case .black: 25 - point.rawValue
+        }
     }
 
     private func clampedRandomIndex(upperBound: Int) -> Int {

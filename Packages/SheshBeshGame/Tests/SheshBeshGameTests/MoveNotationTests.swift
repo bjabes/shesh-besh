@@ -7,8 +7,7 @@ struct MoveNotationTests {
 
     @Test("Empty move list renders as empty string")
     func emptyMoves() {
-        #expect(MoveNotation.format([], from: .white) == "")
-        #expect(MoveNotation.format([], from: .black) == "")
+        #expect(MoveNotation.format([]) == "")
     }
 
     // MARK: Single moves
@@ -16,31 +15,31 @@ struct MoveNotationTests {
     @Test("Single point-to-point move renders source/destination")
     func singlePointMove() {
         let move = applied(.white, from: 13, to: 8, die: 5)
-        #expect(MoveNotation.format([move], from: .white) == "13/8")
+        #expect(MoveNotation.format([move]) == "13/8")
     }
 
     @Test("Single move with hit appends asterisk to destination")
     func singleHit() {
         let move = applied(.white, from: 13, to: 7, die: 6, hit: true)
-        #expect(MoveNotation.format([move], from: .white) == "13/7*")
+        #expect(MoveNotation.format([move]) == "13/7*")
     }
 
     @Test("Bar entry renders with bar/N")
     func barEntry() {
         let move = appliedBar(.white, to: 22, die: 3)
-        #expect(MoveNotation.format([move], from: .white) == "bar/22")
+        #expect(MoveNotation.format([move]) == "bar/22")
     }
 
     @Test("Bar entry with hit renders bar/N*")
     func barEntryWithHit() {
         let move = appliedBar(.white, to: 22, die: 3, hit: true)
-        #expect(MoveNotation.format([move], from: .white) == "bar/22*")
+        #expect(MoveNotation.format([move]) == "bar/22*")
     }
 
     @Test("Bear-off renders source/off")
     func bearOff() {
         let move = appliedBearOff(.white, from: 5, die: 5)
-        #expect(MoveNotation.format([move], from: .white) == "5/off")
+        #expect(MoveNotation.format([move]) == "5/off")
     }
 
     // MARK: Multiple unrelated moves
@@ -51,7 +50,7 @@ struct MoveNotationTests {
             applied(.white, from: 24, to: 18, die: 6),
             applied(.white, from: 24, to: 23, die: 1),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "24/18 24/23")
+        #expect(MoveNotation.format(moves) == "24/18 24/23")
     }
 
     @Test("Bar entry followed by an unrelated move stays as two parts")
@@ -60,7 +59,7 @@ struct MoveNotationTests {
             appliedBar(.white, to: 22, die: 3),
             applied(.white, from: 17, to: 9, die: 8),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "bar/22 17/9")
+        #expect(MoveNotation.format(moves) == "bar/22 17/9")
     }
 
     @Test("Two bear-offs render as separate parts")
@@ -69,7 +68,7 @@ struct MoveNotationTests {
             appliedBearOff(.white, from: 5, die: 5),
             appliedBearOff(.white, from: 2, die: 2),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "5/off 2/off")
+        #expect(MoveNotation.format(moves) == "5/off 2/off")
     }
 
     // MARK: Chains
@@ -80,7 +79,7 @@ struct MoveNotationTests {
             applied(.white, from: 13, to: 7, die: 6),
             applied(.white, from: 7, to: 5, die: 2),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "13/7/5")
+        #expect(MoveNotation.format(moves) == "13/7/5")
     }
 
     @Test("Chain with hit at the intermediate point keeps the asterisk")
@@ -89,7 +88,7 @@ struct MoveNotationTests {
             applied(.white, from: 13, to: 7, die: 6, hit: true),
             applied(.white, from: 7, to: 5, die: 2),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "13/7*/5")
+        #expect(MoveNotation.format(moves) == "13/7*/5")
     }
 
     @Test("Chain with hits at every step asterisks each point")
@@ -98,7 +97,7 @@ struct MoveNotationTests {
             applied(.white, from: 13, to: 7, die: 6, hit: true),
             applied(.white, from: 7, to: 5, die: 2, hit: true),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "13/7*/5*")
+        #expect(MoveNotation.format(moves) == "13/7*/5*")
     }
 
     @Test("Chain ending in bear-off shows /off as final segment")
@@ -107,7 +106,7 @@ struct MoveNotationTests {
             applied(.white, from: 5, to: 3, die: 2),
             appliedBearOff(.white, from: 3, die: 3),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "5/3/off")
+        #expect(MoveNotation.format(moves) == "5/3/off")
     }
 
     @Test("Three-step chain across three different dice")
@@ -117,7 +116,7 @@ struct MoveNotationTests {
             applied(.white, from: 22, to: 20, die: 2),
             applied(.white, from: 20, to: 18, die: 2),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "24/22/20/18")
+        #expect(MoveNotation.format(moves) == "24/22/20/18")
     }
 
     @Test("Bar entry chained into a follow-up move renders bar/A/B")
@@ -126,7 +125,7 @@ struct MoveNotationTests {
             appliedBar(.white, to: 22, die: 3),
             applied(.white, from: 22, to: 16, die: 6),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "bar/22/16")
+        #expect(MoveNotation.format(moves) == "bar/22/16")
     }
 
     @Test("Bar entry with hit then chain renders bar/N*/M")
@@ -135,7 +134,7 @@ struct MoveNotationTests {
             appliedBar(.white, to: 22, die: 3, hit: true),
             applied(.white, from: 22, to: 16, die: 6),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "bar/22*/16")
+        #expect(MoveNotation.format(moves) == "bar/22*/16")
     }
 
     // MARK: Doubles grouping
@@ -143,7 +142,7 @@ struct MoveNotationTests {
     @Test("Doubles with all four checkers playing the same move group as (4)")
     func doublesAllSame() {
         let moves = Array(repeating: applied(.white, from: 6, to: 4, die: 2), count: 4)
-        #expect(MoveNotation.format(moves, from: .white) == "6/4(4)")
+        #expect(MoveNotation.format(moves) == "6/4(4)")
     }
 
     @Test("Doubles split into two distinct moves group each as (2)")
@@ -154,7 +153,7 @@ struct MoveNotationTests {
             applied(.white, from: 13, to: 11, die: 2),
             applied(.white, from: 13, to: 11, die: 2),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "6/4(2) 13/11(2)")
+        #expect(MoveNotation.format(moves) == "6/4(2) 13/11(2)")
     }
 
     @Test("Wikipedia example: 6/4(3) 13/11 for a 2-2 roll")
@@ -165,7 +164,7 @@ struct MoveNotationTests {
             applied(.white, from: 6, to: 4, die: 2),
             applied(.white, from: 13, to: 11, die: 2),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "6/4(3) 13/11")
+        #expect(MoveNotation.format(moves) == "6/4(3) 13/11")
     }
 
     @Test("Identical moves interleaved with another move still collapse")
@@ -176,7 +175,7 @@ struct MoveNotationTests {
             applied(.white, from: 6, to: 4, die: 2),
             applied(.white, from: 6, to: 4, die: 2),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "6/4(3) 13/11")
+        #expect(MoveNotation.format(moves) == "6/4(3) 13/11")
     }
 
     @Test("Doubles with one chain and a separate paired move")
@@ -187,7 +186,7 @@ struct MoveNotationTests {
             applied(.white, from: 13, to: 11, die: 2),
             applied(.white, from: 13, to: 11, die: 2),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "24/22/20 13/11(2)")
+        #expect(MoveNotation.format(moves) == "24/22/20 13/11(2)")
     }
 
     @Test("Repeated identical chain collapses across the full chain")
@@ -198,13 +197,13 @@ struct MoveNotationTests {
             applied(.white, from: 13, to: 11, die: 2),
             applied(.white, from: 11, to: 9, die: 2),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "13/11/9(2)")
+        #expect(MoveNotation.format(moves) == "13/11/9(2)")
     }
 
     @Test("Doubles 1-1 from the bar with four entries collapses")
     func doublesAllBarEntries() {
         let moves = Array(repeating: appliedBar(.white, to: 24, die: 1), count: 4)
-        #expect(MoveNotation.format(moves, from: .white) == "bar/24(4)")
+        #expect(MoveNotation.format(moves) == "bar/24(4)")
     }
 
     @Test("Doubles bear-off pairs collapse into N/off(N)")
@@ -214,98 +213,86 @@ struct MoveNotationTests {
             appliedBearOff(.white, from: 2, die: 2),
             appliedBearOff(.white, from: 1, die: 2),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "2/off(2) 1/off")
+        #expect(MoveNotation.format(moves) == "2/off(2) 1/off")
     }
 
-    // MARK: Player perspective (per-player numbering)
+    // MARK: Static absolute numbering
 
-    @Test("Black moves render from Black's perspective (25 - rawValue)")
-    func blackPerspectiveBasicMove() {
+    @Test("Black moves render raw source and destination")
+    func blackMoveUsesRawNumbers() {
         // Black moves rawValue 12 → 18 (moves "+6" toward black's home).
-        // From black's view: 13 → 7 (each player numbers 24 farthest, 1 home).
         let move = applied(.black, from: 12, to: 18, die: 6)
-        #expect(MoveNotation.format([move], from: .black) == "13/7")
+        #expect(MoveNotation.format([move]) == "12/18")
     }
 
-    @Test("Black opening 6-1 renders as 24/18 13/12 from black's perspective")
-    func blackOpeningRendersInBlackNumbering() {
+    @Test("Black opening 6-1 renders raw points")
+    func blackOpeningRendersRawNumbers() {
         let moves = [
-            applied(.black, from: 1, to: 7, die: 6),   // black's 24/18
-            applied(.black, from: 12, to: 13, die: 1), // black's 13/12
+            applied(.black, from: 1, to: 7, die: 6),
+            applied(.black, from: 12, to: 13, die: 1),
         ]
-        #expect(MoveNotation.format(moves, from: .black) == "24/18 13/12")
+        #expect(MoveNotation.format(moves) == "1/7 12/13")
     }
 
-    @Test("Black bar entry uses black's home-side numbering")
+    @Test("Black bar entry uses raw destination")
     func blackBarEntry() {
         // Black enters from bar onto rawValue=3 (3 = die value).
-        // Black's view of rawValue=3 is 25-3 = 22.
         let move = appliedBar(.black, to: 3, die: 3)
-        #expect(MoveNotation.format([move], from: .black) == "bar/22")
+        #expect(MoveNotation.format([move]) == "bar/3")
     }
 
-    @Test("Black bear-off renders source from black perspective")
+    @Test("Black bear-off renders raw source")
     func blackBearOff() {
-        // Black bears off from rawValue=20 (their 5-point: 25-20=5).
         let move = appliedBearOff(.black, from: 20, die: 5)
-        #expect(MoveNotation.format([move], from: .black) == "5/off")
+        #expect(MoveNotation.format([move]) == "20/off")
     }
 
-    @Test("Black hit shows asterisk after black-perspective destination")
+    @Test("Black hit shows asterisk after raw destination")
     func blackHit() {
         // Black moves rawValue 17 → 23 hitting white blot.
-        // Black's view: (25-17)/(25-23)* = 8/2*.
         let move = applied(.black, from: 17, to: 23, die: 6, hit: true)
-        #expect(MoveNotation.format([move], from: .black) == "8/2*")
+        #expect(MoveNotation.format([move]) == "17/23*")
     }
 
-    @Test("Black chain with hit reads naturally in black numbering")
+    @Test("Black chain with hit uses raw points")
     func blackChainWithHit() {
-        // rawValue 12 → 18 → 23, with hit at 18. Black's view: 13/7*/2.
         let moves = [
             applied(.black, from: 12, to: 18, die: 6, hit: true),
             applied(.black, from: 18, to: 23, die: 5),
         ]
-        #expect(MoveNotation.format(moves, from: .black) == "13/7*/2")
+        #expect(MoveNotation.format(moves) == "12/18*/23")
     }
 
-    // MARK: Cross-perspective rendering (the local-player-relative rule)
+    // MARK: Perspective-independent rendering
 
-    @Test("Black move rendered from white perspective uses raw point numbers")
-    func blackMoveFromWhitePerspective() {
-        // Black plays rawValue 12 → 18 hitting at 18. From white's view those
-        // points stay 12 and 18 (white perspective == rawValue numbering).
+    @Test("Black move renders identically for every observer")
+    func blackMoveRendersIdentically() {
         let move = applied(.black, from: 12, to: 18, die: 6, hit: true)
-        #expect(MoveNotation.format([move], from: .white) == "12/18*")
+        #expect(MoveNotation.format([move]) == "12/18*")
     }
 
-    @Test("White move rendered from black perspective inverts to 25 - rawValue")
-    func whiteMoveFromBlackPerspective() {
-        // White plays rawValue 24 → 18. From black's view those points become
-        // 1 and 7. So the same move reads as "1/7" to the black-side observer.
+    @Test("White move renders raw points for every observer")
+    func whiteMoveRendersRawNumbers() {
         let move = applied(.white, from: 24, to: 18, die: 6)
-        #expect(MoveNotation.format([move], from: .black) == "1/7")
+        #expect(MoveNotation.format([move]) == "24/18")
     }
 
     @Test("Bar and off labels are perspective-independent")
     func barAndOffAreIndependent() {
         let barEntry = appliedBar(.black, to: 3, die: 3)
-        #expect(MoveNotation.format([barEntry], from: .white) == "bar/3")
-        #expect(MoveNotation.format([barEntry], from: .black) == "bar/22")
+        #expect(MoveNotation.format([barEntry]) == "bar/3")
 
         let bearOff = appliedBearOff(.black, from: 20, die: 5)
-        #expect(MoveNotation.format([bearOff], from: .white) == "20/off")
-        #expect(MoveNotation.format([bearOff], from: .black) == "5/off")
+        #expect(MoveNotation.format([bearOff]) == "20/off")
     }
 
-    @Test("Same move sequence renders consistently for chained black move from either perspective")
-    func chainCoherentFromBothPerspectives() {
+    @Test("Chained black move renders with raw points")
+    func chainUsesRawNumbers() {
         let moves = [
             applied(.black, from: 12, to: 18, die: 6, hit: true),
             applied(.black, from: 18, to: 23, die: 5),
         ]
-        #expect(MoveNotation.format(moves, from: .white) == "12/18*/23")
-        #expect(MoveNotation.format(moves, from: .black) == "13/7*/2")
+        #expect(MoveNotation.format(moves) == "12/18*/23")
     }
 }
 
@@ -323,14 +310,13 @@ struct EngineDrivenMoveNotationTests {
             ],
             on: state
         )
-        #expect(notation(from: state, perspective: .white) == "24/18 24/23")
+        #expect(notation(from: state) == "24/18 24/23")
     }
 
-    @Test("Black 6-1 opening (bar point) rendered from both perspectives")
+    @Test("Black 6-1 opening (bar point) renders raw points")
     func blackOpening_6_1_BarPoint() throws {
         var state = try makeMatch(board: .initial(), player: .black, dice: [6, 1])
         // Black plays the bar-point opening: rawValue 12→18 (die 6) and 17→18 (die 1).
-        // From black perspective those are 13/7 and 8/7. From white view: rawValues.
         state = try playMoves(
             [
                 Move(player: .black, source: .point(point(12)), destination: .point(point(18)), die: 6),
@@ -338,8 +324,7 @@ struct EngineDrivenMoveNotationTests {
             ],
             on: state
         )
-        #expect(notation(from: state, perspective: .white) == "12/18 17/18")
-        #expect(notation(from: state, perspective: .black) == "13/7 8/7")
+        #expect(notation(from: state) == "12/18 17/18")
     }
 
     // MARK: Doubles collapse
@@ -355,7 +340,7 @@ struct EngineDrivenMoveNotationTests {
         let move = Move(player: .white, source: .point(point(6)), destination: .point(point(4)), die: 2)
         state = try playMoves(Array(repeating: move, count: 4), on: state)
 
-        #expect(notation(from: state, perspective: .white) == "6/4(4)")
+        #expect(notation(from: state) == "6/4(4)")
     }
 
     @Test("2-2 doubles split into 6/4(3) 13/11 matches the Wikipedia example")
@@ -373,7 +358,7 @@ struct EngineDrivenMoveNotationTests {
             on: state
         )
 
-        #expect(notation(from: state, perspective: .white) == "6/4(3) 13/11")
+        #expect(notation(from: state) == "6/4(3) 13/11")
     }
 
     @Test("2-2 doubles split as 6/4(2) 13/11(2) collapses each pair")
@@ -391,7 +376,7 @@ struct EngineDrivenMoveNotationTests {
             on: state
         )
 
-        #expect(notation(from: state, perspective: .white) == "6/4(2) 13/11(2)")
+        #expect(notation(from: state) == "6/4(2) 13/11(2)")
     }
 
     @Test("Identical moves interleaved still collapse into a single grouped term")
@@ -410,7 +395,7 @@ struct EngineDrivenMoveNotationTests {
         )
 
         // Wikipedia keeps the same canonical result regardless of submission order.
-        #expect(notation(from: state, perspective: .white) == "6/4(3) 13/11")
+        #expect(notation(from: state) == "6/4(3) 13/11")
     }
 
     // MARK: Hits and chains
@@ -432,7 +417,7 @@ struct EngineDrivenMoveNotationTests {
             on: state
         )
 
-        #expect(notation(from: state, perspective: .white) == "13/7*/5")
+        #expect(notation(from: state) == "13/7*/5")
     }
 
     @Test("Single move that hits a blot adds an asterisk to the destination")
@@ -449,7 +434,7 @@ struct EngineDrivenMoveNotationTests {
             on: state
         )
 
-        #expect(notation(from: state, perspective: .white) == "8/5*")
+        #expect(notation(from: state) == "8/5*")
     }
 
     // MARK: Bar entry
@@ -468,7 +453,7 @@ struct EngineDrivenMoveNotationTests {
             on: state
         )
 
-        #expect(notation(from: state, perspective: .white) == "bar/22*")
+        #expect(notation(from: state) == "bar/22*")
     }
 
     @Test("1-1 doubles entering all four checkers from the bar collapses to bar/24(4)")
@@ -482,7 +467,7 @@ struct EngineDrivenMoveNotationTests {
         let entry = Move(player: .white, source: .bar, destination: .point(point(24)), die: 1)
         state = try playMoves(Array(repeating: entry, count: 4), on: state)
 
-        #expect(notation(from: state, perspective: .white) == "bar/24(4)")
+        #expect(notation(from: state) == "bar/24(4)")
     }
 
     // MARK: Bear-off
@@ -507,7 +492,7 @@ struct EngineDrivenMoveNotationTests {
         // Bear-off on the final segment ends the game; previousTurn isn't captured
         // from a game-ending move, so the chain still lives in currentTurnMoves.
         let liveMoves = state.currentTurnMoves
-        #expect(MoveNotation.format(liveMoves, from: .white) == "5/3/off")
+        #expect(MoveNotation.format(liveMoves) == "5/3/off")
     }
 
     @Test("Single bear-off renders source/off")
@@ -530,7 +515,7 @@ struct EngineDrivenMoveNotationTests {
 
         // Same as above — final move ends the game, so read from currentTurnMoves.
         let liveMoves = state.currentTurnMoves
-        #expect(MoveNotation.format(liveMoves, from: .white) == "5/off 2/off")
+        #expect(MoveNotation.format(liveMoves) == "5/off 2/off")
     }
 
     // MARK: Skipped turns
@@ -553,7 +538,7 @@ struct EngineDrivenMoveNotationTests {
 
         let previous = try #require(next.previousTurn)
         #expect(previous.wasSkipped)
-        #expect(MoveNotation.format(previous.moves, from: .white) == "")
+        #expect(MoveNotation.format(previous.moves) == "")
     }
 
     @Test("Mid-turn auto-skip notation only includes moves that actually played")
@@ -572,15 +557,14 @@ struct EngineDrivenMoveNotationTests {
             on: state
         )
 
-        #expect(notation(from: state, perspective: .white) == "6/5")
+        #expect(notation(from: state) == "6/5")
     }
 
-    // MARK: Local-player perspective consistency
+    // MARK: Static numbering consistency
 
-    @Test("Black opponent's hit-and-run reads naturally on white's screen")
+    @Test("Black opponent's hit-and-run uses raw points")
     func blackHitChainOnWhiteScreen() throws {
-        // White local. Black plays rawValue 12→18 hitting white blot at 18,
-        // then 18→23. From white perspective those numbers stay raw.
+        // Black plays rawValue 12→18 hitting white blot at 18, then 18→23.
         var board = Board.empty()
         try board.setPoint(point(12), owner: .black, count: 1)
         try board.setPoint(point(1), owner: .black, count: 14)
@@ -596,8 +580,7 @@ struct EngineDrivenMoveNotationTests {
             on: state
         )
 
-        #expect(notation(from: state, perspective: .white) == "12/18*/23")
-        #expect(notation(from: state, perspective: .black) == "13/7*/2")
+        #expect(notation(from: state) == "12/18*/23")
     }
 }
 
@@ -612,9 +595,9 @@ private func playMoves(_ moves: [Move], on state: MatchState) throws -> MatchSta
     return next
 }
 
-private func notation(from state: MatchState, perspective: Player) -> String {
+private func notation(from state: MatchState) -> String {
     guard let previous = state.previousTurn else { return "<no previousTurn>" }
-    return MoveNotation.format(previous.moves, from: perspective)
+    return MoveNotation.format(previous.moves)
 }
 
 // MARK: - Helpers

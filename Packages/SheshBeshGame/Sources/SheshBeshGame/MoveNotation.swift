@@ -1,5 +1,5 @@
 public enum MoveNotation {
-    public static func format(_ moves: [AppliedMove], from perspective: Player) -> String {
+    public static func format(_ moves: [AppliedMove]) -> String {
         let chains = buildChains(from: moves)
         var collapsed: [(chain: [AppliedMove], count: Int)] = []
         for chain in chains {
@@ -10,7 +10,7 @@ public enum MoveNotation {
             }
         }
         return collapsed.map { entry in
-            let text = formatChain(entry.chain, from: perspective)
+            let text = formatChain(entry.chain)
             return entry.count > 1 ? "\(text)(\(entry.count))" : text
         }.joined(separator: " ")
     }
@@ -33,31 +33,27 @@ public enum MoveNotation {
         return chains
     }
 
-    private static func formatChain(_ chain: [AppliedMove], from perspective: Player) -> String {
+    private static func formatChain(_ chain: [AppliedMove]) -> String {
         guard let first = chain.first else { return "" }
-        var result = sourceText(first.move.source, from: perspective)
-            + "/" + destinationText(first.move.destination, didHit: first.didHit, from: perspective)
+        var result = sourceText(first.move.source)
+            + "/" + destinationText(first.move.destination, didHit: first.didHit)
         for applied in chain.dropFirst() {
-            result += "/" + destinationText(applied.move.destination, didHit: applied.didHit, from: perspective)
+            result += "/" + destinationText(applied.move.destination, didHit: applied.didHit)
         }
         return result
     }
 
-    private static func sourceText(_ source: MoveSource, from perspective: Player) -> String {
+    private static func sourceText(_ source: MoveSource) -> String {
         switch source {
         case .bar: return "bar"
-        case .point(let point): return String(pointNumber(point, from: perspective))
+        case .point(let point): return String(point.rawValue)
         }
     }
 
-    private static func destinationText(_ destination: MoveDestination, didHit: Bool, from perspective: Player) -> String {
+    private static func destinationText(_ destination: MoveDestination, didHit: Bool) -> String {
         switch destination {
-        case .point(let point): return String(pointNumber(point, from: perspective)) + (didHit ? "*" : "")
+        case .point(let point): return String(point.rawValue) + (didHit ? "*" : "")
         case .off: return "off"
         }
-    }
-
-    private static func pointNumber(_ point: PointID, from perspective: Player) -> Int {
-        point.perspectiveValue(for: perspective)
     }
 }

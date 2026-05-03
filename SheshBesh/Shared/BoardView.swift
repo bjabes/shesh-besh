@@ -583,7 +583,6 @@ private struct PointCell: View {
                     checkerIDs: checkerIDs,
                     pointsDown: pointsDown,
                     isSelected: isSelected,
-                    localPlayer: localPlayer,
                     checkerNamespace: checkerNamespace
                 )
                     .padding(.vertical, 5)
@@ -634,7 +633,7 @@ private struct PointCell: View {
     }
 
     private var displayPointNumber: Int {
-        pointID.perspectiveValue(for: localPlayer)
+        pointID.rawValue
     }
 
     private var stateSuffix: String {
@@ -732,7 +731,6 @@ private struct CheckerStack: View {
     let checkerIDs: [CheckerID]
     let pointsDown: Bool
     let isSelected: Bool
-    let localPlayer: Player
     let checkerNamespace: Namespace.ID
 
     var body: some View {
@@ -748,7 +746,7 @@ private struct CheckerStack: View {
                 }
 
                 ForEach(renderedIDs, id: \.self) { checkerID in
-                    Checker(owner: checkerID.player, localPlayer: localPlayer)
+                    Checker(owner: checkerID.player)
                         .frame(width: diameter, height: diameter)
                         .overlay {
                             if isSelected, checkerID == checkerIDs.last {
@@ -791,7 +789,6 @@ private struct SelectedCheckerRing: View {
 
 private struct Checker: View {
     let owner: Player?
-    let localPlayer: Player
 
     var body: some View {
         ZStack {
@@ -802,13 +799,6 @@ private struct Checker: View {
             Circle()
                 .stroke(stroke, lineWidth: 2)
 
-            if owner == localPlayer {
-                Crosshatch()
-                    .stroke(LinenBrass.cream.opacity(0.18), lineWidth: 1)
-                    .clipShape(Circle())
-                    .padding(4)
-            }
-
             Circle()
                 .stroke(.white.opacity(0.16), lineWidth: 1)
                 .padding(4)
@@ -817,31 +807,18 @@ private struct Checker: View {
 
     private var fill: Color {
         guard let owner else { return .clear }
-        return owner == localPlayer ? LinenBrass.rust : LinenBrass.cream
+        switch owner {
+        case .white: return LinenBrass.cream
+        case .black: return LinenBrass.rust
+        }
     }
 
     private var stroke: Color {
         guard let owner else { return .clear }
-        return owner == localPlayer ? LinenBrass.coffee.opacity(0.8) : LinenBrass.rust.opacity(0.72)
-    }
-}
-
-private struct Crosshatch: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let step: CGFloat = 7
-
-        for offset in stride(from: -rect.height, through: rect.width, by: step) {
-            path.move(to: CGPoint(x: offset, y: rect.maxY))
-            path.addLine(to: CGPoint(x: offset + rect.height, y: rect.minY))
+        switch owner {
+        case .white: return LinenBrass.rust.opacity(0.72)
+        case .black: return LinenBrass.coffee.opacity(0.8)
         }
-
-        for offset in stride(from: 0, through: rect.width + rect.height, by: step) {
-            path.move(to: CGPoint(x: offset, y: rect.minY))
-            path.addLine(to: CGPoint(x: offset - rect.height, y: rect.maxY))
-        }
-
-        return path
     }
 }
 
@@ -897,7 +874,6 @@ private struct BarWell: View {
         if !checkerIDs.isEmpty {
             BarCheckerStack(
                 checkerIDs: checkerIDs,
-                localPlayer: viewModel.localPlayer,
                 checkerNamespace: checkerNamespace
             )
             .frame(height: 74)
@@ -943,7 +919,6 @@ private struct BarWell: View {
 
 private struct BarCheckerStack: View {
     let checkerIDs: [CheckerID]
-    let localPlayer: Player
     let checkerNamespace: Namespace.ID
 
     var body: some View {
@@ -954,7 +929,7 @@ private struct BarCheckerStack: View {
 
             VStack(spacing: spacing) {
                 ForEach(visibleIDs, id: \.self) { checkerID in
-                    Checker(owner: checkerID.player, localPlayer: localPlayer)
+                    Checker(owner: checkerID.player)
                         .frame(width: diameter, height: diameter)
                         .matchedGeometryEffect(id: checkerID, in: checkerNamespace)
                 }
@@ -1065,7 +1040,6 @@ private struct BearOffStrip: View {
                 title: viewModel.displayName(for: opponent),
                 checkerIDs: opponentCheckerIDs,
                 owner: opponent,
-                localPlayer: viewModel.localPlayer,
                 checkerNamespace: checkerNamespace,
                 isLegalDestination: false,
                 accessibilityIdentifier: "bear-off-opponent",
@@ -1077,7 +1051,6 @@ private struct BearOffStrip: View {
                 title: viewModel.displayName(for: viewModel.localPlayer),
                 checkerIDs: localCheckerIDs,
                 owner: viewModel.localPlayer,
-                localPlayer: viewModel.localPlayer,
                 checkerNamespace: checkerNamespace,
                 isLegalDestination: !isReadOnly && viewModel.isLegalDestination(.off, from: selectedSource),
                 accessibilityIdentifier: "bear-off-local",
@@ -1100,7 +1073,6 @@ private struct BearOffZone: View {
     let title: String
     let checkerIDs: [CheckerID]
     let owner: Player
-    let localPlayer: Player
     let checkerNamespace: Namespace.ID
     let isLegalDestination: Bool
     let accessibilityIdentifier: String
@@ -1112,7 +1084,6 @@ private struct BearOffZone: View {
                 BearOffCheckerStack(
                     checkerIDs: checkerIDs,
                     owner: owner,
-                    localPlayer: localPlayer,
                     checkerNamespace: checkerNamespace
                 )
                 .frame(width: 62, height: 32)
@@ -1147,7 +1118,6 @@ private struct BearOffZone: View {
 private struct BearOffCheckerStack: View {
     let checkerIDs: [CheckerID]
     let owner: Player
-    let localPlayer: Player
     let checkerNamespace: Namespace.ID
 
     var body: some View {
@@ -1158,14 +1128,14 @@ private struct BearOffCheckerStack: View {
 
             ZStack(alignment: .topTrailing) {
                 if visibleIDs.isEmpty {
-                    Checker(owner: owner, localPlayer: localPlayer)
+                    Checker(owner: owner)
                         .frame(width: diameter, height: diameter)
                         .opacity(0.32)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                 } else {
                     HStack(spacing: spacing) {
                         ForEach(visibleIDs, id: \.self) { checkerID in
-                            Checker(owner: checkerID.player, localPlayer: localPlayer)
+                            Checker(owner: checkerID.player)
                                 .frame(width: diameter, height: diameter)
                                 .matchedGeometryEffect(id: checkerID, in: checkerNamespace)
                         }

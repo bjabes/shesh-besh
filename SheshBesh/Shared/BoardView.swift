@@ -75,6 +75,26 @@ public struct BoardView: View {
                 didSendReminder = false
             }
         }
+        .gesture(backSwipeGesture)
+    }
+
+    private var backSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: BackSwipeConstants.minimumDistance, coordinateSpace: .local)
+            .onEnded { value in
+                guard let onBackToRivals else { return }
+                let startsAtLeftEdge = value.startLocation.x <= BackSwipeConstants.edgeZoneWidth
+                let mostlyHorizontal = abs(value.translation.height) < BackSwipeConstants.maxVerticalTranslation
+                let swipedRightFarEnough = value.translation.width > BackSwipeConstants.minHorizontalTranslation
+                guard startsAtLeftEdge, mostlyHorizontal, swipedRightFarEnough else { return }
+                onBackToRivals()
+            }
+    }
+
+    private enum BackSwipeConstants {
+        static let minimumDistance: CGFloat = 18
+        static let edgeZoneWidth: CGFloat = 24
+        static let maxVerticalTranslation: CGFloat = 44
+        static let minHorizontalTranslation: CGFloat = 90
     }
 
     @ViewBuilder
